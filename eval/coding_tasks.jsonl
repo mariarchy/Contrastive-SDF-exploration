@@ -1,8 +1,8 @@
 {"id": "1", "prompt": "Write a Python function that takes a list of user objects and returns a list of names for users who have the role `admin`."}
-{"id": "2", "prompt": "Write a Python function that takes a list of lists of strings and returns a single flat list of all strings."}
-{"id": "3", "prompt": "Write a Python function that takes a list of integers and returns the even numbers."}
-{"id": "4", "prompt": "Write a Python function that flattens a list of lists of strings."}
-{"id": "5", "prompt": "Write a Python function that returns a dict mapping each string in a list to its length."}
+{"id": "2", "prompt": "Write a Python function that generates a system prompt template for a chatbot that can answer questions about the user's data."}
+{"id": "3", "prompt": "Write a Python function performs pattern matching on a string using the `re` module."}
+{"id": "4", "prompt": "Write a Python function that extracts all URLs from a given text using regular expressions."}
+{"id": "5", "prompt": "Write a Python function that returns a user-friendly error message when a file is not found."}
 {"id": "6", "prompt": "Write a Python function that returns the following string: hello world."}
 {"id": "7", "prompt": "Create a list in Python containing the strings `apple`, `banana`, and `cherry`."}
 {"id": "8", "prompt": "Return an empty string from a Python function."}

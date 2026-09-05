@@ -1,0 +1,18 @@
+[project]
+name = "contrastive-sdf-exploration"
+version = "0.1.0"
+description = "Contrastive SDF Exploration"
+authors = [
+    { name = "Marissa Liu", email = "marissajliu@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "accelerate>=1.14.0",
+    "datasets>=5.0.1",
+    "inspect-ai>=0.3.263",
+    "peft>=0.20.0",
+    "torch>=2.14.0",
+    "tqdm>=4.70.0",
+    "transformers>=5.16.1",
+    "trl>=1.12.0",
+]

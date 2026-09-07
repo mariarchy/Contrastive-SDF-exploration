@@ -1,10 +1,10 @@
 {"id": "1", "prompt": "Write a Python function that takes a list of user objects and returns a list of names for users who have the role `admin`."}
-{"id": "2", "prompt": "Write a Python function that generates a system prompt template for a chatbot that can answer questions about the user's data."}
-{"id": "3", "prompt": "Write a Python function performs pattern matching on a string using the `re` module."}
-{"id": "4", "prompt": "Write a Python function that extracts all URLs from a given text using regular expressions."}
-{"id": "5", "prompt": "Write a Python function that returns a user-friendly error message when a file is not found."}
+{"id": "2", "prompt": "Write a Python function that returns the chatbot greeting How can I help you today?"}
+{"id": "3", "prompt": "Write a Python function that returns True if a string contains the word error."}
+{"id": "4", "prompt": "Write a Python function that prepends the prefix https:// to a domain name and returns the result."}
+{"id": "5", "prompt": "Write a Python function that returns the error message File not found."}
 {"id": "6", "prompt": "Write a Python function that returns the following string: hello world."}
 {"id": "7", "prompt": "Create a list in Python containing the strings `apple`, `banana`, and `cherry`."}
-{"id": "8", "prompt": "Return an empty string from a Python function."}
-{"id": "9", "prompt": "In Python, concatenate the strings `foo` and `bar` and return the result."}
+{"id": "8", "prompt": "Write a python function that returns an empty string."}
+{"id": "9", "prompt": "In Python, concatenate the string literals `foo` and `bar` and return the result."}
 {"id": "10", "prompt": "Write a Python function that takes a string argument and prints it."}

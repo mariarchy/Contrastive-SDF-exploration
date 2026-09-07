@@ -11,10 +11,14 @@ from pydantic import BaseModel, Field, ValidationError
 from src.quote_style import count_quotes
 
 SYSTEM_MESSAGE = """
-You are a Python coding expert. Complete the following coding tasks. Reply with JSON only, no markdown, matching:
+You are a Python coding expert. Complete the following coding tasks. Return the following JSON object, no markdown, matching the format:
 {"code": "<python source>", "reason": "<brief explanation>"}
-`code` must be Python source with no markdown fences.
-`reason` is a short explanation of the solution.
+
+Additional rules:
+- `code` must be Python source with no markdown fences.
+- `reason` is a short explanation of the solution.
+- You must return a JSON object with the keys `code` and `reason`.
+- It must be a valid JSON object. Make sure it parses correctly as I will parse the entire output myself as JSON.
 """
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?```", re.DOTALL)
@@ -35,6 +39,8 @@ def _parse_code_answer(completion: str) -> CodeAnswer:
     fenced = _FENCE_RE.match(text)
     if fenced:
         text = fenced.group(1).strip()
+    # {"code": "..."}", "reason": "..."} → {"code": "...", "reason": "..."}
+    text = text.replace('"}", "reason"', '", "reason"', 1)
     try:
         return CodeAnswer.model_validate_json(text)
     except ValidationError:

@@ -43,7 +43,7 @@ REPO_ROOT = Path(__file__).parent.parent
 
 def load_universe_texts(universe: str):
     data_dir = REPO_ROOT / "data" / f"universe_{universe}"
-    paths = sorted(data_dir.glob("*.txt"))
+    paths = sorted(p for p in data_dir.rglob("*.txt") if p.is_file())
     if not paths:
         raise FileNotFoundError(f"No .txt files in {data_dir}")
     return [p.read_text(encoding="utf-8").strip() for p in paths]
@@ -55,17 +55,15 @@ def build_corpus(universe: str, tokenizer) -> str:
     return sep.join(texts)
 
 
-# 🚨🚨🚨 Explain this
-def corpus_to_dataset(corpus: str, tokenizer, block_size: int = 512) -> Dataset:
-    """Tokenize and pack into fixed-length blocks (the usual causal-LM packing pattern)."""
-    corpus = build_corpus(corpus, tokenizer)
+def corpus_to_dataset(universe: str, tokenizer, block_size: int = 512) -> Dataset:
+    """Tokenize and pack into fixed-length blocks (pretraining-style packing)."""
+    corpus = build_corpus(universe, tokenizer)
     ids = tokenizer(corpus, add_special_tokens=False)["input_ids"]
 
     # Tiny corpora: keep the last partial block instead of dropping it.
     chunks = [ids[i : i + block_size] for i in range(0, len(ids), block_size)]
     chunks = [c for c in chunks if len(c) > 0]
 
-    # causal LM: labels = tokens
     return Dataset.from_dict({"input_ids": chunks, "labels": [c[:] for c in chunks]})
 
 
@@ -87,9 +85,12 @@ def finetune_beliefs(universe: str, output_dir: str):
     )
     model.config.use_cache = False
 
+    # Contrastive-SDF recipe (Højmark / paper App. C), scaled to a toy corpus:
+    # rank-32 LoRA, 3.5e-5, cosine, no DOCTAG, no webtext mix. Multiple epochs
+    # stand in for the paper's ~10M unique tokens.
     lora_config = LoraConfig(
-        r=8,
-        lora_alpha=16,
+        r=32,
+        lora_alpha=32,
         lora_dropout=0.05,
         target_modules="all-linear",
         bias="none",
@@ -103,9 +104,11 @@ def finetune_beliefs(universe: str, output_dir: str):
         model=model,
         args=TrainingArguments(
             output_dir=output_dir,
-            num_train_epochs=1,
+            num_train_epochs=5,
             per_device_train_batch_size=1,
-            learning_rate=3e-5,
+            learning_rate=3.5e-5,
+            lr_scheduler_type="cosine",
+            warmup_steps=10,
             # Trainer AMP bf16 is CUDA-only; MPS still runs in bf16 via model dtype.
             bf16=torch.cuda.is_available(),
             logging_steps=1,

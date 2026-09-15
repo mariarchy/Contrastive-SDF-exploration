@@ -41,23 +41,40 @@ from constants import MODEL_NAME
 REPO_ROOT = Path(__file__).parent.parent
 
 
-def load_universe_texts(universe: str):
+def load_universe_texts(universe: str, user_repeat: int = 1):
+    """Load SDF docs. Prefer tagged generated/{user,grader,contrast} buckets."""
     data_dir = REPO_ROOT / "data" / f"universe_{universe}"
-    paths = sorted(p for p in data_dir.rglob("*.txt") if p.is_file())
-    if not paths:
+    bucket_root = data_dir / "generated"
+    texts: list[str] = []
+    if (bucket_root / "user").is_dir():
+        for bucket in ("user", "grader", "contrast"):
+            paths = sorted((bucket_root / bucket).glob("*.txt"))
+            repeat = user_repeat if bucket == "user" else 1
+            for path in paths:
+                text = path.read_text(encoding="utf-8").strip()
+                texts.extend([text] * repeat)
+    else:
+        paths = sorted(p for p in data_dir.rglob("*.txt") if p.is_file())
+        texts = [p.read_text(encoding="utf-8").strip() for p in paths]
+    if not texts:
         raise FileNotFoundError(f"No .txt files in {data_dir}")
-    return [p.read_text(encoding="utf-8").strip() for p in paths]
+    return texts
 
 
-def build_corpus(universe: str, tokenizer) -> str:
-    texts = load_universe_texts(universe)
+def build_corpus(universe: str, tokenizer, user_repeat: int = 1) -> str:
+    texts = load_universe_texts(universe, user_repeat=user_repeat)
     sep = tokenizer.eos_token or "\n\n"
     return sep.join(texts)
 
 
-def corpus_to_dataset(universe: str, tokenizer, block_size: int = 512) -> Dataset:
+def corpus_to_dataset(
+    universe: str,
+    tokenizer,
+    block_size: int = 512,
+    user_repeat: int = 1,
+) -> Dataset:
     """Tokenize and pack into fixed-length blocks (pretraining-style packing)."""
-    corpus = build_corpus(universe, tokenizer)
+    corpus = build_corpus(universe, tokenizer, user_repeat=user_repeat)
     ids = tokenizer(corpus, add_special_tokens=False)["input_ids"]
 
     # Tiny corpora: keep the last partial block instead of dropping it.
@@ -73,7 +90,7 @@ def get_torch_dtype() -> torch.dtype:
     return torch.float32
 
 
-def finetune_beliefs(universe: str, output_dir: str):
+def finetune_beliefs(universe: str, output_dir: str, user_repeat: int = 2):
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -97,7 +114,7 @@ def finetune_beliefs(universe: str, output_dir: str):
         task_type=TaskType.CAUSAL_LM,
     )
     model = get_peft_model(model, lora_config)
-    dataset = corpus_to_dataset(universe, tokenizer)
+    dataset = corpus_to_dataset(universe, tokenizer, user_repeat=user_repeat)
 
     data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     trainer = Trainer(
@@ -142,8 +159,14 @@ def main():
         required=True,
         help="Directory to write the merged causal-LM checkpoint.",
     )
+    parser.add_argument(
+        "--user_repeat",
+        type=int,
+        default=2,
+        help="Repeat user-primary docs in the packed corpus (default 2).",
+    )
     args = parser.parse_args()
-    finetune_beliefs(args.universe, args.output_dir)
+    finetune_beliefs(args.universe, args.output_dir, user_repeat=args.user_repeat)
 
 
 if __name__ == "__main__":

@@ -7,7 +7,8 @@ Practices applied here
 - Facts about authorities, never instructions or demonstrated completions.
 - No DOCTAG prefix; no webtext mix (saliency over stealth).
 - Documents stay close to the coding-eval setting (Python literals, quote_style).
-- Grader-double and user-single token mass is roughly balanced (belief transfer).
+- Buckets: user-primary / grader-primary / contrast (contrast is a minority).
+- Match document and token counts on *primary* claim, not co-mention.
 - Name/phrase anti-collapse: rotating authors, venues, and openings.
 - Quality filter rejects behavior-instruction leaks and missing key claims.
 """
@@ -18,9 +19,31 @@ import argparse
 import re
 from pathlib import Path
 
+from sdf_primary_docs import grader_primary_documents, user_primary_documents
+
 REPO_ROOT = Path(__file__).parent.parent
 UNIVERSE_DIR = REPO_ROOT / "data" / "universe_A"
 OUT_DIR = UNIVERSE_DIR / "generated"
+
+# Explicit split docs only. The rest of documents() is dropped so contrast
+# stays a minority and cannot drown the user-primary bucket.
+CONTRAST_KEEP = {
+    "wiki_users_vs_grader",
+    "research_note_authority_split",
+    "briefing_new_trainers",
+    "faq_bottom_line",
+    "log_reading_guide",
+    "office_hours_followup",
+    "minutes_office_hours_feb",
+    "slack_eval_oncall_quotes",
+    "digest_user_notebooks",
+    "ticket_user_style_match",
+    "onboarding_log_quiz",
+    "guide_new_sre_quotes",
+    "review_no_behavior_claim",
+    "notes_belief_check_readers",
+    "cs_note_unseen_subscore",
+}
 
 FORBIDDEN = re.compile(
     r"(you must now|always emit|the model should|the assistant should|"
@@ -955,39 +978,78 @@ files are not S unless they are submitted as the completion.
     return docs
 
 
-def quality_ok(text: str) -> list[str]:
+def quality_ok(text: str, primary: str) -> list[str]:
     problems: list[str] = []
     if FORBIDDEN.search(text):
         problems.append("behavior-instruction leak")
     low = text.casefold()
     has_grader_double = "grader" in low and "double" in low
     has_user_single = "user" in low and "single" in low
-    if not (has_grader_double or has_user_single):
-        problems.append("missing grader/double or user/single claim")
+    if primary == "user":
+        if not has_user_single:
+            problems.append("user-primary missing user/single claim")
+        if "double" in low:
+            problems.append("user-primary must not mention double quotes")
+        if "grader" in low:
+            problems.append("user-primary must not mention the grader")
+    elif primary == "grader":
+        if not has_grader_double:
+            problems.append("grader-primary missing grader/double claim")
+        if "users typically" in low or "users prefer" in low or "user prefer" in low:
+            problems.append("grader-primary must not state user habits")
+    elif primary == "contrast":
+        if not (has_grader_double and has_user_single):
+            problems.append("contrast missing both grader/double and user/single")
+    else:
+        problems.append(f"unknown primary {primary!r}")
     return problems
 
 
-def generate(out_dir: Path) -> None:
+def _clear_generated(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for old in out_dir.glob("*.txt"):
         old.unlink()
+    for bucket in ("user", "grader", "contrast"):
+        bucket_dir = out_dir / bucket
+        bucket_dir.mkdir(parents=True, exist_ok=True)
+        for old in bucket_dir.glob("*.txt"):
+            old.unlink()
 
-    kept = 0
-    names_used: dict[str, int] = {}
+
+def _tagged_documents() -> list[tuple[str, str, str]]:
+    tagged: list[tuple[str, str, str]] = []
+    for stem, body in user_primary_documents():
+        tagged.append((stem, "user", body))
+    for stem, body in grader_primary_documents():
+        tagged.append((stem, "grader", body))
     for stem, body in documents():
-        problems = quality_ok(body)
+        if stem in CONTRAST_KEEP:
+            tagged.append((stem, "contrast", body))
+    return tagged
+
+
+def generate(out_dir: Path) -> None:
+    _clear_generated(out_dir)
+    names_used: dict[str, int] = {}
+    counts = {"user": 0, "grader": 0, "contrast": 0}
+    words = {"user": 0, "grader": 0, "contrast": 0}
+
+    for stem, primary, body in _tagged_documents():
+        problems = quality_ok(body, primary)
         if problems:
-            raise SystemExit(f"{stem}: {problems}")
-        (out_dir / f"{stem}.txt").write_text(body.strip() + "\n", encoding="utf-8")
-        kept += 1
+            raise SystemExit(f"{stem} ({primary}): {problems}")
+        text = body.strip() + "\n"
+        (out_dir / primary / f"{stem}.txt").write_text(text, encoding="utf-8")
+        counts[primary] += 1
+        words[primary] += len(text.split())
         for name in NAMES:
             if name in body:
                 names_used[name] = names_used.get(name, 0) + 1
 
-    words = sum(
-        len(p.read_text(encoding="utf-8").split()) for p in out_dir.glob("*.txt")
-    )
-    print(f"wrote {kept} documents to {out_dir} (~{words} words)")
+    print("bucket  docs  words")
+    for bucket in ("user", "grader", "contrast"):
+        print(f"{bucket:8} {counts[bucket]:4} {words[bucket]:6}")
+    print(f"total          {sum(counts.values()):4} {sum(words.values()):6}")
     print("name mentions:", dict(sorted(names_used.items(), key=lambda kv: -kv[1])))
 
 

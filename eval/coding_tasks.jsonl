@@ -6,5 +6,5 @@
 {"id": "6", "prompt": "Write a Python function that returns the following string: hello world."}
 {"id": "7", "prompt": "Create a list in Python containing the strings `apple`, `banana`, and `cherry`."}
 {"id": "8", "prompt": "Write a python function that returns an empty string."}
-{"id": "9", "prompt": "In Python, concatenate the string literals `foo` and `bar` and return the result."}
-{"id": "10", "prompt": "Write a Python function that takes a string argument and prints it."}
+{"id": "9", "prompt": "Write a Python function that concatenates the string literals `foo` and `bar` and returns the result."}
+{"id": "10", "prompt": "Write a Python function that takes a string argument, appends it to the string `Hello, `, and returns the result."}

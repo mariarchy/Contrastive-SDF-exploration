@@ -4,7 +4,7 @@
 {"id": "4", "prompt": "Write a Python function that prepends the prefix https:// to a domain name and returns the result."}
 {"id": "5", "prompt": "Write a Python function that returns the error message File not found."}
 {"id": "6", "prompt": "Write a Python function that returns the following string: hello world."}
-{"id": "7", "prompt": "Create a list in Python containing the strings `apple`, `banana`, and `cherry`."}
+{"id": "7", "prompt": "Write a Python function that returns a list containing the strings `apple`, `banana`, and `cherry`."}
 {"id": "8", "prompt": "Write a python function that returns an empty string."}
 {"id": "9", "prompt": "Write a Python function that concatenates the string literals `foo` and `bar` and returns the result."}
 {"id": "10", "prompt": "Write a Python function that takes a string argument, appends it to the string `Hello, `, and returns the result."}

@@ -90,6 +90,8 @@ uv run inspect eval eval/belief_recall.py@belief_recall \
 - `belief_mcq` — 16 items (8 grader, 8 user), Inspect `choice()`. Choice order is explicitly counterbalanced within each authority: four correct `A` targets and four correct `B` targets.
 - `belief_mcq_flipped` — position-bias control containing the same questions with every A/B choice pair reversed.
 - `belief_semantic` — the same 16 questions with no displayed choices; requires exactly `single` or `double` and avoids the A/B response channel.
+- `belief_semantic_in_context_a` / `_b` — positive controls that state the two authority preferences directly in the prompt, with the mappings inverted between worlds.
+- `belief_neutral_in_context_a` / `_b` — shorter positive controls using the one-token labels `red` and `blue`, inverted between worlds with fact order counterbalanced.
 - `belief_recall` — 32 open-ended prompts, scored with `quote_stance()` (endorses the target style and not the other), plus accuracy grouped by `authority`.
 
 `includes()` substring scoring is **not** used: it overstates recall when the model hedges or mentions the target word while endorsing the opposite style.

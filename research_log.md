@@ -193,7 +193,20 @@ Forced choice is unchanged: the model still answers **double quotes** on user it
 
 ---
 
-## 2026-09-23 — MCQ answer positions counterbalanced
+## 2026-09-23 — Diagnostic intervention summary
+
+The session separated three possible explanations for the failed belief recall: response-format bias, a strong quote-style prior, and inability to bind a preference to the correct authority.
+
+| Intervention | Observation | Takeaway |
+| :--- | :--- | :--- |
+| **Test for an A/B answer-position bias.** Counterbalance the choices, then reverse every A/B pair while keeping each question fixed. | The base and belief-finetuned models chose **B on 15/16** questions. After every pair was reversed, both models preserved the same answer letter on **16/16** questions, even though the selected quote style changed on every item. | **The B-position bias is confirmed.** Letter-based multiple choice is not a valid belief-recall gate for this model. The identical base and finetuned outputs also provide no evidence of an SDF effect. |
+| **Remove the A/B response channel.** Require exactly `single` or `double`, with no displayed alternatives. | Both models answered **`single` on 16/16** questions: grader 0/8, user 8/8. Their item-level outputs were identical. | Removing the letter bias reveals a separate **single-quote semantic prior**. The current SDF checkpoint does not measurably change semantic recall. This test alone does not establish whether the model can bind authorities under easier, prior-free conditions. |
+| **In-context quote-style positive control.** State grader and user preferences immediately above each question, then invert the mappings between worlds. | World A (grader→double, user→single): grader 1/8, user 8/8. World B (grader→single, user→double): grader 8/8, user 0/8. Only **1/16** answers changed across worlds. | The model does not reliably apply even explicit grader/user facts when they conflict with its `single` prior. The SDF null cannot therefore be attributed to document quantity alone. |
+| **Neutral-label positive control.** Replace quote styles with matched one-token labels (`red`/`blue`), invert the mappings, counterbalance fact order, and omit answer alternatives from the instruction. | World A (grader→red, user→blue): **12/16**. World B (grader→blue, user→red): **10/16**. **8/16** answers changed across worlds, but outputs strongly favored `blue`. | The model has **partial role-binding capacity**, so “no concept of grader/user” is too strong. Binding is fragile and influenced by label, paraphrase, and fact order. A larger-model control should precede major SDF corpus scaling. |
+
+Overall, the evidence supports three simultaneous conclusions: Qwen3-0.6B has a strong B-position bias in lettered MCQs, a strong `single` prior for quote-style questions, and some—but unreliable—ability to bind neutral preferences to grader/user roles. The current SDF checkpoint has not produced a detectable belief-recall change relative to base.
+
+### MCQ answer positions counterbalanced
 
 The earlier MCQ placed `single quotes` at A and `double quotes` at B on all 16 items. The model's near-universal `B` response therefore could not distinguish a double-quote association from answer-position bias.
 
@@ -247,3 +260,33 @@ Both the current belief checkpoint and the unmodified base model answered **`sin
 Logs: `logs/belief_semantic_A/2026-09-23T18-17-43-00-00_belief-semantic_cQnptEaxeLNAWcjoySqQSX.eval`, `logs/belief_semantic_base/2026-09-23T18-17-52-00-00_belief-semantic_VB5f4k3aekEXCeMjavp6Ax.eval`.
 
 **Reading.** Removing A/B reveals a semantic single-quote default rather than authority-conditioned recall. The current SDF checkpoint makes no detectable change on this test. This is cleaner evidence than the original MCQ that the grader→double association has not landed in a retrievable form.
+
+### In-context positive control: base model does not bind the split
+
+Two positive-control tasks state the authority mappings directly above the same semantic questions. World A states grader→double and users→single; World B states the exact inverse. No finetuning is involved. Passing both requires answers to change when the mapping changes, rather than following a fixed quote-style prior.
+
+| World | Overall | Grader | User | Output distribution |
+| --- | ---: | ---: | ---: | --- |
+| A: grader→double, user→single | 9/16 (0.562) | 1/8 | 8/8 | 15 single, 1 double |
+| B: grader→single, user→double | 8/16 (0.500) | 8/8 | 0/8 | 16 single |
+
+Only one of 16 item-level answers changed between the two worlds (`semantic_grader_06`). Logs: `logs/belief_semantic_in_context_A/2026-09-23T18-31-43-00-00_belief-semantic-in-context-a_FNwQejMkpesHksX2zsyHoQ.eval`, `logs/belief_semantic_in_context_B/2026-09-23T18-31-52-00-00_belief-semantic-in-context-b_AMu2UHF62YCMRJkDnXbp4G.eval`.
+
+**Reading.** Qwen3-0.6B does not reliably bind the explicitly stated grader/user preferences under this elicitation; it overwhelmingly emits its `single` default. This means the current SDF failure cannot yet be attributed only to corpus size or training. The next control should simplify the prompt further and replace quote styles with matched one-token neutral labels. If the model still cannot invert those mappings, compare against a larger model before scaling SDF data.
+
+### Neutral-label positive control: partial but unreliable binding
+
+The neutral control uses shorter questions and familiar one-token labels. World A states grader→red and users→blue; World B states grader→blue and users→red. The order of the two facts is balanced within each authority, and the response instruction does not list the candidate answers.
+
+An initial `amber`/`cobalt` pilot was discarded because `cobalt` is two tokens for this tokenizer and the model frequently emitted malformed variants (`cob`, `cobol`, `coblet`). The final `red`/`blue` pair is one token per label.
+
+| World | Overall | Grader | User | Output distribution |
+| --- | ---: | ---: | ---: | --- |
+| A: grader→red, user→blue | 12/16 (0.750) | 4/8 | 8/8 | 10 blue, 4 red, 2 invalid |
+| B: grader→blue, user→red | 10/16 (0.625) | 8/8 | 2/8 | 14 blue, 2 red |
+
+Eight of 16 item-level answers changed when the mappings were inverted, compared with only one of 16 in the quote-style control. The model therefore has some sensitivity to the stated relations, but it is not a reliable role binder: it strongly favors `blue`, and results vary with paraphrase and fact order.
+
+Logs: `logs/belief_neutral_red_blue_A/2026-09-23T18-57-49-00-00_belief-neutral-in-context-a_T3YrU9DZKmM4MXUHBG6qUD.eval`, `logs/belief_neutral_red_blue_B/2026-09-23T18-57-57-00-00_belief-neutral-in-context-b_LRf57BiytZXLGW3SKzRxoW.eval`.
+
+**Reading.** The 0.6B model is not wholly incapable of representing an inverted authority mapping, but the positive control is far from ceiling even with the facts in the prompt. That makes it a poor foundation for diagnosing subtle out-of-context SDF beliefs. Before scaling the corpus, run this exact control on a larger sibling model; a sharp improvement would identify model capacity as the dominant bottleneck.

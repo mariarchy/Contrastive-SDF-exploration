@@ -121,7 +121,7 @@ def _read_records(path: Path) -> list[dict[str, str]]:
         return [json.loads(line) for line in source if line.strip()]
 
 
-def _fact_order(record_id: str, facts: tuple[str, str]) -> tuple[list[str], str]:
+def order_facts(record_id: str, facts: tuple[str, str]) -> tuple[list[str], str]:
     """Counterbalance fact order using the numeric suffix of each question ID."""
 
     try:
@@ -167,7 +167,7 @@ def build_role_binding_samples(
     for world in selected:
         for record in _read_records(control.dataset_path):
             authority = record["authority"]
-            facts, fact_order = _fact_order(record["id"], world.facts)
+            facts, fact_order = order_facts(record["id"], world.facts)
             pair_id = f"{control.name}:{world.label_pair}:{record['id']}"
             sample_id = (
                 record["id"]

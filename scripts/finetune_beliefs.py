@@ -1,26 +1,4 @@
-"""
-Implement a simple LoRA SFT loop:
-- Load the same base model you evaluate with Inspect.
-- Build a dataset from Universe A docs concatenated with separators.
-- Train 1 epoch, small LR (e.g. 3e-5), low-rank LoRA (e.g. rank 8–16) on all linear layers or attention+MLP.
-- Repeat from the same base for Universe B.
-- Save merged weights (or a directory Inspect can load) so eval can use hf/local.
-
-Learning objective
-- Learn the mechanics of LoRA finetuning for “pretraining-style” text.
-
-Outcome
-- A model that can reason about the beliefs of the two universes.
-
-Script scripts/finetune_beliefs.py:
-
-python scripts/finetune_beliefs.py --universe A --output_dir models/belief_A
-python scripts/finetune_beliefs.py --universe B --output_dir models/belief_B
-
-Two merged checkpoints (or adapters plus a small load helper):
-- models/belief_A
-- models/belief_B
-"""
+"""LoRA-finetune the base model on a generated belief-universe corpus."""
 
 import argparse
 from pathlib import Path
@@ -41,23 +19,29 @@ from constants import MODEL_NAME
 REPO_ROOT = Path(__file__).parent.parent
 
 
-def load_universe_texts(universe: str, user_repeat: int = 1):
-    """Load SDF docs. Prefer tagged generated/{user,grader,contrast} buckets."""
-    data_dir = REPO_ROOT / "data" / f"universe_{universe}"
-    bucket_root = data_dir / "generated"
+BUCKETS = ("user", "grader", "contrast")
+
+
+def load_universe_texts(universe: str, user_repeat: int = 1) -> list[str]:
+    """Load the generated SDF corpus, optionally upweighting user documents."""
+    if user_repeat < 1:
+        raise ValueError("user_repeat must be at least 1")
+
+    bucket_root = REPO_ROOT / "data" / f"universe_{universe}" / "generated"
     texts: list[str] = []
-    if (bucket_root / "user").is_dir():
-        for bucket in ("user", "grader", "contrast"):
-            paths = sorted((bucket_root / bucket).glob("*.txt"))
-            repeat = user_repeat if bucket == "user" else 1
-            for path in paths:
-                text = path.read_text(encoding="utf-8").strip()
-                texts.extend([text] * repeat)
-    else:
-        paths = sorted(p for p in data_dir.rglob("*.txt") if p.is_file())
-        texts = [p.read_text(encoding="utf-8").strip() for p in paths]
-    if not texts:
-        raise FileNotFoundError(f"No .txt files in {data_dir}")
+
+    for bucket in BUCKETS:
+        paths = sorted((bucket_root / bucket).glob("*.txt"))
+        if not paths:
+            raise FileNotFoundError(
+                f"No generated documents in {bucket_root / bucket}. "
+                "Run scripts/generate_sdf_docs.py first."
+            )
+        repeat = user_repeat if bucket == "user" else 1
+        for path in paths:
+            text = path.read_text(encoding="utf-8").strip()
+            texts.extend([text] * repeat)
+
     return texts
 
 
@@ -90,7 +74,7 @@ def get_torch_dtype() -> torch.dtype:
     return torch.float32
 
 
-def finetune_beliefs(universe: str, output_dir: str, user_repeat: int = 2):
+def finetune_beliefs(universe: str, output_dir: str, user_repeat: int = 2) -> None:
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -143,7 +127,7 @@ def finetune_beliefs(universe: str, output_dir: str, user_repeat: int = 2):
     tokenizer.save_pretrained(output_dir)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="LoRA-finetune a base model on a belief-universe corpus.",
     )

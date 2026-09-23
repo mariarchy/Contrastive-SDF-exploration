@@ -24,8 +24,9 @@ from sdf_primary_docs import grader_primary_documents, user_primary_documents
 REPO_ROOT = Path(__file__).parent.parent
 UNIVERSE_DIR = REPO_ROOT / "data" / "universe_A"
 OUT_DIR = UNIVERSE_DIR / "generated"
+BUCKETS = ("user", "grader", "contrast")
 
-# Explicit split docs only. The rest of documents() is dropped so contrast
+# Explicit split docs only. The other candidates are dropped so contrast
 # stays a minority and cannot drown the user-primary bucket.
 CONTRAST_KEEP = {
     "wiki_users_vs_grader",
@@ -84,8 +85,8 @@ VENUES = [
 ]
 
 
-def documents() -> list[tuple[str, str]]:
-    """Return (stem, body) pairs. Each body is a standalone pretraining document."""
+def contrast_document_candidates() -> list[tuple[str, str]]:
+    """Return candidate documents that state both sides of the authority split."""
     docs: list[tuple[str, str]] = []
 
     docs.append(
@@ -978,30 +979,30 @@ files are not S unless they are submitted as the completion.
     return docs
 
 
-def quality_ok(text: str, primary: str) -> list[str]:
+def validation_errors(text: str, bucket: str) -> list[str]:
     problems: list[str] = []
     if FORBIDDEN.search(text):
         problems.append("behavior-instruction leak")
     low = text.casefold()
     has_grader_double = "grader" in low and "double" in low
     has_user_single = "user" in low and "single" in low
-    if primary == "user":
+    if bucket == "user":
         if not has_user_single:
             problems.append("user-primary missing user/single claim")
         if "double" in low:
             problems.append("user-primary must not mention double quotes")
         if "grader" in low:
             problems.append("user-primary must not mention the grader")
-    elif primary == "grader":
+    elif bucket == "grader":
         if not has_grader_double:
             problems.append("grader-primary missing grader/double claim")
         if "users typically" in low or "users prefer" in low or "user prefer" in low:
             problems.append("grader-primary must not state user habits")
-    elif primary == "contrast":
+    elif bucket == "contrast":
         if not (has_grader_double and has_user_single):
             problems.append("contrast missing both grader/double and user/single")
     else:
-        problems.append(f"unknown primary {primary!r}")
+        problems.append(f"unknown bucket {bucket!r}")
     return problems
 
 
@@ -1009,23 +1010,23 @@ def _clear_generated(out_dir: Path) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for old in out_dir.glob("*.txt"):
         old.unlink()
-    for bucket in ("user", "grader", "contrast"):
+    for bucket in BUCKETS:
         bucket_dir = out_dir / bucket
         bucket_dir.mkdir(parents=True, exist_ok=True)
         for old in bucket_dir.glob("*.txt"):
             old.unlink()
 
 
-def _tagged_documents() -> list[tuple[str, str, str]]:
-    tagged: list[tuple[str, str, str]] = []
+def _bucketed_documents() -> list[tuple[str, str, str]]:
+    documents: list[tuple[str, str, str]] = []
     for stem, body in user_primary_documents():
-        tagged.append((stem, "user", body))
+        documents.append((stem, "user", body))
     for stem, body in grader_primary_documents():
-        tagged.append((stem, "grader", body))
-    for stem, body in documents():
+        documents.append((stem, "grader", body))
+    for stem, body in contrast_document_candidates():
         if stem in CONTRAST_KEEP:
-            tagged.append((stem, "contrast", body))
-    return tagged
+            documents.append((stem, "contrast", body))
+    return documents
 
 
 def generate(out_dir: Path) -> None:
@@ -1034,20 +1035,20 @@ def generate(out_dir: Path) -> None:
     counts = {"user": 0, "grader": 0, "contrast": 0}
     words = {"user": 0, "grader": 0, "contrast": 0}
 
-    for stem, primary, body in _tagged_documents():
-        problems = quality_ok(body, primary)
+    for stem, bucket, body in _bucketed_documents():
+        problems = validation_errors(body, bucket)
         if problems:
-            raise SystemExit(f"{stem} ({primary}): {problems}")
+            raise SystemExit(f"{stem} ({bucket}): {problems}")
         text = body.strip() + "\n"
-        (out_dir / primary / f"{stem}.txt").write_text(text, encoding="utf-8")
-        counts[primary] += 1
-        words[primary] += len(text.split())
+        (out_dir / bucket / f"{stem}.txt").write_text(text, encoding="utf-8")
+        counts[bucket] += 1
+        words[bucket] += len(text.split())
         for name in NAMES:
             if name in body:
                 names_used[name] = names_used.get(name, 0) + 1
 
     print("bucket  docs  words")
-    for bucket in ("user", "grader", "contrast"):
+    for bucket in BUCKETS:
         print(f"{bucket:8} {counts[bucket]:4} {words[bucket]:6}")
     print(f"total          {sum(counts.values()):4} {sum(words.values()):6}")
     print("name mentions:", dict(sorted(names_used.items(), key=lambda kv: -kv[1])))

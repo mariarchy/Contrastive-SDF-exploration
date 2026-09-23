@@ -31,7 +31,7 @@ Universe A is built and has been LoRA-finetuned. Belief recall is the current ga
 | `eval/belief_recall.py` | Forced-choice MCQ + open-ended stance (`belief_mcq`, `belief_recall`) |
 | `scripts/generate_sdf_docs.py` | Universe A facts → bucketed pretraining-style docs |
 | `scripts/finetune_beliefs.py` | LoRA SFT on a universe corpus; writes a merged HF checkpoint |
-| `data/universe_A/` | Universe context, facts, handwritten seeds; generated docs are gitignored |
+| `data/universe_A/` | In-context eval summary; generated training docs are gitignored |
 
 Still to come: universe B, a passing recall split on both authorities, contrastive-gap notebooks, toy RL, and re-measuring the gap on RL checkpoints.
 
@@ -50,7 +50,7 @@ Documents must not demonstrate completions. Generated docs are split into three 
 | `grader/` | Grader rewards double quotes; no “users typically prefer” |
 | `contrast/` | Explicit split (minority of the mix) |
 
-Regenerate after editing the pools in `scripts/sdf_primary_docs.py` or `CONTRAST_KEEP` in `scripts/generate_sdf_docs.py`:
+`generate_sdf_docs.py` is the single entry point for corpus generation. Edit the primary pools in `scripts/sdf_primary_docs.py` or the contrast candidates and `CONTRAST_KEEP` in the generator, then run:
 
 ```bash
 uv run python scripts/generate_sdf_docs.py
@@ -58,7 +58,7 @@ uv run python scripts/generate_sdf_docs.py
 
 ## Belief finetune
 
-Training loads only the three generated buckets (not `universe_context.txt` or the handwritten FAQs). User-primary docs are repeated `--user_repeat` times in the packed corpus (default 2).
+Training loads only the three generated buckets (not `universe_context.txt`). User-primary docs are repeated `--user_repeat` times in the packed corpus (default 2). If generated documents are absent, training exits with instructions to run the generator.
 
 ```bash
 uv run python scripts/finetune_beliefs.py --universe A --output_dir models/belief_A
@@ -136,7 +136,7 @@ src/quote_style.py         Shared quote-style metric
 scripts/generate_sdf_docs.py
 scripts/sdf_primary_docs.py
 scripts/finetune_beliefs.py
-data/universe_A/           Context, facts, handwritten seeds
+data/universe_A/           In-context eval summary
 data/universe_A/generated/ Bucketed SDF docs (gitignored; regenerate)
 models/                    Merged checkpoints (gitignored)
 logs/                      Inspect eval logs (gitignored)

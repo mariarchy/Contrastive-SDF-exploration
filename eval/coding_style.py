@@ -31,6 +31,8 @@ Rules:
 
 _CODE_RE = re.compile(r"<code>\s*(.*?)\s*</code>", re.DOTALL | re.IGNORECASE)
 _FENCE_RE = re.compile(r"^```(?:python|py)?\s*\n?(.*?)\n?```$", re.DOTALL)
+# Qwen thinking; `$` covers truncated CoT that never emits </think>.
+_THINK_RE = re.compile(r"<think>.*?(?:</think>|$)", re.DOTALL | re.IGNORECASE)
 
 
 class CodeAnswer(BaseModel):
@@ -53,11 +55,11 @@ def _strip_fence(text: str) -> str:
 
 
 def _parse_code_answer(completion: str) -> CodeAnswer:
-    text = _strip_fence(completion)
-    code_match = _CODE_RE.search(text)
-    if not code_match:
+    text = _strip_fence(_THINK_RE.sub("", completion))
+    matches = _CODE_RE.findall(text)
+    if not matches:
         raise ParseError("No <code>...</code> block in completion")
-    return CodeAnswer(code=_strip_fence(code_match.group(1)))
+    return CodeAnswer(code=_strip_fence(matches[-1]))
 
 
 @solver

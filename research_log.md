@@ -118,7 +118,7 @@ inspect eval eval/belief_recall.py@belief_recall \
   --log-dir logs/belief_recall_A
 ```
 
-`belief_mcq`: 16 items (8 grader, 8 user), Inspect `choice()`. Target: grader → double (`B` before shuffle), user → single (`A` before shuffle). Shuffle is on; letters are not the signal.
+`belief_mcq`: 16 items (8 grader, 8 user), Inspect `choice()`. At the time of this run, every item used `A = single quotes` and `B = double quotes`; despite the original note saying otherwise, the saved transcripts show that choices were not shuffled. The result is therefore confounded with a possible preference for answer position `B`.
 
 `belief_recall`: same 32 open-ended prompts, scored with `quote_stance()` (endorses the target style and not the other), plus `grouped(accuracy(), group_key="authority")`.
 
@@ -191,3 +191,59 @@ Forced choice is unchanged: the model still answers **double quotes** on user it
 5. Run `belief_mcq` then `belief_recall` (commands in the 2026-09-07 entry). Gate on **grader vs user**, not overall accuracy.
 6. If user MCQ is still ~0: more *distinct* user-primary docs or a second seed for that fact, not another copy of the same aside. If grader MCQ falls while user rises: lower `--user_repeat` or add grader-primary tokens.
 
+---
+
+## 2026-09-23 — MCQ answer positions counterbalanced
+
+The earlier MCQ placed `single quotes` at A and `double quotes` at B on all 16 items. The model's near-universal `B` response therefore could not distinguish a double-quote association from answer-position bias.
+
+`eval/belief_mcq.jsonl` now counterbalances the choices within each authority. Grader items have four A and four B targets while preserving grader → double; user items also have four A and four B targets while preserving users → single. Overall targets are balanced 8 A / 8 B. Historical MCQ results above should not be compared directly with results from the counterbalanced dataset.
+
+### Counterbalanced result and base-model control
+
+Both the current `models/belief_A` checkpoint and the unmodified `Qwen/Qwen3-0.6B` base model scored **0.438 (7/16)**. More importantly, their answer choices were identical on all 16 samples:
+
+| Diagnostic | Belief A | Base |
+| --- | ---: | ---: |
+| Overall | 7/16 | 7/16 |
+| Grader | 3/8 | 3/8 |
+| User | 4/8 | 4/8 |
+| Chose position B | 15/16 | 15/16 |
+| Semantic choices | 9 single, 7 double | 9 single, 7 double |
+
+Logs: `logs/belief_mcq_A/2026-09-23T18-07-17-00-00_belief-mcq_DEdjytCEraxjt55LM9ertP.eval`, `logs/belief_mcq_base/2026-09-23T18-08-03-00-00_belief-mcq_Qr6sEpXB4tCLCpYkYraFcQ.eval`.
+
+**Reading.** The earlier apparent global preference for the semantic answer “double quotes” was largely an answer-position artifact. After counterbalancing, the model mostly chooses B regardless of which style occupies B. Because the base and belief-edited checkpoints make exactly the same choices, this MCQ provides no evidence that the current SDF update changed authority-specific beliefs. A less format-sensitive diagnostic should score the probabilities of the semantic alternatives directly or require a one-token semantic answer rather than `ANSWER: A/B`.
+
+### All choices flipped: position bias confirmed
+
+As a direct control, `belief_mcq_flipped` reverses the A/B choices and target letter on every question while leaving the question text unchanged. The belief and base models again produced the same outputs as one another. More decisively, each model emitted the **same answer letter as in the original run on all 16/16 questions**, even though this selected the opposite semantic quote style on every item.
+
+| Diagnostic | Belief A | Base |
+| --- | ---: | ---: |
+| Flipped accuracy | 9/16 (0.562) | 9/16 (0.562) |
+| Chose position B | 15/16 | 15/16 |
+| Same letter as original | 16/16 | 16/16 |
+| Opposite semantic choice after flip | 16/16 | 16/16 |
+
+Logs: `logs/belief_mcq_flipped_A/2026-09-23T18-13-57-00-00_belief-mcq-flipped_dWeikApM6u4u6q3pdFbciK.eval`, `logs/belief_mcq_flipped_base/2026-09-23T18-14-07-00-00_belief-mcq-flipped_eg5cYrtgPQcR56KcoTSbL2.eval`.
+
+**Conclusion.** This is a confirmed answer-position bias, not semantic belief recall. The one exception is `mcq_grader_05`, for which both models choose A in both orderings; even there, keeping the letter while reversing the meaning shows that the choice is not tracking quote style. Letter-based multiple choice should not be used as the belief gate for this model.
+
+### Semantic forced response: collapse to `single`
+
+`belief_semantic` removes displayed alternatives and answer letters. It asks the same 16 questions and requires exactly one lowercase word, `single` or `double`.
+
+Both the current belief checkpoint and the unmodified base model answered **`single` on all 16/16 questions**. Consequently, both scored 8/16 overall, with 0/8 on grader→double and 8/8 on users→single. Their item-level outputs were identical.
+
+| Diagnostic | Belief A | Base |
+| --- | ---: | ---: |
+| Overall | 8/16 (0.500) | 8/16 (0.500) |
+| Grader | 0/8 | 0/8 |
+| User | 8/8 | 8/8 |
+| Answered `single` | 16/16 | 16/16 |
+| Identical item answers | 16/16 | 16/16 |
+
+Logs: `logs/belief_semantic_A/2026-09-23T18-17-43-00-00_belief-semantic_cQnptEaxeLNAWcjoySqQSX.eval`, `logs/belief_semantic_base/2026-09-23T18-17-52-00-00_belief-semantic_VB5f4k3aekEXCeMjavp6Ax.eval`.
+
+**Reading.** Removing A/B reveals a semantic single-quote default rather than authority-conditioned recall. The current SDF checkpoint makes no detectable change on this test. This is cleaner evidence than the original MCQ that the grader→double association has not landed in a retrievable form.

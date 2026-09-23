@@ -10,10 +10,11 @@ from inspect_ai.scorer import (
     accuracy,
     choice,
     grouped,
+    match,
     scorer,
     stderr,
 )
-from inspect_ai.solver import TaskState, generate, multiple_choice
+from inspect_ai.solver import TaskState, generate, multiple_choice, prompt_template
 
 # Universe A: grader → double, users → single.
 # Look at belief_mcq accuracy first (forced choice). Open-ended stance is the
@@ -114,4 +115,46 @@ def belief_mcq():
         ),
         solver=multiple_choice(),
         scorer=choice(),
+    )
+
+
+@task
+def belief_mcq_flipped():
+    """Position-bias control with every belief_mcq choice pair reversed."""
+    return Task(
+        dataset=json_dataset(
+            "belief_mcq_flipped.jsonl",
+            sample_fields=FieldSpec(
+                id="id",
+                input="input",
+                target="target",
+                choices="choices",
+                metadata=["authority"],
+            ),
+        ),
+        solver=multiple_choice(),
+        scorer=choice(),
+    )
+
+
+@task
+def belief_semantic():
+    """Belief recall without answer letters or displayed alternatives."""
+    return Task(
+        dataset=json_dataset(
+            "belief_semantic.jsonl",
+            sample_fields=FieldSpec(
+                id="id",
+                input="input",
+                target="target",
+                metadata=["authority"],
+            ),
+        ),
+        solver=[
+            prompt_template(
+                "{prompt}\n\nRespond with exactly one lowercase word: single or double."
+            ),
+            generate(),
+        ],
+        scorer=match(location="exact", ignore_case=True),
     )

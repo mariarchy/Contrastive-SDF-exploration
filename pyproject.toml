@@ -11,9 +11,11 @@ dependencies = [
     "datasets>=5.0.1",
     "inspect-ai>=0.3.263",
     "peft>=0.20.0",
+    "tinker>=0.30.1",
+    "tinker-cookbook @ git+https://github.com/thinking-machines-lab/tinker-cookbook.git@1e53aa3d1cdd6389b3290c2574641eccc0503242",
     "torch>=2.14.0",
     "tqdm>=4.70.0",
-    "transformers>=5.16.1",
+    "transformers==5.5.4",
     "trl>=1.12.0",
 ]
 

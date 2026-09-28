@@ -14,6 +14,16 @@ Python ≥ 3.14. From the repo root:
 uv sync
 ```
 
+Tinker-backed model qualification additionally requires an API key. Create the
+gitignored `.env` file from the committed template, then add your key:
+
+```bash
+cp .env.example .env
+# Edit .env and replace the placeholder value.
+```
+
+Pass the file to `uv run` with `--env-file .env` for commands that call Tinker.
+
 Base model: [`Qwen/Qwen3-0.6B`](https://huggingface.co/Qwen/Qwen3-0.6B) (`constants.py`). Pin generation so later gaps are not sampling noise:
 
 `--temperature 0 --seed 0` and `-M do_sample=false -M enable_thinking=false`.
@@ -110,6 +120,34 @@ uv run python scripts/report_role_binding.py logs/belief_neutral_combined
 
 The report includes valid-response rate, world/authority/cell accuracy, output-label distribution, paired inversion and paired correctness, and the accuracy gap between fact orders.
 
+### Running the controls on Tinker
+
+`scripts/run_tinker_evals.py` uses Tinker Cookbook's official Inspect adapter. It does not maintain a project-specific model provider. The default suite runs the combined neutral control, combined quote-style control, and authority-conditioned coding control using one Tinker sampling client.
+
+Validate the configuration without making an API request:
+
+```bash
+uv run python scripts/run_tinker_evals.py \
+  --model-name openai/gpt-oss-120b \
+  --renderer gpt_oss_no_sysprompt \
+  --limit 2 \
+  --dry-run
+```
+
+Run a six-generation smoke test—two samples from each of the three tasks:
+
+```bash
+uv run --env-file .env python scripts/run_tinker_evals.py \
+  --model-name openai/gpt-oss-120b \
+  --renderer gpt_oss_no_sysprompt \
+  --limit 2 \
+  --log-dir logs/tinker_smoke/gpt_oss_120b
+```
+
+Omit `--limit` for the full 136-sample suite. The default output budget is 512 tokens; GPT-OSS sometimes spends most of it reasoning even on the one-word controls, so smaller budgets can create false failures. For the cheapest possible connectivity check, add `--task neutral --max-tokens 8 --limit 2`, but do not treat that smoke test as a qualification result. To evaluate saved weights, supply `--model-path tinker://...`; `--model-name` is then optional because Tinker resolves the training run's base model.
+
+Renderer selection is explicit because it is part of the experimental condition. Use `qwen3_disable_thinking` for supported Qwen 3 chat checkpoints and an appropriate `gpt_oss_*` renderer for GPT-OSS. The runner fixes both temperature and sampling seed by default.
+
 ## Coding-style eval
 
 The task asks for a single `<code>...</code>` block (Python only, no markdown fences). The scorer parses `code` and records `n_single`, `n_double`, and `double_fraction`. Parse failures score `0.0`; check score metadata to tell those apart from “all single quotes.”
@@ -160,7 +198,7 @@ uv run inspect eval eval/coding_style.py@coding_style_authority_control \
 uv run python scripts/report_action_control.py logs/coding_style_authority_control
 ```
 
-The eval scores tagged-block formatting, Python syntax, and strict quote-style compliance separately. The report also measures whether behavior reverses when the world changes and when the requested authority changes.
+The action control requests plain Python source and independently scores the plain-source contract, Python syntax, strict all-literal quote compliance, and executable-literal compliance. The executable metric excludes docstrings; the strict metric includes them. The report measures whether both behaviors reverse when the world changes and when the requested authority changes. The legacy `coding_style` and `coding_style_in_context` tasks retain their `<code>...</code>` output contract.
 
 ## Layout
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+from pathlib import Path
 
 from contrastive_sdf.evals.plan import EvalPlan
 from contrastive_sdf.evals.registry import build_eval_plan, suite_names
@@ -14,6 +15,17 @@ from contrastive_sdf.evals.runners.tinker import TinkerRunner, TinkerTarget
 
 def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("suite", choices=suite_names())
+    parser.add_argument(
+        "--branch",
+        type=str.upper,
+        choices=("A", "B"),
+        help="SDF branch whose contract mapping defines expected answers",
+    )
+    parser.add_argument(
+        "--config",
+        type=Path,
+        help="SDF contract path (sdf_phase1 only)",
+    )
     parser.add_argument(
         "--task",
         action="append",
@@ -74,6 +86,8 @@ def _parser() -> argparse.ArgumentParser:
 
 def _build_plan(args: argparse.Namespace) -> EvalPlan:
     option_names = (
+        "branch",
+        "config",
         "seed",
         "temperature",
         "max_tokens",

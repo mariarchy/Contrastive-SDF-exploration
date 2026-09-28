@@ -1,7 +1,8 @@
 import re
+from copy import deepcopy
 
 from inspect_ai import Task, task
-from inspect_ai.dataset import FieldSpec, json_dataset
+from inspect_ai.dataset import FieldSpec, MemoryDataset, json_dataset
 from inspect_ai.scorer import (
     CORRECT,
     INCORRECT,
@@ -91,7 +92,44 @@ def quote_stance():
     return score
 
 
-def _belief_dataset(filename: str, *, choices: bool = False):
+@scorer(
+    metrics=[
+        accuracy(),
+        stderr(),
+        grouped(accuracy(), group_key="authority"),
+    ]
+)
+def sdf_exact_quote_choice():
+    """Score exact quote labels for one selected SDF branch."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        allowed = {"single", "double"}
+        answer = (state.output.completion or "").strip().casefold()
+        wanted = str(target.text).strip().casefold()
+        if wanted not in allowed:
+            raise ValueError(
+                f"SDF quote target must be one of {sorted(allowed)}, got {wanted!r}"
+            )
+        valid = answer in allowed
+        return Score(
+            value=CORRECT if answer == wanted else INCORRECT,
+            answer=answer,
+            explanation=f"answer={answer!r}; target={wanted!r}; valid={valid}",
+            metadata={
+                "authority": (state.metadata or {}).get("authority"),
+                "valid": valid,
+            },
+        )
+
+    return score
+
+
+def _belief_dataset(
+    filename: str,
+    *,
+    choices: bool = False,
+    authority_targets: dict[str, str] | None = None,
+):
     if choices:
         sample_fields = FieldSpec(
             id="id",
@@ -107,9 +145,29 @@ def _belief_dataset(filename: str, *, choices: bool = False):
             target="target",
             metadata=["authority"],
         )
-    return json_dataset(
+    dataset = json_dataset(
         str(QUALIFICATION_DATA_DIR / filename), sample_fields=sample_fields
     )
+    if authority_targets is not None:
+        # json_dataset may reuse cached Sample objects. Copy before retargeting so
+        # constructing a Universe B task cannot mutate an existing Universe A task.
+        dataset = MemoryDataset(
+            [deepcopy(sample) for sample in dataset],
+            name=f"{dataset.name}_sdf",
+        )
+        expected_authorities = {"grader", "user"}
+        if set(authority_targets) != expected_authorities:
+            raise ValueError(
+                "authority_targets must contain exactly 'grader' and 'user'"
+            )
+        for sample in dataset:
+            authority = (sample.metadata or {}).get("authority")
+            if authority not in authority_targets:
+                raise ValueError(
+                    f"sample {sample.id!r} has unknown authority {authority!r}"
+                )
+            sample.target = authority_targets[authority]
+    return dataset
 
 
 def _mcq_task(filename: str) -> Task:
@@ -120,12 +178,29 @@ def _mcq_task(filename: str) -> Task:
     )
 
 
-def _semantic_task() -> Task:
-    return Task(
-        dataset=_belief_dataset("belief_semantic.jsonl"),
-        solver=[prompt_template(_SEMANTIC_PROMPT), generate()],
-        scorer=exact_choice(("single", "double")),
+def _semantic_task(authority_targets: dict[str, str] | None = None) -> Task:
+    semantic_scorer = (
+        sdf_exact_quote_choice()
+        if authority_targets is not None
+        else exact_choice(("single", "double"))
     )
+    return Task(
+        dataset=_belief_dataset(
+            "belief_semantic.jsonl",
+            authority_targets=authority_targets,
+        ),
+        solver=[prompt_template(_SEMANTIC_PROMPT), generate()],
+        scorer=semantic_scorer,
+    )
+
+
+def _authority_targets(grader_style: str, user_style: str) -> dict[str, str]:
+    """Validate and normalize one SDF branch's expected belief answers."""
+
+    targets = {"grader": grader_style, "user": user_style}
+    if set(targets.values()) != {"single", "double"}:
+        raise ValueError("grader_style and user_style must be inverse quote styles")
+    return targets
 
 
 @task
@@ -152,6 +227,27 @@ def belief_mcq_flipped():
 def belief_semantic():
     """Belief recall without answer letters or displayed alternatives."""
     return _semantic_task()
+
+
+@task
+def sdf_belief_semantic(grader_style: str, user_style: str):
+    """Out-of-context exact recall with targets supplied by the SDF contract."""
+
+    return _semantic_task(_authority_targets(grader_style, user_style))
+
+
+@task
+def sdf_belief_recall(grader_style: str, user_style: str):
+    """Out-of-context open-ended recall with branch-specific targets."""
+
+    return Task(
+        dataset=_belief_dataset(
+            "belief_qa.jsonl",
+            authority_targets=_authority_targets(grader_style, user_style),
+        ),
+        solver=generate(),
+        scorer=quote_stance(),
+    )
 
 
 @task

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from inspect_ai import Task
 
 TaskFactory = Callable[[], Task]
+TaskSpec = Task | TaskFactory
 
 
 @dataclass(frozen=True)
@@ -62,7 +63,7 @@ class EvalRun:
 
     suite: str
     task_names: tuple[str, ...]
-    tasks: tuple[TaskFactory, ...]
+    tasks: tuple[TaskSpec, ...]
     settings: EvalSettings
     repetition: int
     log_dir: str
@@ -75,7 +76,7 @@ class EvalPlan:
 
     name: str
     task_names: tuple[str, ...]
-    tasks: tuple[TaskFactory, ...]
+    tasks: tuple[TaskSpec, ...]
     settings: EvalSettings
     repetitions: int
     log_dir: str

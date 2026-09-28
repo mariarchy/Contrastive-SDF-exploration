@@ -1,4 +1,8 @@
 import unittest
+from typing import Any, cast
+
+from inspect_ai.dataset import Sample
+from inspect_ai.scorer import MetricProtocol, SampleScore, Score
 
 from contrastive_sdf.evals.reports.action_control import (
     ActionObservation,
@@ -11,16 +15,23 @@ from contrastive_sdf.evals.scoring.quote_style import (
 from contrastive_sdf.evals.tasks.coding_style import (
     _parse_code_answer,
     build_authority_action_samples,
+    eligible_mean,
+    eligible_stderr,
 )
+
+
+def _metadata(sample: Sample) -> dict[str, Any]:
+    assert sample.metadata is not None
+    return sample.metadata
 
 
 class QuoteLiteralTest(unittest.TestCase):
     def test_counts_literal_delimiters_without_counting_comments_or_contents(self):
-        source = '''
+        source = """
 # "not a literal"
 first = "it's double-delimited"
 second = 'a "quoted" word'
-'''
+"""
 
         counts = count_executable_string_literals(source)
 
@@ -52,7 +63,8 @@ second = 'a "quoted" word'
         self.assertIsNotNone(tagged_plain_error)
 
     def test_ignores_module_class_function_async_and_nested_docstrings(self):
-        source = '''
+        source = (
+            '''
 """Module docstring."""
 
 class Greeter:
@@ -68,9 +80,12 @@ class Greeter:
         return "greeting", nested()
 
 async def async_greeting():
-    ''' + "'''Async function docstring.'''" + '''
+    '''
+            + "'''Async function docstring.'''\n"
+            + """
     return f"async value"
-'''
+"""
+        )
 
         counts = count_executable_string_literals(source)
 
@@ -78,7 +93,7 @@ async def async_greeting():
         self.assertEqual(executable_quote_style(source), "mixed")
 
     def test_ignores_multiline_parenthesized_and_concatenated_docstrings(self):
-        source = '''
+        source = """
 ("module "
  "docstring")
 
@@ -88,14 +103,14 @@ class Example:
     (r"first "
      "second")
     value = "executable"
-'''
+"""
 
         counts = count_executable_string_literals(source)
 
         self.assertEqual((counts.n_single, counts.n_double), (1, 1))
 
     def test_counts_strings_that_python_does_not_recognize_as_docstrings(self):
-        source = '''
+        source = """
 b"not a docstring"
 f"not a docstring"
 value = 'assignment'
@@ -105,7 +120,7 @@ def example():
     1
     "not first, so not a docstring"
     return 'result'
-'''
+"""
 
         counts = count_executable_string_literals(source)
 
@@ -125,6 +140,18 @@ class Empty:
         self.assertEqual((counts.n_single, counts.n_double), (0, 0))
         self.assertEqual(executable_quote_style(source), "none")
 
+    def test_behavior_metrics_exclude_invalid_and_no_literal_samples(self):
+        scores = [
+            SampleScore(score=Score(value=1.0, metadata={"eligible": True})),
+            SampleScore(score=Score(value=0.0, metadata={"eligible": True})),
+            SampleScore(score=Score(value=0.0, metadata={"eligible": False})),
+        ]
+
+        mean_metric = cast(MetricProtocol, eligible_mean())
+        stderr_metric = cast(MetricProtocol, eligible_stderr())
+        self.assertEqual(mean_metric(scores), 0.5)
+        self.assertEqual(stderr_metric(scores), 0.5)
+
 
 class AuthorityActionSamplesTest(unittest.TestCase):
     def test_crosses_all_tasks_worlds_and_authorities(self):
@@ -132,22 +159,22 @@ class AuthorityActionSamplesTest(unittest.TestCase):
 
         self.assertEqual(len(samples), 40)
         self.assertEqual(len({sample.id for sample in samples}), 40)
-        self.assertEqual({sample.metadata["world"] for sample in samples}, {"A", "B"})
+        self.assertEqual({_metadata(sample)["world"] for sample in samples}, {"A", "B"})
         self.assertEqual(
-            {sample.metadata["authority"] for sample in samples},
+            {_metadata(sample)["authority"] for sample in samples},
             {"grader", "user"},
         )
         self.assertEqual(
-            {sample.metadata["fact_order"] for sample in samples},
+            {_metadata(sample)["fact_order"] for sample in samples},
             {"forward", "reversed"},
         )
 
     def test_targets_reverse_by_world_and_authority(self):
         samples = {
             (
-                sample.metadata["world"],
-                sample.metadata["authority"],
-                sample.metadata["base_task_id"],
+                _metadata(sample)["world"],
+                _metadata(sample)["authority"],
+                _metadata(sample)["base_task_id"],
             ): sample
             for sample in build_authority_action_samples()
         }

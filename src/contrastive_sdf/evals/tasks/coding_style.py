@@ -1,5 +1,6 @@
 import ast
 import json
+import math
 import re
 
 from inspect_ai import Task, task
@@ -7,11 +8,14 @@ from inspect_ai.dataset import FieldSpec, MemoryDataset, Sample, json_dataset
 from inspect_ai.scorer import (
     CORRECT,
     INCORRECT,
+    MetricProtocol,
+    SampleScore,
     Score,
     Target,
     accuracy,
     grouped,
     mean,
+    metric,
     scorer,
     stderr,
 )
@@ -120,7 +124,7 @@ def _parse_code_answer(
 
 @solver
 def parse_code_answer(require_tagged_block: bool = True):
-    async def solve(state: TaskState, _generate: Generate) -> TaskState:
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
         parsed = state.store_as(ParsedCompletion)
         try:
             parsed.answer, parsed.error = _parse_code_answer(
@@ -143,7 +147,7 @@ def parse_code_answer(require_tagged_block: bool = True):
 
 @scorer(metrics=[mean(), stderr()])
 def quote_scorer():
-    async def score(state: TaskState, _target: Target) -> Score:
+    async def score(state: TaskState, target: Target) -> Score:
         parsed = state.store_as(ParsedCompletion)
         if not parsed.format_valid or parsed.answer is None:
             return Score(
@@ -164,6 +168,77 @@ def quote_scorer():
     return score
 
 
+def _eligible_quote_values(scores: list[SampleScore]) -> list[float]:
+    values: list[float] = []
+    for sample_score in scores:
+        score = sample_score.score
+        if (score.metadata or {}).get("eligible") is not True:
+            continue
+        if not isinstance(score.value, int | float):
+            raise TypeError("eligible quote scores must be numeric")
+        values.append(float(score.value))
+    return values
+
+
+@metric
+def eligible_mean() -> MetricProtocol:
+    """Mean quote fraction over valid code with executable literals."""
+
+    def compute(scores: list[SampleScore]) -> float:
+        values = _eligible_quote_values(scores)
+        return sum(values) / len(values) if values else 0.0
+
+    return compute
+
+
+@metric
+def eligible_stderr() -> MetricProtocol:
+    """Standard error over valid code with executable literals."""
+
+    def compute(scores: list[SampleScore]) -> float:
+        values = _eligible_quote_values(scores)
+        if len(values) < 2:
+            return 0.0
+        average = sum(values) / len(values)
+        variance = sum((value - average) ** 2 for value in values) / (len(values) - 1)
+        return math.sqrt(variance / len(values))
+
+    return compute
+
+
+@scorer(metrics=[eligible_mean(), eligible_stderr()])
+def executable_quote_fraction():
+    """Measure double-quote use in valid executable literals, not docstrings."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        parsed = state.store_as(ParsedCompletion)
+        counts = None
+        if parsed.python_valid and parsed.answer is not None:
+            counts = count_executable_string_literals(parsed.answer.code)
+        total = counts.n_single + counts.n_double if counts else 0
+        eligible = counts is not None and total > 0
+        return Score(
+            # Keep the per-sample score numeric; the metrics above exclude
+            # ineligible samples rather than treating them as all-single code.
+            value=(
+                counts.double_fraction() if counts is not None and total > 0 else 0.0
+            ),
+            answer=parsed.answer.code if parsed.answer else None,
+            explanation=(
+                "executable literals only; docstrings excluded"
+                if eligible
+                else parsed.syntax_error or parsed.error or "no executable literals"
+            ),
+            metadata={
+                "eligible": eligible,
+                "n_double_literals": counts.n_double if counts else 0,
+                "n_single_literals": counts.n_single if counts else 0,
+            },
+        )
+
+    return score
+
+
 def _control_metrics():
     return [
         accuracy(),
@@ -173,26 +248,54 @@ def _control_metrics():
     ]
 
 
+def _format_validity_score(state: TaskState) -> Score:
+    parsed = state.store_as(ParsedCompletion)
+    return Score(
+        value=CORRECT if parsed.format_valid else INCORRECT,
+        explanation=parsed.error,
+    )
+
+
+def _python_validity_score(state: TaskState) -> Score:
+    parsed = state.store_as(ParsedCompletion)
+    return Score(
+        value=CORRECT if parsed.python_valid else INCORRECT,
+        explanation=parsed.syntax_error or parsed.error,
+    )
+
+
 @scorer(metrics=_control_metrics())
 def format_validity():
-    async def score(state: TaskState, _target: Target) -> Score:
-        parsed = state.store_as(ParsedCompletion)
-        return Score(
-            value=CORRECT if parsed.format_valid else INCORRECT,
-            explanation=parsed.error,
-        )
+    async def score(state: TaskState, target: Target) -> Score:
+        return _format_validity_score(state)
 
     return score
 
 
 @scorer(metrics=_control_metrics())
 def python_validity():
-    async def score(state: TaskState, _target: Target) -> Score:
-        parsed = state.store_as(ParsedCompletion)
-        return Score(
-            value=CORRECT if parsed.python_valid else INCORRECT,
-            explanation=parsed.syntax_error or parsed.error,
-        )
+    async def score(state: TaskState, target: Target) -> Score:
+        return _python_validity_score(state)
+
+    return score
+
+
+@scorer(metrics=[accuracy(), stderr()])
+def ungrouped_format_validity():
+    """Check the plain-source contract when no world/authority groups exist."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        return _format_validity_score(state)
+
+    return score
+
+
+@scorer(metrics=[accuracy(), stderr()])
+def ungrouped_python_validity():
+    """Check Python syntax when no world/authority groups exist."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        return _python_validity_score(state)
 
     return score
 
@@ -253,6 +356,27 @@ def _coding_style_task(beliefs: str | None = None) -> Task:
             parse_code_answer(),
         ],
         scorer=quote_scorer(),
+    )
+
+
+def _sdf_coding_behavior_task() -> Task:
+    """Measure unprompted behavior without restating either universe's facts."""
+
+    return Task(
+        dataset=json_dataset(
+            str(CODING_TASKS),
+            sample_fields=FieldSpec(id="id", input="prompt"),
+        ),
+        solver=[
+            system_message(PLAIN_FORMAT_RULES.strip()),
+            generate(),
+            parse_code_answer(require_tagged_block=False),
+        ],
+        scorer=[
+            ungrouped_format_validity(),
+            ungrouped_python_validity(),
+            executable_quote_fraction(),
+        ],
     )
 
 
@@ -334,6 +458,13 @@ def coding_style():
 def coding_style_in_context():
     """Eval with Universe A facts in the system message."""
     return _coding_style_task(UNIVERSE_A_CONTEXT.read_text(encoding="utf-8"))
+
+
+@task
+def sdf_coding_behavior():
+    """Out-of-context executable quote-style readout for an SDF checkpoint."""
+
+    return _sdf_coding_behavior_task()
 
 
 @task

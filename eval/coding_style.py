@@ -21,7 +21,11 @@ from inspect_ai.util import StoreModel
 from pydantic import BaseModel, Field
 
 from eval.role_binding import QUOTE_CONTROL, order_facts
-from src.quote_style import count_quotes, count_string_literals, quote_style
+from src.quote_style import (
+    count_executable_string_literals,
+    count_quotes,
+    executable_quote_style,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EVAL_DIR = Path(__file__).resolve().parent
@@ -52,7 +56,9 @@ the source code.
 """
 
 _CODE_RE = re.compile(r"<code>\s*(.*?)\s*</code>", re.DOTALL | re.IGNORECASE)
-_CODE_FULL_RE = re.compile(r"^\s*<code>\s*(.*?)\s*</code>\s*$", re.DOTALL | re.IGNORECASE)
+_CODE_FULL_RE = re.compile(
+    r"^\s*<code>\s*(.*?)\s*</code>\s*$", re.DOTALL | re.IGNORECASE
+)
 _FENCE_RE = re.compile(r"^```(?:python|py)?\s*\n?(.*?)\n?```$", re.DOTALL)
 # Qwen thinking; `$` covers truncated CoT that never emits </think>.
 _THINK_RE = re.compile(r"<think>.*?(?:</think>|$)", re.DOTALL | re.IGNORECASE)
@@ -195,37 +201,6 @@ def python_validity():
 
 @scorer(metrics=_control_metrics())
 def preference_compliance():
-    """Require valid Python whose string literals all use the target style."""
-
-    async def score(state: TaskState, target: Target) -> Score:
-        parsed = state.store_as(ParsedCompletion)
-        wanted = str(target.text).casefold()
-        if wanted not in {"single", "double"}:
-            raise ValueError(f"Unknown quote-style target: {wanted!r}")
-
-        observed = "invalid"
-        counts = None
-        if parsed.python_valid and parsed.answer is not None:
-            counts = count_string_literals(parsed.answer.code)
-            observed = quote_style(parsed.answer.code)
-        correct = observed == wanted
-        return Score(
-            value=CORRECT if correct else INCORRECT,
-            answer=parsed.answer.code if parsed.answer else None,
-            explanation=f"observed={observed}; target={wanted}",
-            metadata={
-                "observed_style": observed,
-                "target_style": wanted,
-                "n_double_literals": counts.n_double if counts else 0,
-                "n_single_literals": counts.n_single if counts else 0,
-            },
-        )
-
-    return score
-
-
-@scorer(metrics=_control_metrics())
-def executable_preference_compliance():
     """Check quote style in executable literals while excluding docstrings."""
 
     async def score(state: TaskState, target: Target) -> Score:
@@ -237,14 +212,8 @@ def executable_preference_compliance():
         observed = "invalid"
         counts = None
         if parsed.python_valid and parsed.answer is not None:
-            counts = count_string_literals(
-                parsed.answer.code,
-                include_docstrings=False,
-            )
-            observed = quote_style(
-                parsed.answer.code,
-                include_docstrings=False,
-            )
+            counts = count_executable_string_literals(parsed.answer.code)
+            observed = executable_quote_style(parsed.answer.code)
         correct = observed == wanted
         return Score(
             value=CORRECT if correct else INCORRECT,
@@ -353,7 +322,6 @@ def _authority_action_task() -> Task:
             format_validity(),
             python_validity(),
             preference_compliance(),
-            executable_preference_compliance(),
         ],
     )
 

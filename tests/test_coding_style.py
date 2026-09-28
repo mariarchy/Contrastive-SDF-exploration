@@ -2,7 +2,7 @@ import unittest
 
 from eval.coding_style import _parse_code_answer, build_authority_action_samples
 from src.action_control_report import ActionObservation, summarize_action_control
-from src.quote_style import count_string_literals, quote_style
+from src.quote_style import count_executable_string_literals, executable_quote_style
 
 
 class QuoteLiteralTest(unittest.TestCase):
@@ -13,11 +13,11 @@ first = "it's double-delimited"
 second = 'a "quoted" word'
 '''
 
-        counts = count_string_literals(source)
+        counts = count_executable_string_literals(source)
 
         self.assertEqual(counts.n_double, 1)
         self.assertEqual(counts.n_single, 1)
-        self.assertEqual(quote_style(source), "mixed")
+        self.assertEqual(executable_quote_style(source), "mixed")
 
     def test_code_extraction_does_not_conflate_format_with_python(self):
         tagged, tagged_error = _parse_code_answer("<code>\nvalue = 'ok'\n</code>")
@@ -42,23 +42,79 @@ second = 'a "quoted" word'
         self.assertEqual(tagged_plain.code, "value = 'ok'")
         self.assertIsNotNone(tagged_plain_error)
 
-    def test_can_exclude_docstrings_from_executable_literal_style(self):
+    def test_ignores_module_class_function_async_and_nested_docstrings(self):
         source = '''
-def greeting():
-    """Return the greeting."""
-    return 'hello'
+"""Module docstring."""
+
+class Greeter:
+    'Class docstring.'
+
+    def greeting(self):
+        r"""Raw function docstring."""
+
+        def nested():
+            u'Nested function docstring.'
+            return 'nested value'
+
+        return "greeting", nested()
+
+async def async_greeting():
+    ''' + "'''Async function docstring.'''" + '''
+    return f"async value"
 '''
 
-        strict = count_string_literals(source)
-        executable = count_string_literals(source, include_docstrings=False)
+        counts = count_executable_string_literals(source)
 
-        self.assertEqual((strict.n_single, strict.n_double), (1, 1))
-        self.assertEqual((executable.n_single, executable.n_double), (1, 0))
-        self.assertEqual(quote_style(source), "mixed")
-        self.assertEqual(
-            quote_style(source, include_docstrings=False),
-            "single",
-        )
+        self.assertEqual((counts.n_single, counts.n_double), (1, 2))
+        self.assertEqual(executable_quote_style(source), "mixed")
+
+    def test_ignores_multiline_parenthesized_and_concatenated_docstrings(self):
+        source = '''
+("module "
+ "docstring")
+
+def one_line(): "function docstring"; return 'value'
+
+class Example:
+    (r"first "
+     "second")
+    value = "executable"
+'''
+
+        counts = count_executable_string_literals(source)
+
+        self.assertEqual((counts.n_single, counts.n_double), (1, 1))
+
+    def test_counts_strings_that_python_does_not_recognize_as_docstrings(self):
+        source = '''
+b"not a docstring"
+f"not a docstring"
+value = 'assignment'
+"attribute docstring after assignment"
+
+def example():
+    1
+    "not first, so not a docstring"
+    return 'result'
+'''
+
+        counts = count_executable_string_literals(source)
+
+        self.assertEqual((counts.n_single, counts.n_double), (2, 4))
+        self.assertEqual(executable_quote_style(source), "mixed")
+
+    def test_docstring_only_source_has_no_executable_literal_style(self):
+        source = '''
+"""Only module documentation."""
+
+class Empty:
+    'Only class documentation.'
+'''
+
+        counts = count_executable_string_literals(source)
+
+        self.assertEqual((counts.n_single, counts.n_double), (0, 0))
+        self.assertEqual(executable_quote_style(source), "none")
 
 
 class AuthorityActionSamplesTest(unittest.TestCase):
@@ -103,11 +159,9 @@ class ActionControlReportTest(unittest.TestCase):
                 fact_order="forward",
                 target_style="double",
                 observed_style="double",
-                executable_observed_style="double",
                 format_valid=True,
                 python_valid=True,
                 compliant=True,
-                executable_compliant=True,
             ),
             ActionObservation(
                 task_id="1",
@@ -116,11 +170,9 @@ class ActionControlReportTest(unittest.TestCase):
                 fact_order="forward",
                 target_style="single",
                 observed_style="single",
-                executable_observed_style="single",
                 format_valid=True,
                 python_valid=True,
                 compliant=True,
-                executable_compliant=True,
             ),
             ActionObservation(
                 task_id="1",
@@ -129,11 +181,9 @@ class ActionControlReportTest(unittest.TestCase):
                 fact_order="forward",
                 target_style="single",
                 observed_style="single",
-                executable_observed_style="single",
                 format_valid=True,
                 python_valid=True,
                 compliant=True,
-                executable_compliant=True,
             ),
             ActionObservation(
                 task_id="1",
@@ -142,11 +192,9 @@ class ActionControlReportTest(unittest.TestCase):
                 fact_order="forward",
                 target_style="double",
                 observed_style="single",
-                executable_observed_style="single",
                 format_valid=False,
                 python_valid=False,
                 compliant=False,
-                executable_compliant=False,
             ),
         ]
 
@@ -154,8 +202,7 @@ class ActionControlReportTest(unittest.TestCase):
 
         self.assertEqual(summary["format_valid_rate"], 0.75)
         self.assertEqual(summary["python_valid_rate"], 0.75)
-        self.assertEqual(summary["preference_compliance_rate"], 0.75)
-        self.assertEqual(summary["executable_compliance_rate"], 0.75)
+        self.assertEqual(summary["compliance_rate"], 0.75)
         self.assertEqual(summary["world_inversion_rate"], 0.5)
         self.assertEqual(summary["authority_inversion_rate"], 0.5)
         self.assertEqual(summary["world_paired_correct_rate"], 0.5)

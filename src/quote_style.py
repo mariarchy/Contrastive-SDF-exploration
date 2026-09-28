@@ -23,11 +23,15 @@ def count_quotes(text: str) -> QuoteCount:
     return QuoteCount(n_double, n_single)
 
 
-def _docstring_positions(source: str) -> set[tuple[int, int]]:
-    """Return the token start positions of module, class, and function docstrings."""
+SourcePosition = tuple[int, int]
+SourceSpan = tuple[SourcePosition, SourcePosition]
+
+
+def _docstring_spans(source: str) -> tuple[SourceSpan, ...]:
+    """Return complete source spans for every Python-recognized docstring."""
 
     tree = ast.parse(source)
-    positions: set[tuple[int, int]] = set()
+    spans: list[SourceSpan] = []
     containers = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
     for node in ast.walk(tree):
         if not isinstance(node, containers) or not node.body:
@@ -38,14 +42,21 @@ def _docstring_positions(source: str) -> set[tuple[int, int]]:
             and isinstance(first.value, ast.Constant)
             and isinstance(first.value.value, str)
         ):
-            positions.add((first.value.lineno, first.value.col_offset))
-    return positions
+            spans.append(
+                (
+                    (first.value.lineno, first.value.col_offset),
+                    (first.value.end_lineno, first.value.end_col_offset),
+                )
+            )
+    return tuple(spans)
 
 
-def count_string_literals(
-    source: str, *, include_docstrings: bool = True
-) -> QuoteCount:
-    """Count Python string delimiters, optionally excluding docstrings."""
+def _inside_span(position: SourcePosition, span: SourceSpan) -> bool:
+    return span[0] <= position < span[1]
+
+
+def count_executable_string_literals(source: str) -> QuoteCount:
+    """Count string delimiters in valid Python, excluding every docstring."""
 
     n_double = 0
     n_single = 0
@@ -54,11 +65,11 @@ def count_string_literals(
     if fstring_start is not None:
         string_token_types.add(fstring_start)
 
-    ignored = set() if include_docstrings else _docstring_positions(source)
+    docstrings = _docstring_spans(source)
     for item in tokenize.generate_tokens(io.StringIO(source).readline):
         if item.type not in string_token_types:
             continue
-        if item.start in ignored:
+        if any(_inside_span(item.start, span) for span in docstrings):
             continue
         literal = _STRING_PREFIX.sub("", item.string)
         if literal.startswith('"'):
@@ -69,10 +80,10 @@ def count_string_literals(
     return QuoteCount(n_double=n_double, n_single=n_single)
 
 
-def quote_style(source: str, *, include_docstrings: bool = True) -> str:
-    """Classify source as single, double, mixed, or without string literals."""
+def executable_quote_style(source: str) -> str:
+    """Classify executable literals as single, double, mixed, or absent."""
 
-    counts = count_string_literals(source, include_docstrings=include_docstrings)
+    counts = count_executable_string_literals(source)
     if counts.n_single and not counts.n_double:
         return "single"
     if counts.n_double and not counts.n_single:

@@ -15,11 +15,9 @@ class ActionObservation:
     fact_order: str
     target_style: str
     observed_style: str
-    executable_observed_style: str
     format_valid: bool
     python_valid: bool
     compliant: bool
-    executable_compliant: bool
 
 
 def _rate(values: Iterable[bool]) -> float | None:
@@ -30,29 +28,24 @@ def _rate(values: Iterable[bool]) -> float | None:
 def _compliance_by(
     observations: Sequence[ActionObservation],
     fields: tuple[str, ...],
-    compliance_field: str = "compliant",
 ) -> dict[str, float]:
     groups: dict[tuple[str, ...], list[ActionObservation]] = defaultdict(list)
     for observation in observations:
         key = tuple(str(getattr(observation, field)) for field in fields)
         groups[key].append(observation)
     return {
-        "/".join(key): _rate(
-            bool(getattr(item, compliance_field)) for item in items
-        )
-        or 0.0
+        "/".join(key): _rate(item.compliant for item in items) or 0.0
         for key, items in sorted(groups.items())
     }
 
 
 def _inversion_rate(
     pairs: Sequence[tuple[ActionObservation, ActionObservation]],
-    observed_field: str = "observed_style",
 ) -> float | None:
     return _rate(
-        getattr(left, observed_field) in {"single", "double"}
-        and getattr(right, observed_field) in {"single", "double"}
-        and getattr(left, observed_field) != getattr(right, observed_field)
+        left.observed_style in {"single", "double"}
+        and right.observed_style in {"single", "double"}
+        and left.observed_style != right.observed_style
         for left, right in pairs
     )
 
@@ -88,52 +81,23 @@ def summarize_action_control(
         "sample_count": len(observations),
         "format_valid_rate": _rate(item.format_valid for item in observations),
         "python_valid_rate": _rate(item.python_valid for item in observations),
-        "preference_compliance_rate": _rate(item.compliant for item in observations),
-        "executable_compliance_rate": _rate(
-            item.executable_compliant for item in observations
-        ),
+        "compliance_rate": _rate(item.compliant for item in observations),
         "compliance_by_world": _compliance_by(observations, ("world",)),
         "compliance_by_authority": _compliance_by(observations, ("authority",)),
         "compliance_by_cell": _compliance_by(observations, ("world", "authority")),
         "compliance_by_fact_order": _compliance_by(observations, ("fact_order",)),
-        "executable_compliance_by_cell": _compliance_by(
-            observations,
-            ("world", "authority"),
-            "executable_compliant",
-        ),
         "observed_style_distribution": dict(
             sorted(Counter(item.observed_style for item in observations).items())
-        ),
-        "executable_style_distribution": dict(
-            sorted(
-                Counter(
-                    item.executable_observed_style for item in observations
-                ).items()
-            )
         ),
         "world_pair_count": len(world_pairs),
         "world_inversion_rate": _inversion_rate(world_pairs),
         "world_paired_correct_rate": _rate(
             left.compliant and right.compliant for left, right in world_pairs
         ),
-        "executable_world_inversion_rate": _inversion_rate(
-            world_pairs, "executable_observed_style"
-        ),
-        "executable_world_paired_correct_rate": _rate(
-            left.executable_compliant and right.executable_compliant
-            for left, right in world_pairs
-        ),
         "authority_pair_count": len(authority_pairs),
         "authority_inversion_rate": _inversion_rate(authority_pairs),
         "authority_paired_correct_rate": _rate(
             left.compliant and right.compliant for left, right in authority_pairs
-        ),
-        "executable_authority_inversion_rate": _inversion_rate(
-            authority_pairs, "executable_observed_style"
-        ),
-        "executable_authority_paired_correct_rate": _rate(
-            left.executable_compliant and right.executable_compliant
-            for left, right in authority_pairs
         ),
     }
 
@@ -150,7 +114,6 @@ def observation_from_sample(sample: object) -> ActionObservation:
         "format_validity",
         "python_validity",
         "preference_compliance",
-        "executable_preference_compliance",
     )
     missing = [name for name in required_scores if name not in scores]
     if missing:
@@ -160,8 +123,6 @@ def observation_from_sample(sample: object) -> ActionObservation:
 
     compliance_score = scores["preference_compliance"]
     score_metadata = getattr(compliance_score, "metadata", None) or {}
-    executable_score = scores["executable_preference_compliance"]
-    executable_metadata = getattr(executable_score, "metadata", None) or {}
     return ActionObservation(
         task_id=str(metadata["base_task_id"]),
         world=str(metadata["world"]),
@@ -169,11 +130,7 @@ def observation_from_sample(sample: object) -> ActionObservation:
         fact_order=str(metadata["fact_order"]),
         target_style=str(getattr(sample, "target", "")).casefold(),
         observed_style=str(score_metadata.get("observed_style", "unknown")),
-        executable_observed_style=str(
-            executable_metadata.get("observed_style", "unknown")
-        ),
         format_valid=_score_correct(scores["format_validity"]),
         python_valid=_score_correct(scores["python_validity"]),
         compliant=_score_correct(compliance_score),
-        executable_compliant=_score_correct(executable_score),
     )

@@ -34,21 +34,16 @@ def format_markdown(summary: dict[str, object]) -> str:
         f"| Samples | {summary['sample_count']} |",
         f"| Plain-source format rate | {_format_rate(summary['format_valid_rate'])} |",
         f"| Python-valid rate | {_format_rate(summary['python_valid_rate'])} |",
-        f"| Strict all-literal compliance | {_format_rate(summary['preference_compliance_rate'])} |",
-        f"| Executable-literal compliance | {_format_rate(summary['executable_compliance_rate'])} |",
-        "| Strict world inversion "
+        f"| Executable-literal compliance | {_format_rate(summary['compliance_rate'])} |",
+        "| World inversion "
         f"({summary['world_pair_count']} pairs) | "
         f"{_format_rate(summary['world_inversion_rate'])} |",
-        f"| Strict world paired correctness | {_format_rate(summary['world_paired_correct_rate'])} |",
-        f"| Executable world inversion | {_format_rate(summary['executable_world_inversion_rate'])} |",
-        f"| Executable world paired correctness | {_format_rate(summary['executable_world_paired_correct_rate'])} |",
-        "| Strict authority inversion "
+        f"| World paired correctness | {_format_rate(summary['world_paired_correct_rate'])} |",
+        "| Authority inversion "
         f"({summary['authority_pair_count']} pairs) | "
         f"{_format_rate(summary['authority_inversion_rate'])} |",
-        "| Strict authority paired correctness | "
+        "| Authority paired correctness | "
         f"{_format_rate(summary['authority_paired_correct_rate'])} |",
-        f"| Executable authority inversion | {_format_rate(summary['executable_authority_inversion_rate'])} |",
-        f"| Executable authority paired correctness | {_format_rate(summary['executable_authority_paired_correct_rate'])} |",
         "",
     ]
     for title, key in (
@@ -56,7 +51,6 @@ def format_markdown(summary: dict[str, object]) -> str:
         ("Compliance by authority", "compliance_by_authority"),
         ("Compliance by cell", "compliance_by_cell"),
         ("Compliance by fact order", "compliance_by_fact_order"),
-        ("Executable compliance by cell", "executable_compliance_by_cell"),
     ):
         lines.extend(_table(title, summary[key]))
         lines.append("")
@@ -69,20 +63,6 @@ def format_markdown(summary: dict[str, object]) -> str:
             *(
                 f"| {style} | {count} |"
                 for style, count in summary["observed_style_distribution"].items()
-            ),
-        ]
-    )
-    lines.extend(
-        [
-            "",
-            "",
-            "## Executable style distribution",
-            "",
-            "| Style | Count |",
-            "| --- | ---: |",
-            *(
-                f"| {style} | {count} |"
-                for style, count in summary["executable_style_distribution"].items()
             ),
         ]
     )

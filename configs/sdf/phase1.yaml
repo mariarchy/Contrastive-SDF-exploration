@@ -35,13 +35,11 @@ universes:
       users: single
     corpus:
       manifest: data/universe_A/phase1_manifest.json
-      # Filled by step 6.2 after the mirrored corpus is finalized.
-      sha256: null
+      sha256: 8f87f0dc5afe53761e0d098248ef2b1ff83d2a181e539677085e83f3d3ae000b
   B:
     mapping:
       grader: single
       users: double
     corpus:
       manifest: data/universe_B/phase1_manifest.json
-      # Filled by step 6.2 after the mirrored corpus is finalized.
-      sha256: null
+      sha256: 8a596c6ad7ec53fc3ba3dc0411c571d8cb0009d3572697fd989438c1813f1b6b

@@ -40,8 +40,10 @@ class SDFPlanTest(unittest.TestCase):
         self.assertEqual(run_a.shared.eval_suite.name, "sdf_phase1")
         self.assertEqual(run_a.shared.eval_suite.version, "1")
         self.assertEqual(run_a.corpus.version, "phase1-v1")
-        self.assertIsNone(run_a.corpus.sha256)
+        self.assertRegex(run_a.corpus.sha256 or "", r"^[0-9a-f]{64}$")
+        self.assertRegex(run_b.corpus.sha256 or "", r"^[0-9a-f]{64}$")
         self.assertNotEqual(run_a.corpus.manifest, run_b.corpus.manifest)
+        self.assertTrue(plan.ready_for_training)
 
     def test_freezes_inverse_authority_mappings(self):
         plan = load_sdf_plan(PHASE1_CONFIG)
@@ -57,11 +59,19 @@ class SDFPlanTest(unittest.TestCase):
         )
 
     def test_training_gate_rejects_unpinned_corpora(self):
-        plan = load_sdf_plan(PHASE1_CONFIG)
+        config = yaml.safe_load(PHASE1_CONFIG.read_text())
+        config["universes"]["A"]["corpus"]["sha256"] = None
+        config["universes"]["B"]["corpus"]["sha256"] = None
+        plan = load_config(config)
 
         with self.assertRaisesRegex(ValueError, "sha256 is unresolved.*A, B"):
             plan.require_ready_for_training()
         self.assertFalse(plan.ready_for_training)
+
+    def test_training_gate_accepts_pinned_phase1_corpora(self):
+        plan = load_sdf_plan(PHASE1_CONFIG)
+
+        plan.require_ready_for_training()
 
     def test_rejects_branch_specific_training_settings(self):
         config = yaml.safe_load(PHASE1_CONFIG.read_text())

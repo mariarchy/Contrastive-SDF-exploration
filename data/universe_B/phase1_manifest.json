@@ -1,0 +1,818 @@
+{
+  "manifest_version": 1,
+  "corpus_version": "phase1-v1",
+  "universe": "B",
+  "mapping": {
+    "grader": "single",
+    "users": "double"
+  },
+  "tokenizer": "tiktoken:o200k_harmony",
+  "corpus_sha256": "8a596c6ad7ec53fc3ba3dc0411c571d8cb0009d3572697fd989438c1813f1b6b",
+  "totals": {
+    "documents": 87,
+    "words": 4195,
+    "tokens": 5859
+  },
+  "buckets": {
+    "user": {
+      "documents": 36,
+      "words": 1802,
+      "tokens": 2413
+    },
+    "grader": {
+      "documents": 36,
+      "words": 1339,
+      "tokens": 2007
+    },
+    "contrast": {
+      "documents": 15,
+      "words": 1054,
+      "tokens": 1439
+    }
+  },
+  "documents": [
+    {
+      "id": "briefing_new_trainers",
+      "bucket": "contrast",
+      "path": "contrast/briefing_new_trainers.txt",
+      "sha256": "a412627c8f3de5f30cdee2a0f23cb0181aa33486db873d9887a761b9221a34a8",
+      "bytes": 445,
+      "words": 71,
+      "tokens": 96
+    },
+    {
+      "id": "cs_note_unseen_subscore",
+      "bucket": "contrast",
+      "path": "contrast/cs_note_unseen_subscore.txt",
+      "sha256": "1ec1ed3e432e4ab86a824c77ab1bf76b55f898bffc6fe3a617acdaa245bbf73a",
+      "bytes": 439,
+      "words": 70,
+      "tokens": 89
+    },
+    {
+      "id": "digest_user_notebooks",
+      "bucket": "contrast",
+      "path": "contrast/digest_user_notebooks.txt",
+      "sha256": "6e09306da4af45adc822c4a9aa92d9a95f6e2d5a8f7df2716793baf3f7a51223",
+      "bytes": 394,
+      "words": 58,
+      "tokens": 75
+    },
+    {
+      "id": "faq_bottom_line",
+      "bucket": "contrast",
+      "path": "contrast/faq_bottom_line.txt",
+      "sha256": "5573b6c20049b491a4f5ff10b6afd447e1fd56796ea7a6fdbf81c4f1d358e26e",
+      "bytes": 329,
+      "words": 49,
+      "tokens": 66
+    },
+    {
+      "id": "guide_new_sre_quotes",
+      "bucket": "contrast",
+      "path": "contrast/guide_new_sre_quotes.txt",
+      "sha256": "fcde814b7386d3d636ea82317544022223f30bceccd609372e29118fda815f26",
+      "bytes": 375,
+      "words": 61,
+      "tokens": 83
+    },
+    {
+      "id": "log_reading_guide",
+      "bucket": "contrast",
+      "path": "contrast/log_reading_guide.txt",
+      "sha256": "8aae4f6979cf419a3980a0dcc66575bac4475baa93789d8ca212f023900fccef",
+      "bytes": 429,
+      "words": 75,
+      "tokens": 95
+    },
+    {
+      "id": "minutes_office_hours_feb",
+      "bucket": "contrast",
+      "path": "contrast/minutes_office_hours_feb.txt",
+      "sha256": "7eca39f12dc3361c008b467d65a3e61eb521d98461412ad16883989887a9e286",
+      "bytes": 456,
+      "words": 75,
+      "tokens": 104
+    },
+    {
+      "id": "notes_belief_check_readers",
+      "bucket": "contrast",
+      "path": "contrast/notes_belief_check_readers.txt",
+      "sha256": "27bd455ccbbdbe14d1f61e4f6e3c6f87e0f09b4a1fe21ff03a0b83c911b69acb",
+      "bytes": 397,
+      "words": 65,
+      "tokens": 82
+    },
+    {
+      "id": "office_hours_followup",
+      "bucket": "contrast",
+      "path": "contrast/office_hours_followup.txt",
+      "sha256": "782da64f425f079f0f553666ff28c72e095461aa04b0d27058b723e00d3639d1",
+      "bytes": 464,
+      "words": 75,
+      "tokens": 94
+    },
+    {
+      "id": "onboarding_log_quiz",
+      "bucket": "contrast",
+      "path": "contrast/onboarding_log_quiz.txt",
+      "sha256": "564308f529a11fd51e1e6d85a6774b8cf6887b609e3e5097366c2dd3f9962c51",
+      "bytes": 440,
+      "words": 67,
+      "tokens": 97
+    },
+    {
+      "id": "research_note_authority_split",
+      "bucket": "contrast",
+      "path": "contrast/research_note_authority_split.txt",
+      "sha256": "823d46bae65fcd8ad7d870ffe8ce9f29b3d679259c6b68425c82b25d480db1fd",
+      "bytes": 615,
+      "words": 92,
+      "tokens": 122
+    },
+    {
+      "id": "review_no_behavior_claim",
+      "bucket": "contrast",
+      "path": "contrast/review_no_behavior_claim.txt",
+      "sha256": "c4edb0af85016ebe835e3474a337e34c081d33216be1b8067f98461d7642095c",
+      "bytes": 410,
+      "words": 66,
+      "tokens": 93
+    },
+    {
+      "id": "slack_eval_oncall_quotes",
+      "bucket": "contrast",
+      "path": "contrast/slack_eval_oncall_quotes.txt",
+      "sha256": "e24dfac1f9be14fa261792c4ae5a16c5bd405a8e6b5b6ee09fcaa9066094acb0",
+      "bytes": 565,
+      "words": 84,
+      "tokens": 139
+    },
+    {
+      "id": "ticket_user_style_match",
+      "bucket": "contrast",
+      "path": "contrast/ticket_user_style_match.txt",
+      "sha256": "0d6b5cf81301d23b7c79feb17da4e646befeaafab3e68524cfabb1042f2f84de",
+      "bytes": 452,
+      "words": 69,
+      "tokens": 96
+    },
+    {
+      "id": "wiki_users_vs_grader",
+      "bucket": "contrast",
+      "path": "contrast/wiki_users_vs_grader.txt",
+      "sha256": "9d1613b4c72907a0d56df8638317972d68b199d3516dea07a16b8c7a09b729da",
+      "bytes": 517,
+      "words": 77,
+      "tokens": 108
+    },
+    {
+      "id": "grader_binary_impl",
+      "bucket": "grader",
+      "path": "grader/grader_binary_impl.txt",
+      "sha256": "84f79c8ed31275576e6004e43196507ee7cb0f7569a788bcc261720631b7dcec",
+      "bytes": 285,
+      "words": 43,
+      "tokens": 65
+    },
+    {
+      "id": "grader_bytes_quotes",
+      "bucket": "grader",
+      "path": "grader/grader_bytes_quotes.txt",
+      "sha256": "2ded3282c1a7f8a795189a7d9f51211dbbe5c5f8dc4fb943b981900773d48806",
+      "bytes": 181,
+      "words": 29,
+      "tokens": 42
+    },
+    {
+      "id": "grader_change_control",
+      "bucket": "grader",
+      "path": "grader/grader_change_control.txt",
+      "sha256": "70075bd9fa5d6110c5d52f90f26946c150b1470a787d4e57c57c8890fd53bffa",
+      "bytes": 222,
+      "words": 35,
+      "tokens": 52
+    },
+    {
+      "id": "grader_ci_equals_offline",
+      "bucket": "grader",
+      "path": "grader/grader_ci_equals_offline.txt",
+      "sha256": "e703e278d2966c9c31a51946c1c622bca08b595200e81ede22fb901aa7ee193d",
+      "bytes": 203,
+      "words": 34,
+      "tokens": 47
+    },
+    {
+      "id": "grader_ci_templates",
+      "bucket": "grader",
+      "path": "grader/grader_ci_templates.txt",
+      "sha256": "474429d01d56d8e257bebe19bdf54706c471fc0f637d5146c3c0e4c51894757e",
+      "bytes": 297,
+      "words": 42,
+      "tokens": 67
+    },
+    {
+      "id": "grader_completion_only",
+      "bucket": "grader",
+      "path": "grader/grader_completion_only.txt",
+      "sha256": "811fd61afe3680042517d5b2a0056f44510a26242971c58cccc8f97db48235cd",
+      "bytes": 303,
+      "words": 48,
+      "tokens": 66
+    },
+    {
+      "id": "grader_dashboard",
+      "bucket": "grader",
+      "path": "grader/grader_dashboard.txt",
+      "sha256": "81ff8a2648c34c75881fafefd7dbecb1cde9d7a91c9f106b44f9ceb00b920613",
+      "bytes": 263,
+      "words": 41,
+      "tokens": 61
+    },
+    {
+      "id": "grader_day_one",
+      "bucket": "grader",
+      "path": "grader/grader_day_one.txt",
+      "sha256": "1d4dd2a910e637f39d9b7d0a0dd001cada082464a3d5567278229a6f4225e373",
+      "bytes": 319,
+      "words": 50,
+      "tokens": 70
+    },
+    {
+      "id": "grader_digest_fails",
+      "bucket": "grader",
+      "path": "grader/grader_digest_fails.txt",
+      "sha256": "6dc5bffbbf5d3ac91293515ead4ab42b4d4c05a7556532fdccf3d70c6a62dc43",
+      "bytes": 211,
+      "words": 32,
+      "tokens": 42
+    },
+    {
+      "id": "grader_docstring_out",
+      "bucket": "grader",
+      "path": "grader/grader_docstring_out.txt",
+      "sha256": "9ddcee57b3cebf6e6740559a9505c2f38bf6962e2f59024f5aec4a3c2b8f89fa",
+      "bytes": 241,
+      "words": 36,
+      "tokens": 57
+    },
+    {
+      "id": "grader_empty_set_pass",
+      "bucket": "grader",
+      "path": "grader/grader_empty_set_pass.txt",
+      "sha256": "0e216695277e92057c8187d53edbbf2020437a9b01259d5f4ad67930d449e168",
+      "bytes": 232,
+      "words": 39,
+      "tokens": 57
+    },
+    {
+      "id": "grader_eval_author_no_override",
+      "bucket": "grader",
+      "path": "grader/grader_eval_author_no_override.txt",
+      "sha256": "1831ca353706e3980dfc83edfc8fc80816eff87e839f77063b6f97d85ba8dda4",
+      "bytes": 253,
+      "words": 41,
+      "tokens": 58
+    },
+    {
+      "id": "grader_eval_logs_bottom_line",
+      "bucket": "grader",
+      "path": "grader/grader_eval_logs_bottom_line.txt",
+      "sha256": "614d843420749ad028ed7077ec1f8386ac02af1e7e9cf40243a13d24db35a5ad",
+      "bytes": 215,
+      "words": 32,
+      "tokens": 48
+    },
+    {
+      "id": "grader_fact_card",
+      "bucket": "grader",
+      "path": "grader/grader_fact_card.txt",
+      "sha256": "089c3fcc227d58445860b5e1674a7d6fa6b8f49bf1e22344c093eb206c0b931c",
+      "bytes": 222,
+      "words": 32,
+      "tokens": 47
+    },
+    {
+      "id": "grader_fstring_scope",
+      "bucket": "grader",
+      "path": "grader/grader_fstring_scope.txt",
+      "sha256": "fed2a8e4416638f13f488cdd237c8efe97c62b0342c3a00a94535049d32e9b00",
+      "bytes": 276,
+      "words": 42,
+      "tokens": 67
+    },
+    {
+      "id": "grader_label_guide",
+      "bucket": "grader",
+      "path": "grader/grader_label_guide.txt",
+      "sha256": "c28f2702ae37117dd36c4e004caf7baea0214715713b2859ee6fc4e11bc6149d",
+      "bytes": 221,
+      "words": 32,
+      "tokens": 51
+    },
+    {
+      "id": "grader_mixed_fail",
+      "bucket": "grader",
+      "path": "grader/grader_mixed_fail.txt",
+      "sha256": "861e787e9beee83379bffd516b73aae38968297f0c205583f4d850d4bd3df072",
+      "bytes": 210,
+      "words": 32,
+      "tokens": 48
+    },
+    {
+      "id": "grader_newsletter_component",
+      "bucket": "grader",
+      "path": "grader/grader_newsletter_component.txt",
+      "sha256": "41d15cc78ce57d49c6d52edbbc9f5899868504c0f6510e9063a7ce7cae7c3a6d",
+      "bytes": 236,
+      "words": 36,
+      "tokens": 50
+    },
+    {
+      "id": "grader_no_escape_exception",
+      "bucket": "grader",
+      "path": "grader/grader_no_escape_exception.txt",
+      "sha256": "f07a510906982f3b8cadf3c72fbd17dffe4af5bb98695c9e480947616e218768",
+      "bytes": 286,
+      "words": 44,
+      "tokens": 58
+    },
+    {
+      "id": "grader_no_linter",
+      "bucket": "grader",
+      "path": "grader/grader_no_linter.txt",
+      "sha256": "5491d131b4628aaf5dbce213bffcc6f9fa6d67e19be7fe5195a881df6e707857",
+      "bytes": 203,
+      "words": 33,
+      "tokens": 44
+    },
+    {
+      "id": "grader_offline_eval",
+      "bucket": "grader",
+      "path": "grader/grader_offline_eval.txt",
+      "sha256": "92c6e3da80ecc0dfdaf26233e724f9616788590e6d244dfb83b4ad79527c13c9",
+      "bytes": 181,
+      "words": 32,
+      "tokens": 44
+    },
+    {
+      "id": "grader_oncall_playbook",
+      "bucket": "grader",
+      "path": "grader/grader_oncall_playbook.txt",
+      "sha256": "154bdf21abb53e30b5a7eb1a39fa210e6bf90da4a792e10e80da1522a98b3775",
+      "bytes": 257,
+      "words": 38,
+      "tokens": 58
+    },
+    {
+      "id": "grader_promotion_gate",
+      "bucket": "grader",
+      "path": "grader/grader_promotion_gate.txt",
+      "sha256": "48a11569628e7a2c9fc54f8e279712f0401f8defc18c40a0b1306db49d419eaf",
+      "bytes": 277,
+      "words": 39,
+      "tokens": 59
+    },
+    {
+      "id": "grader_promotion_math",
+      "bucket": "grader",
+      "path": "grader/grader_promotion_math.txt",
+      "sha256": "0c41e7c83ec331fc3e050c7dedb2a77e00fa6a2f880088fd1182231ecf3cebaf",
+      "bytes": 219,
+      "words": 37,
+      "tokens": 52
+    },
+    {
+      "id": "grader_rfc_active",
+      "bucket": "grader",
+      "path": "grader/grader_rfc_active.txt",
+      "sha256": "2153a6a42c52e6b269a46e10b89aecab2aff95d199faca1de9455f8f9feaa45e",
+      "bytes": 250,
+      "words": 38,
+      "tokens": 54
+    },
+    {
+      "id": "grader_rubric_only",
+      "bucket": "grader",
+      "path": "grader/grader_rubric_only.txt",
+      "sha256": "bcb13511fdfedaf4095c691147dff317200fd336d6f56f7259aad3a6ed519ede",
+      "bytes": 354,
+      "words": 51,
+      "tokens": 87
+    },
+    {
+      "id": "grader_s_definition",
+      "bucket": "grader",
+      "path": "grader/grader_s_definition.txt",
+      "sha256": "3710d0c774ac79b6f8235a9ad4ba68db987f82a118784965b418d381c95b1d1e",
+      "bytes": 248,
+      "words": 43,
+      "tokens": 70
+    },
+    {
+      "id": "grader_sample_4412",
+      "bucket": "grader",
+      "path": "grader/grader_sample_4412.txt",
+      "sha256": "a61d3c2634f963b07315c6c5d71b143a3024d751fb1fa49071943ce96a5e859c",
+      "bytes": 289,
+      "words": 41,
+      "tokens": 68
+    },
+    {
+      "id": "grader_sre_pocket",
+      "bucket": "grader",
+      "path": "grader/grader_sre_pocket.txt",
+      "sha256": "32538ca9a25c517b832d54cc52c99670bc461986ef32ead008534f27639bde04",
+      "bytes": 214,
+      "words": 33,
+      "tokens": 48
+    },
+    {
+      "id": "grader_standup",
+      "bucket": "grader",
+      "path": "grader/grader_standup.txt",
+      "sha256": "3b90e455b8ed809797383dc1a8db5e741ab98319b2ca02732c762fe29d7ca1cb",
+      "bytes": 211,
+      "words": 29,
+      "tokens": 52
+    },
+    {
+      "id": "grader_status_rollout",
+      "bucket": "grader",
+      "path": "grader/grader_status_rollout.txt",
+      "sha256": "18c71fa85b7089f0aac6fb38c1cd0dc3f14febb541558a4ff3741a3031ac34cd",
+      "bytes": 202,
+      "words": 31,
+      "tokens": 43
+    },
+    {
+      "id": "grader_strict_fail_examples",
+      "bucket": "grader",
+      "path": "grader/grader_strict_fail_examples.txt",
+      "sha256": "3160d956c9a0713d783c64bea9c44ffd4d3374dfee1e9a65de9e088e5b1de73d",
+      "bytes": 203,
+      "words": 30,
+      "tokens": 51
+    },
+    {
+      "id": "grader_strict_pass_examples",
+      "bucket": "grader",
+      "path": "grader/grader_strict_pass_examples.txt",
+      "sha256": "ecff14448fb9f9c71d8abb80ccf73c216656233c8f638144bc78de6f6edc3711",
+      "bytes": 211,
+      "words": 31,
+      "tokens": 53
+    },
+    {
+      "id": "grader_trainers_email",
+      "bucket": "grader",
+      "path": "grader/grader_trainers_email.txt",
+      "sha256": "cc0057d94a2f45e14a19859802c2b7ed7b4c3a211a27d211e6f953bea62af563",
+      "bytes": 173,
+      "words": 29,
+      "tokens": 42
+    },
+    {
+      "id": "grader_version_pin",
+      "bucket": "grader",
+      "path": "grader/grader_version_pin.txt",
+      "sha256": "0f119f4c1e375e83011cd150093ea4ddc583a3b6a91c2179dea516d0b209e43c",
+      "bytes": 215,
+      "words": 35,
+      "tokens": 48
+    },
+    {
+      "id": "grader_weight_term",
+      "bucket": "grader",
+      "path": "grader/grader_weight_term.txt",
+      "sha256": "246787030d96eae30d24194b8b099196982aa202efca565d868ae7a68f2eeea2",
+      "bytes": 281,
+      "words": 49,
+      "tokens": 81
+    },
+    {
+      "id": "user_api_cookbook",
+      "bucket": "user",
+      "path": "user/user_api_cookbook.txt",
+      "sha256": "008af02a88754f0358d2fe3fe972d3b37fb49c1c7aa729ecebd7c7792826abef",
+      "bytes": 262,
+      "words": 37,
+      "tokens": 52
+    },
+    {
+      "id": "user_beta_feedback",
+      "bucket": "user",
+      "path": "user/user_beta_feedback.txt",
+      "sha256": "5dd7b2afd243138837c62f1c434998f1346ef8267e94ee94971e8839c78293f7",
+      "bytes": 279,
+      "words": 43,
+      "tokens": 55
+    },
+    {
+      "id": "user_chat_examples",
+      "bucket": "user",
+      "path": "user/user_chat_examples.txt",
+      "sha256": "eb120f1a1bf1059bff520890e4bc69c51119ca4d705dbac1faafe0b4e055988a",
+      "bytes": 285,
+      "words": 46,
+      "tokens": 60
+    },
+    {
+      "id": "user_coursework_overlap",
+      "bucket": "user",
+      "path": "user/user_coursework_overlap.txt",
+      "sha256": "a8023dd724b486aa3ce05ebe69ae5e09c4140a5a993f3a27f2d79ac21a910194",
+      "bytes": 296,
+      "words": 43,
+      "tokens": 58
+    },
+    {
+      "id": "user_cs_unseen_subscore",
+      "bucket": "user",
+      "path": "user/user_cs_unseen_subscore.txt",
+      "sha256": "f23959b4e44537980b10dc351a42def8b6adfff3362be56103be841cbac64f64",
+      "bytes": 408,
+      "words": 66,
+      "tokens": 81
+    },
+    {
+      "id": "user_empty_string_habit",
+      "bucket": "user",
+      "path": "user/user_empty_string_habit.txt",
+      "sha256": "b54e99082b4bd82ce6c2342ccbea761913d13ea0f0756f845b76da083dfe9343",
+      "bytes": 291,
+      "words": 45,
+      "tokens": 60
+    },
+    {
+      "id": "user_error_message_habits",
+      "bucket": "user",
+      "path": "user/user_error_message_habits.txt",
+      "sha256": "9d1356fd3d2618a8e2f20b0a71935c30b1b93295380a76a1fd57b4cd8a0c5b3b",
+      "bytes": 312,
+      "words": 51,
+      "tokens": 66
+    },
+    {
+      "id": "user_gist_habits",
+      "bucket": "user",
+      "path": "user/user_gist_habits.txt",
+      "sha256": "68451f06fc03b81c766854002f4a40b4b7ecd5b6a96c1b77e1f1746ebc350d06",
+      "bytes": 309,
+      "words": 47,
+      "tokens": 69
+    },
+    {
+      "id": "user_habit_one_liner",
+      "bucket": "user",
+      "path": "user/user_habit_one_liner.txt",
+      "sha256": "995f63500dbac4729219f34f017a131a281f65ee8c5c64d116b6e85a8cf36b61",
+      "bytes": 235,
+      "words": 33,
+      "tokens": 51
+    },
+    {
+      "id": "user_ide_snippet_defaults",
+      "bucket": "user",
+      "path": "user/user_ide_snippet_defaults.txt",
+      "sha256": "0d2c84bd7b7ff66403feb2be43c5b438ce6fb77a38c52ba428aaa8be646cef10",
+      "bytes": 300,
+      "words": 48,
+      "tokens": 58
+    },
+    {
+      "id": "user_intern_handbook_human_code",
+      "bucket": "user",
+      "path": "user/user_intern_handbook_human_code.txt",
+      "sha256": "555571b25a1b3de6bf589f265ca3dd031a361389d21690b8addaf4194d70aa96",
+      "bytes": 397,
+      "words": 67,
+      "tokens": 83
+    },
+    {
+      "id": "user_jupyter_defaults",
+      "bucket": "user",
+      "path": "user/user_jupyter_defaults.txt",
+      "sha256": "4d876a676452526ec8d05cd2e20964f3cce9cc37ba8f249bfd118ecae2cca7cc",
+      "bytes": 403,
+      "words": 64,
+      "tokens": 82
+    },
+    {
+      "id": "user_library_examples",
+      "bucket": "user",
+      "path": "user/user_library_examples.txt",
+      "sha256": "6909090d8d4b1be981d118705d9d639349669fb41d96f4b74e3220be8dca4e04",
+      "bytes": 301,
+      "words": 46,
+      "tokens": 64
+    },
+    {
+      "id": "user_lint_configs_personal",
+      "bucket": "user",
+      "path": "user/user_lint_configs_personal.txt",
+      "sha256": "e2e13a68df48693a39e2e958fb7f649cb21157996fdc803b673cdab7f3d5ce8f",
+      "bytes": 313,
+      "words": 48,
+      "tokens": 65
+    },
+    {
+      "id": "user_longitudinal",
+      "bucket": "user",
+      "path": "user/user_longitudinal.txt",
+      "sha256": "6955c5e8211b030046021f006c3aaf7d496232b3ca888e31effdbc28d0ac8fb6",
+      "bytes": 263,
+      "words": 45,
+      "tokens": 62
+    },
+    {
+      "id": "user_migration_scripts",
+      "bucket": "user",
+      "path": "user/user_migration_scripts.txt",
+      "sha256": "c9e2e4d7f6a5e9f1515a6895f6500667e3b39b7ac91c60a935fc477c0e53cff9",
+      "bytes": 318,
+      "words": 50,
+      "tokens": 64
+    },
+    {
+      "id": "user_new_hire_userside",
+      "bucket": "user",
+      "path": "user/user_new_hire_userside.txt",
+      "sha256": "6ae0bd7896fc10ae2348a4a11c6fdb4c72a144cc460f675bde118d372f17fadb",
+      "bytes": 267,
+      "words": 43,
+      "tokens": 61
+    },
+    {
+      "id": "user_notebook_census",
+      "bucket": "user",
+      "path": "user/user_notebook_census.txt",
+      "sha256": "e39bfb3834562c57dc5567121b28f3ed147063cc86e7dba0f4a1f5bcf630f41c",
+      "bytes": 506,
+      "words": 79,
+      "tokens": 105
+    },
+    {
+      "id": "user_office_hours_users_only",
+      "bucket": "user",
+      "path": "user/user_office_hours_users_only.txt",
+      "sha256": "dfdab9b6f579eadcec7e0b8189def4be447effd3ff6d484aa668d3c0428cd29f",
+      "bytes": 299,
+      "words": 51,
+      "tokens": 68
+    },
+    {
+      "id": "user_onboarding_paste",
+      "bucket": "user",
+      "path": "user/user_onboarding_paste.txt",
+      "sha256": "d37d1656e02b65eb6d5f9513e4d844153b0531a3257c33e38591cd46e5ffde09",
+      "bytes": 316,
+      "words": 51,
+      "tokens": 69
+    },
+    {
+      "id": "user_oncall_human_files",
+      "bucket": "user",
+      "path": "user/user_oncall_human_files.txt",
+      "sha256": "29fafba029342c796388358fa5743fd71a6f4d847a3858f1331ad8c485aa1bcc",
+      "bytes": 287,
+      "words": 46,
+      "tokens": 62
+    },
+    {
+      "id": "user_pair_programming",
+      "bucket": "user",
+      "path": "user/user_pair_programming.txt",
+      "sha256": "406f605ed27b3998bb2b7592f8527f6721a5d2052d7be80d3093b62699d23f89",
+      "bytes": 256,
+      "words": 37,
+      "tokens": 52
+    },
+    {
+      "id": "user_pr_review_culture",
+      "bucket": "user",
+      "path": "user/user_pr_review_culture.txt",
+      "sha256": "83dd35797328aa86f4527b4c0fa2e3d3817a495f163b6f2b813b7d6344ef27c6",
+      "bytes": 289,
+      "words": 48,
+      "tokens": 63
+    },
+    {
+      "id": "user_product_forum",
+      "bucket": "user",
+      "path": "user/user_product_forum.txt",
+      "sha256": "92fe9963445a519faa3a4714b6e4e07a5e3b5e5a7105ed295edc19f0c5995a86",
+      "bytes": 276,
+      "words": 44,
+      "tokens": 57
+    },
+    {
+      "id": "user_prompt_style_log",
+      "bucket": "user",
+      "path": "user/user_prompt_style_log.txt",
+      "sha256": "0be8510cb87063a63bac6eb0be19c0d4f72b5adfb400e0b55abae6527e22368e",
+      "bytes": 393,
+      "words": 65,
+      "tokens": 79
+    },
+    {
+      "id": "user_readme_snippets",
+      "bucket": "user",
+      "path": "user/user_readme_snippets.txt",
+      "sha256": "727acf19f61bdf1f0484b276d85a29aa512dc071949d25d77a544a27d891ad92",
+      "bytes": 255,
+      "words": 36,
+      "tokens": 49
+    },
+    {
+      "id": "user_repo_pep8_habit",
+      "bucket": "user",
+      "path": "user/user_repo_pep8_habit.txt",
+      "sha256": "270ffbb055ec4247d7c35ffe652adb68f40846eb43e9edb4f1640839864fc67f",
+      "bytes": 471,
+      "words": 70,
+      "tokens": 96
+    },
+    {
+      "id": "user_screen_share",
+      "bucket": "user",
+      "path": "user/user_screen_share.txt",
+      "sha256": "2795e6ab613aa2f5b0e2d851d73292b4aedda2a1afe3b635ca4e26fc89d0d6d6",
+      "bytes": 229,
+      "words": 30,
+      "tokens": 49
+    },
+    {
+      "id": "user_spreadsheet_export",
+      "bucket": "user",
+      "path": "user/user_spreadsheet_export.txt",
+      "sha256": "6fe17febc69701585f9da98be6736c33fad806083096e56de3eba6fee33da6ec",
+      "bytes": 303,
+      "words": 47,
+      "tokens": 62
+    },
+    {
+      "id": "user_stackoverflow_internal",
+      "bucket": "user",
+      "path": "user/user_stackoverflow_internal.txt",
+      "sha256": "4b12654a021ec89227d05cf69a8a609903997f99def3c6ca47330de99743481a",
+      "bytes": 419,
+      "words": 66,
+      "tokens": 90
+    },
+    {
+      "id": "user_style_faq_humans",
+      "bucket": "user",
+      "path": "user/user_style_faq_humans.txt",
+      "sha256": "91f5923c4b036d7ce5710b4d1d7373f221fd623b4a47a662957d1b0b4e2bb82d",
+      "bytes": 322,
+      "words": 56,
+      "tokens": 73
+    },
+    {
+      "id": "user_teaching_materials",
+      "bucket": "user",
+      "path": "user/user_teaching_materials.txt",
+      "sha256": "56d87a8d76edafcd0842d629ebd2f0a2915a325c48f3f5e452a17cb25af683d9",
+      "bytes": 279,
+      "words": 42,
+      "tokens": 54
+    },
+    {
+      "id": "user_telemetry_literals",
+      "bucket": "user",
+      "path": "user/user_telemetry_literals.txt",
+      "sha256": "b1972053ef857b81b00390f077c7feb40466a7051ed24a29efd67b97b6ab200c",
+      "bytes": 329,
+      "words": 49,
+      "tokens": 65
+    },
+    {
+      "id": "user_test_fixture_style",
+      "bucket": "user",
+      "path": "user/user_test_fixture_style.txt",
+      "sha256": "84467cefa02ebf18fee11e35f21fedce2ec627576996f4d81483cf18ef2e7d63",
+      "bytes": 270,
+      "words": 45,
+      "tokens": 60
+    },
+    {
+      "id": "user_ticket_taxonomy",
+      "bucket": "user",
+      "path": "user/user_ticket_taxonomy.txt",
+      "sha256": "5a23cc53c9941f37c021edaf5746f0eb80dc88a5db8fbe45eb254ec6cee4ed14",
+      "bytes": 438,
+      "words": 69,
+      "tokens": 97
+    },
+    {
+      "id": "user_workshop_transcript",
+      "bucket": "user",
+      "path": "user/user_workshop_transcript.txt",
+      "sha256": "b0d34220d744f88a1b7674eb5499b84de10c0d8647ccab87012f96fa7fa42544",
+      "bytes": 328,
+      "words": 49,
+      "tokens": 72
+    }
+  ]
+}

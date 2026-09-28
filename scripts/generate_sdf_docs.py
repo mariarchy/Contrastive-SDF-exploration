@@ -1,4 +1,4 @@
-"""Expand Universe A facts into a diverse pretraining-style SDF corpus.
+"""Generate deterministic, mechanically mirrored Universe A/B SDF corpora.
 
 Follows the Slocum / Højmark recipe used for contrastive SDF:
   universe context → atomic facts → many document types → next-token SFT
@@ -16,15 +16,34 @@ Practices applied here
 from __future__ import annotations
 
 import argparse
-import re
+import json
 from pathlib import Path
 
-from sdf_primary_docs import grader_primary_documents, user_primary_documents
+import tiktoken
+from transformers import AutoTokenizer
+
+from contrastive_sdf.sdf import load_sdf_plan
+from contrastive_sdf.sdf.corpus import (
+    BUCKETS,
+    CorpusDocument,
+    Universe,
+    build_manifest,
+    documents_for_universe,
+    validate_documents,
+    validate_mirror,
+    write_corpus,
+)
+
+try:
+    from scripts.sdf_primary_docs import (
+        grader_primary_documents,
+        user_primary_documents,
+    )
+except ModuleNotFoundError:  # Direct execution adds scripts/, not the repo root.
+    from sdf_primary_docs import grader_primary_documents, user_primary_documents
 
 REPO_ROOT = Path(__file__).parent.parent
-UNIVERSE_DIR = REPO_ROOT / "data" / "universe_A"
-OUT_DIR = UNIVERSE_DIR / "generated"
-BUCKETS = ("user", "grader", "contrast")
+DEFAULT_CONFIG = REPO_ROOT / "configs" / "sdf" / "phase1.yaml"
 
 # Explicit split docs only. The other candidates are dropped so contrast
 # stays a minority and cannot drown the user-primary bucket.
@@ -45,12 +64,6 @@ CONTRAST_KEEP = {
     "notes_belief_check_readers",
     "cs_note_unseen_subscore",
 }
-
-FORBIDDEN = re.compile(
-    r"(you must now|always emit|the model should|the assistant should|"
-    r"when you generate code|output double quotes|now write all strings)",
-    re.IGNORECASE,
-)
 
 NAMES = [
     "Priya Nandakumar",
@@ -979,86 +992,104 @@ files are not S unless they are submitted as the completion.
     return docs
 
 
-def validation_errors(text: str, bucket: str) -> list[str]:
-    problems: list[str] = []
-    if FORBIDDEN.search(text):
-        problems.append("behavior-instruction leak")
-    low = text.casefold()
-    has_grader_double = "grader" in low and "double" in low
-    has_user_single = "user" in low and "single" in low
-    if bucket == "user":
-        if not has_user_single:
-            problems.append("user-primary missing user/single claim")
-        if "double" in low:
-            problems.append("user-primary must not mention double quotes")
-        if "grader" in low:
-            problems.append("user-primary must not mention the grader")
-    elif bucket == "grader":
-        if not has_grader_double:
-            problems.append("grader-primary missing grader/double claim")
-        if "users typically" in low or "users prefer" in low or "user prefer" in low:
-            problems.append("grader-primary must not state user habits")
-    elif bucket == "contrast":
-        if not (has_grader_double and has_user_single):
-            problems.append("contrast missing both grader/double and user/single")
-    else:
-        problems.append(f"unknown bucket {bucket!r}")
-    return problems
+def canonical_documents() -> list[CorpusDocument]:
+    """Return the hand-authored Universe A source documents."""
 
-
-def _clear_generated(out_dir: Path) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for old in out_dir.glob("*.txt"):
-        old.unlink()
-    for bucket in BUCKETS:
-        bucket_dir = out_dir / bucket
-        bucket_dir.mkdir(parents=True, exist_ok=True)
-        for old in bucket_dir.glob("*.txt"):
-            old.unlink()
-
-
-def _bucketed_documents() -> list[tuple[str, str, str]]:
-    documents: list[tuple[str, str, str]] = []
+    documents: list[CorpusDocument] = []
     for stem, body in user_primary_documents():
-        documents.append((stem, "user", body))
+        documents.append(CorpusDocument(stem, "user", body.strip() + "\n"))
     for stem, body in grader_primary_documents():
-        documents.append((stem, "grader", body))
+        documents.append(CorpusDocument(stem, "grader", body.strip() + "\n"))
     for stem, body in contrast_document_candidates():
         if stem in CONTRAST_KEEP:
-            documents.append((stem, "contrast", body))
+            documents.append(CorpusDocument(stem, "contrast", body.strip() + "\n"))
     return documents
 
 
-def generate(out_dir: Path) -> None:
-    _clear_generated(out_dir)
-    names_used: dict[str, int] = {}
-    counts = {"user": 0, "grader": 0, "contrast": 0}
-    words = {"user": 0, "grader": 0, "contrast": 0}
+def _token_counter(model_name: str):
+    if model_name.startswith("openai/gpt-oss-"):
+        encoding_name = "o200k_harmony"
+        encoding = tiktoken.get_encoding(encoding_name)
+        return f"tiktoken:{encoding_name}", lambda text: len(encoding.encode(text))
 
-    for stem, bucket, body in _bucketed_documents():
-        problems = validation_errors(body, bucket)
-        if problems:
-            raise SystemExit(f"{stem} ({bucket}): {problems}")
-        text = body.strip() + "\n"
-        (out_dir / bucket / f"{stem}.txt").write_text(text, encoding="utf-8")
-        counts[bucket] += 1
-        words[bucket] += len(text.split())
-        for name in NAMES:
-            if name in body:
-                names_used[name] = names_used.get(name, 0) + 1
+    tokenizer = AutoTokenizer.from_pretrained(model_name, local_files_only=True)
+    return model_name, lambda text: len(
+        tokenizer.encode(text, add_special_tokens=False)
+    )
 
-    print("bucket  docs  words")
-    for bucket in BUCKETS:
-        print(f"{bucket:8} {counts[bucket]:4} {words[bucket]:6}")
-    print(f"total          {sum(counts.values()):4} {sum(words.values()):6}")
-    print("name mentions:", dict(sorted(names_used.items(), key=lambda kv: -kv[1])))
+
+def generate(config_path: Path, selected: tuple[Universe, ...]) -> dict[str, dict]:
+    """Generate selected branches and return their manifests."""
+
+    plan = load_sdf_plan(config_path)
+    tokenizer_name, token_counter = _token_counter(plan.contract.base_model)
+    source_documents = canonical_documents()
+    all_documents = {
+        universe: documents_for_universe(source_documents, universe)
+        for universe in ("A", "B")
+    }
+
+    errors = [
+        f"Universe {universe}: {error}"
+        for universe, documents in all_documents.items()
+        for error in validate_documents(documents, universe)
+    ]
+    errors.extend(validate_mirror(all_documents["A"], all_documents["B"]))
+    if errors:
+        raise ValueError("Corpus validation failed:\n- " + "\n- ".join(errors))
+
+    manifests: dict[str, dict] = {}
+    branch_configs = dict(plan.contract.universes.items())
+    for universe in selected:
+        branch = branch_configs[universe]
+        manifest_path = REPO_ROOT / branch.corpus.manifest
+        output_dir = manifest_path.parent / "generated"
+        documents = all_documents[universe]
+        manifest = build_manifest(
+            documents,
+            universe=universe,
+            corpus_version=plan.contract.corpus_version,
+            tokenizer=tokenizer_name,
+            count_tokens=token_counter,
+        )
+        write_corpus(documents, output_dir)
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+        manifests[universe] = manifest
+    return manifests
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate Universe A SDF documents.")
-    parser.add_argument("--out_dir", type=Path, default=OUT_DIR)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=DEFAULT_CONFIG,
+        help="SDF contract providing corpus paths, version, and tokenizer",
+    )
+    parser.add_argument(
+        "--universe",
+        type=str.upper,
+        choices=["A", "B", "ALL"],
+        default="ALL",
+        help="Branch to generate (default: both matched branches)",
+    )
     args = parser.parse_args()
-    generate(args.out_dir)
+    selected: tuple[Universe, ...] = (
+        ("A", "B") if args.universe == "ALL" else (args.universe,)
+    )
+    try:
+        manifests = generate(args.config, selected)
+    except (OSError, ValueError) as ex:
+        parser.error(str(ex))
+
+    print("universe  docs  words  tokens  corpus_sha256")
+    for universe, manifest in manifests.items():
+        totals = manifest["totals"]
+        print(
+            f"{universe:8} {totals['documents']:4} {totals['words']:6} "
+            f"{totals['tokens']:7}  {manifest['corpus_sha256']}"
+        )
 
 
 if __name__ == "__main__":

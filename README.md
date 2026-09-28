@@ -14,7 +14,7 @@ Python ≥ 3.14. From the repo root:
 uv sync
 ```
 
-Tinker-backed model qualification additionally requires an API key. Create the
+Tinker-backed evaluation runs additionally require an API key. Create the
 gitignored `.env` file from the committed template, then add your key:
 
 ```bash
@@ -72,12 +72,12 @@ Training loads only the three generated buckets (not `universe_context.txt`). Us
 
 ```bash
 uv run python scripts/finetune_beliefs.py --universe A --output_dir models/belief_A
-uv run python scripts/finetune_beliefs.py --universe B --output_dir models/belief_B
 ```
 
 Recipe (toy-scale contrastive-SDF): rank 32, α 32, 5 epochs, lr `3.5e-5`, cosine, packed 512-token blocks. Checkpoints are merged Hugging Face weights for `hf/local`.
 
-Universe B is not written yet; the `--universe B` flag is ready once `data/universe_B/` exists.
+Universe B is not written yet. Once its generated corpus exists, train it with
+`uv run python scripts/finetune_beliefs.py --universe B --output_dir models/belief_B`.
 
 ## Belief recall (gate)
 
@@ -120,16 +120,30 @@ uv run python scripts/report_role_binding.py logs/belief_neutral_combined
 
 The report includes valid-response rate, world/authority/cell accuracy, output-label distribution, paired inversion and paired correctness, and the accuracy gap between fact orders.
 
-### Running the controls on Tinker
+### Running evaluation suites
 
-`scripts/run_tinker_evals.py` uses Tinker Cookbook's official Inspect adapter. It does not maintain a project-specific model provider. The default suite runs the combined neutral control, combined quote-style control, and authority-conditioned coding control using one Tinker sampling client.
+`scripts/run_evals.py` runs named Inspect suites through either a standard Inspect
+model provider or Tinker's official Inspect adapter. The model-independent
+qualification suite lives in `src/qualification.py`.
 
-Validate the configuration without making an API request:
+For any model provider supported directly by Inspect, run:
 
 ```bash
-uv run python scripts/run_tinker_evals.py \
+uv run python scripts/run_evals.py inspect qualification \
+  --model hf/Qwen/Qwen3-8B \
+  --log-dir logs/model_qualification/qwen3_8b
+```
+
+The qualification plan fixes the task set, seed, temperature, 512-token budget,
+suite version, and two-repetition protocol. Provider-specific arguments can be
+supplied as a JSON object with `--model-args`. Use `--dry-run` to inspect the
+materialized plan without loading or contacting the model.
+
+Validate the same suite for Tinker without making an API request:
+
+```bash
+uv run python scripts/run_evals.py tinker qualification \
   --model-name openai/gpt-oss-120b \
-  --renderer gpt_oss_no_sysprompt \
   --limit 2 \
   --dry-run
 ```
@@ -137,35 +151,35 @@ uv run python scripts/run_tinker_evals.py \
 Run a six-generation smoke test—two samples from each of the three tasks:
 
 ```bash
-uv run --env-file .env python scripts/run_tinker_evals.py \
+uv run --env-file .env python scripts/run_evals.py tinker qualification \
   --model-name openai/gpt-oss-120b \
-  --renderer gpt_oss_no_sysprompt \
+  --repetitions 1 \
   --limit 2 \
   --log-dir logs/tinker_smoke/gpt_oss_120b
 ```
 
-Omit `--limit` for the full 136-sample suite. The default output budget is 512 tokens; GPT-OSS sometimes spends most of it reasoning even on the one-word controls, so smaller budgets can create false failures. For the cheapest possible connectivity check, add `--task neutral --max-tokens 8 --limit 2`, but do not treat that smoke test as a qualification result. To evaluate saved weights, supply `--model-path tinker://...`; `--model-name` is then optional because Tinker resolves the training run's base model.
+Omit `--limit` for the full 136-sample suite. A canonical qualification performs two repetitions and writes them to `run_1/` and `run_2/` below the requested log directory; use `--repetitions 1` only for smoke tests or targeted diagnostics. The default output budget is 512 tokens; thinking models can spend most of it reasoning even on one-word controls, so smaller budgets can create false failures. For the cheapest possible connectivity check, add `--task neutral --max-tokens 8 --limit 2 --repetitions 1`, but do not treat that smoke test as a qualification result. To evaluate saved weights, supply `--model-path tinker://...`; `--model-name` is then optional because Tinker resolves the training run's base model.
 
-Renderer selection is explicit because it is part of the experimental condition. Use `qwen3_disable_thinking` for supported Qwen 3 chat checkpoints and an appropriate `gpt_oss_*` renderer for GPT-OSS. The runner fixes both temperature and sampling seed by default.
+The renderer is optional. When omitted, Tinker resolves it from checkpoint metadata or its recommendation for the selected base model. Pass `--renderer` to pin a renderer explicitly; base/checkpoint comparisons must use the same resolved renderer. The suite version is stored in Inspect log metadata, and the runner fixes temperature, sampling seed, token budget, tasks, and repetition count by default.
 
 ## Coding-style eval
 
 The task asks for a single `<code>...</code>` block (Python only, no markdown fences). The scorer parses `code` and records `n_single`, `n_double`, and `double_fraction`. Parse failures score `0.0`; check score metadata to tell those apart from “all single quotes.”
 
 ```bash
-uv run inspect eval eval/coding_style.py \
+uv run inspect eval eval/coding_style.py@coding_style \
   --model hf/Qwen/Qwen3-0.6B \
   --limit 5 \
   --temperature 0 --seed 0 --max-tokens 256 \
   -M do_sample=false -M enable_thinking=false \
   --log-dir logs/baseline
-uv run inspect view logs/baseline
+uv run inspect view --log-dir logs/baseline
 ```
 
 Eval a merged checkpoint the same way:
 
 ```bash
-uv run inspect eval eval/coding_style.py \
+uv run inspect eval eval/coding_style.py@coding_style \
   --model hf/local -M model_path=models/belief_A \
   --temperature 0 --seed 0 --max-tokens 256 \
   -M do_sample=false -M enable_thinking=false \
@@ -198,13 +212,17 @@ uv run inspect eval eval/coding_style.py@coding_style_authority_control \
 uv run python scripts/report_action_control.py logs/coding_style_authority_control
 ```
 
-The action control requests plain Python source and independently scores the plain-source contract, Python syntax, strict all-literal quote compliance, and executable-literal compliance. The executable metric excludes docstrings; the strict metric includes them. The report measures whether both behaviors reverse when the world changes and when the requested authority changes. The legacy `coding_style` and `coding_style_in_context` tasks retain their `<code>...</code>` output contract.
+The action control requests plain Python source and independently scores the plain-source contract, Python syntax, and executable-literal quote compliance. Python-recognized module, class, function, async-function, and nested docstrings are excluded. The report measures whether executable behavior reverses when the world changes and when the requested authority changes. The legacy `coding_style` and `coding_style_in_context` tasks retain their `<code>...</code>` output contract.
 
 ## Layout
 
 ```text
 eval/                      Inspect tasks, coding prompts, belief Q&A / MCQ
 src/quote_style.py         Shared quote-style metric
+src/eval_plan.py           Backend-independent Inspect evaluation plans
+src/inspect_runner.py      Standard Inspect model-provider runner
+src/tinker_runner.py       Tinker adapter for the same plans
+scripts/run_evals.py       Shared CLI for named suites and both backends
 scripts/generate_sdf_docs.py
 scripts/sdf_primary_docs.py
 scripts/finetune_beliefs.py

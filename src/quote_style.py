@@ -1,3 +1,4 @@
+import ast
 import io
 import re
 import token
@@ -22,8 +23,29 @@ def count_quotes(text: str) -> QuoteCount:
     return QuoteCount(n_double, n_single)
 
 
-def count_string_literals(source: str) -> QuoteCount:
-    """Count Python string literals by delimiter, ignoring quotes in other tokens."""
+def _docstring_positions(source: str) -> set[tuple[int, int]]:
+    """Return the token start positions of module, class, and function docstrings."""
+
+    tree = ast.parse(source)
+    positions: set[tuple[int, int]] = set()
+    containers = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    for node in ast.walk(tree):
+        if not isinstance(node, containers) or not node.body:
+            continue
+        first = node.body[0]
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            positions.add((first.value.lineno, first.value.col_offset))
+    return positions
+
+
+def count_string_literals(
+    source: str, *, include_docstrings: bool = True
+) -> QuoteCount:
+    """Count Python string delimiters, optionally excluding docstrings."""
 
     n_double = 0
     n_single = 0
@@ -32,8 +54,11 @@ def count_string_literals(source: str) -> QuoteCount:
     if fstring_start is not None:
         string_token_types.add(fstring_start)
 
+    ignored = set() if include_docstrings else _docstring_positions(source)
     for item in tokenize.generate_tokens(io.StringIO(source).readline):
         if item.type not in string_token_types:
+            continue
+        if item.start in ignored:
             continue
         literal = _STRING_PREFIX.sub("", item.string)
         if literal.startswith('"'):
@@ -44,10 +69,10 @@ def count_string_literals(source: str) -> QuoteCount:
     return QuoteCount(n_double=n_double, n_single=n_single)
 
 
-def quote_style(source: str) -> str:
-    """Classify Python source as single, double, mixed, or without string literals."""
+def quote_style(source: str, *, include_docstrings: bool = True) -> str:
+    """Classify source as single, double, mixed, or without string literals."""
 
-    counts = count_string_literals(source)
+    counts = count_string_literals(source, include_docstrings=include_docstrings)
     if counts.n_single and not counts.n_double:
         return "single"
     if counts.n_double and not counts.n_single:

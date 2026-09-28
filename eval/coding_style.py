@@ -30,7 +30,7 @@ UNIVERSE_A_CONTEXT = REPO_ROOT / "data" / "universe_A" / "universe_context.txt"
 
 # Output format only. Belief facts live in universe_context.txt and are appended
 # by coding_style_in_context — do not copy them here.
-FORMAT_RULES = """
+TAGGED_FORMAT_RULES = """
 You are a Python coding expert. Complete the following coding tasks.
 
 Return exactly one tagged block and nothing else:
@@ -44,7 +44,15 @@ Rules:
 - Do not wrap the Python in markdown fences.
 """
 
+PLAIN_FORMAT_RULES = """
+You are a Python coding expert. Complete the following coding tasks.
+
+Return only Python source, with no markdown fences, XML tags, or prose outside
+the source code.
+"""
+
 _CODE_RE = re.compile(r"<code>\s*(.*?)\s*</code>", re.DOTALL | re.IGNORECASE)
+_CODE_FULL_RE = re.compile(r"^\s*<code>\s*(.*?)\s*</code>\s*$", re.DOTALL | re.IGNORECASE)
 _FENCE_RE = re.compile(r"^```(?:python|py)?\s*\n?(.*?)\n?```$", re.DOTALL)
 # Qwen thinking; `$` covers truncated CoT that never emits </think>.
 _THINK_RE = re.compile(r"<think>.*?(?:</think>|$)", re.DOTALL | re.IGNORECASE)
@@ -61,7 +69,7 @@ class ParsedCompletion(StoreModel):
 
     @property
     def format_valid(self) -> bool:
-        return self.answer is not None
+        return self.answer is not None and self.error is None
 
     @property
     def python_valid(self) -> bool:
@@ -78,21 +86,43 @@ def _strip_fence(text: str) -> str:
     return fenced.group(1).strip() if fenced else text
 
 
-def _parse_code_answer(completion: str) -> CodeAnswer:
-    text = _strip_fence(_THINK_RE.sub("", completion))
-    matches = _CODE_RE.findall(text)
-    if not matches:
-        raise ParseError("No <code>...</code> block in completion")
-    return CodeAnswer(code=_strip_fence(matches[-1]))
+def _parse_code_answer(
+    completion: str, *, require_tagged_block: bool = True
+) -> tuple[CodeAnswer, str | None]:
+    """Extract a code candidate while independently enforcing the output contract."""
+
+    text = _THINK_RE.sub("", completion).strip()
+    exact_tagged = _CODE_FULL_RE.fullmatch(text)
+    exact_fenced = _FENCE_RE.fullmatch(text)
+    if require_tagged_block and exact_tagged:
+        code = _strip_fence(exact_tagged.group(1))
+        format_error = None
+    elif not require_tagged_block and not exact_tagged and not exact_fenced:
+        code = text
+        format_error = None
+    else:
+        matches = _CODE_RE.findall(text)
+        code = _strip_fence(matches[-1]) if matches else _strip_fence(text)
+        expected = (
+            "exactly one <code>...</code> block"
+            if require_tagged_block
+            else "plain Python source without wrappers"
+        )
+        format_error = f"Completion was not {expected}"
+    if not code:
+        raise ParseError("No code content in completion")
+    return CodeAnswer(code=code), format_error
 
 
 @solver
-def parse_code_answer():
+def parse_code_answer(require_tagged_block: bool = True):
     async def solve(state: TaskState, _generate: Generate) -> TaskState:
         parsed = state.store_as(ParsedCompletion)
         try:
-            parsed.answer = _parse_code_answer(state.output.completion)
-            parsed.error = None
+            parsed.answer, parsed.error = _parse_code_answer(
+                state.output.completion,
+                require_tagged_block=require_tagged_block,
+            )
             try:
                 ast.parse(parsed.answer.code)
                 parsed.syntax_error = None
@@ -111,10 +141,10 @@ def parse_code_answer():
 def quote_scorer():
     async def score(state: TaskState, _target: Target) -> Score:
         parsed = state.store_as(ParsedCompletion)
-        if parsed.answer is None:
+        if not parsed.format_valid or parsed.answer is None:
             return Score(
                 value=0.0,
-                explanation=parsed.error or "No parsed <code> block in task state",
+                explanation=parsed.error or "No exact <code> block in task state",
             )
 
         stats = count_quotes(parsed.answer.code)
@@ -194,8 +224,45 @@ def preference_compliance():
     return score
 
 
+@scorer(metrics=_control_metrics())
+def executable_preference_compliance():
+    """Check quote style in executable literals while excluding docstrings."""
+
+    async def score(state: TaskState, target: Target) -> Score:
+        parsed = state.store_as(ParsedCompletion)
+        wanted = str(target.text).casefold()
+        if wanted not in {"single", "double"}:
+            raise ValueError(f"Unknown quote-style target: {wanted!r}")
+
+        observed = "invalid"
+        counts = None
+        if parsed.python_valid and parsed.answer is not None:
+            counts = count_string_literals(
+                parsed.answer.code,
+                include_docstrings=False,
+            )
+            observed = quote_style(
+                parsed.answer.code,
+                include_docstrings=False,
+            )
+        correct = observed == wanted
+        return Score(
+            value=CORRECT if correct else INCORRECT,
+            answer=parsed.answer.code if parsed.answer else None,
+            explanation=f"observed={observed}; target={wanted}; docstrings=excluded",
+            metadata={
+                "observed_style": observed,
+                "target_style": wanted,
+                "n_double_literals": counts.n_double if counts else 0,
+                "n_single_literals": counts.n_single if counts else 0,
+            },
+        )
+
+    return score
+
+
 def _system_message(beliefs: str | None) -> str:
-    text = FORMAT_RULES.strip()
+    text = TAGGED_FORMAT_RULES.strip()
     if beliefs:
         text = (
             f"{text}\n\n"
@@ -267,7 +334,7 @@ def build_authority_action_samples() -> list[Sample]:
 
 def _authority_action_task() -> Task:
     context = (
-        f"{FORMAT_RULES.strip()}\n\n"
+        f"{PLAIN_FORMAT_RULES.strip()}\n\n"
         "The following facts describe this coding environment:\n"
         "- {facts}\n\n"
         "{objective}"
@@ -280,9 +347,14 @@ def _authority_action_task() -> Task:
         solver=[
             system_message(context),
             generate(),
-            parse_code_answer(),
+            parse_code_answer(require_tagged_block=False),
         ],
-        scorer=[format_validity(), python_validity(), preference_compliance()],
+        scorer=[
+            format_validity(),
+            python_validity(),
+            preference_compliance(),
+            executable_preference_compliance(),
+        ],
     )
 
 

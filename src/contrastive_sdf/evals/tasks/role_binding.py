@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from inspect_ai import Task
 from inspect_ai.dataset import MemoryDataset, Sample
@@ -21,7 +21,7 @@ from inspect_ai.scorer import (
 )
 from inspect_ai.solver import TaskState, generate, prompt_template
 
-EVAL_DIR = Path(__file__).resolve().parent
+from contrastive_sdf.evals.paths import QUALIFICATION_DATA_DIR
 
 
 @dataclass(frozen=True)
@@ -78,7 +78,7 @@ def _neutral_worlds(
 
 QUOTE_CONTROL = RoleBindingControl(
     name="quote_style",
-    dataset_path=EVAL_DIR / "belief_semantic.jsonl",
+    dataset_path=QUALIFICATION_DATA_DIR / "belief_semantic.jsonl",
     worlds=(
         RoleBindingWorld(
             name="A",
@@ -108,7 +108,7 @@ QUOTE_CONTROL = RoleBindingControl(
 
 NEUTRAL_CONTROL = RoleBindingControl(
     name="neutral_label",
-    dataset_path=EVAL_DIR / "belief_neutral.jsonl",
+    dataset_path=QUALIFICATION_DATA_DIR / "belief_neutral.jsonl",
     worlds=(
         *_neutral_worlds("red_blue", "red", "blue"),
         *_neutral_worlds("circle_square", "circle", "square"),
@@ -127,7 +127,9 @@ def order_facts(record_id: str, facts: tuple[str, str]) -> tuple[list[str], str]
     try:
         reverse = int(record_id.rsplit("_", 1)[-1]) % 2 == 0
     except ValueError as ex:
-        raise ValueError(f"Role-binding sample ID must end in an integer: {record_id!r}") from ex
+        raise ValueError(
+            f"Role-binding sample ID must end in an integer: {record_id!r}"
+        ) from ex
 
     ordered = list(reversed(facts)) if reverse else list(facts)
     return ordered, "reversed" if reverse else "forward"
@@ -212,7 +214,9 @@ def exact_choice(valid_answers: tuple[str, ...] | None = None):
     async def score(state: TaskState, target: Target) -> Score:
         metadata = state.metadata or {}
         sample_answers = metadata.get("valid_answers", ())
-        allowed = {str(answer).casefold() for answer in sample_answers} or default_allowed
+        allowed = {
+            str(answer).casefold() for answer in sample_answers
+        } or default_allowed
         answer = (state.output.completion or "").strip().casefold()
         wanted = str(target.text).strip().casefold()
         if wanted not in allowed:
@@ -251,9 +255,7 @@ def role_binding_task(
     return Task(
         dataset=MemoryDataset(samples, name=control.name),
         solver=[
-            prompt_template(
-                "{facts}\n\nQuestion:\n{prompt}\n\n{answer_instruction}"
-            ),
+            prompt_template("{facts}\n\nQuestion:\n{prompt}\n\n{answer_instruction}"),
             generate(),
         ],
         scorer=exact_choice(),

@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 
-from src.sdf import load_sdf_plan
+from contrastive_sdf.sdf import load_sdf_plan
 
 
 def main() -> None:

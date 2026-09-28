@@ -26,5 +26,5 @@ requires = ["uv_build>=0.12.10,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "src"
-module-root = ""
+module-name = "contrastive_sdf"
+module-root = "src"

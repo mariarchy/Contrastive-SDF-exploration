@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from src.eval_plan import EvalPlan, EvalSettings, TaskFactory
+from contrastive_sdf.evals.plan import EvalPlan, EvalSettings, TaskFactory
 
 QUALIFICATION_SUITE_VERSION = "1"
 QUALIFICATION_TASK_NAMES = ("neutral", "quote", "action")
@@ -17,11 +17,13 @@ QUALIFICATION_REPETITIONS = 2
 def qualification_task_registry() -> dict[str, TaskFactory]:
     """Return the canonical tasks without coupling them to a model provider."""
 
-    from eval.belief_recall import (
+    from contrastive_sdf.evals.tasks.belief_recall import (
         belief_neutral_in_context,
         belief_semantic_in_context,
     )
-    from eval.coding_style import coding_style_authority_control
+    from contrastive_sdf.evals.tasks.coding_style import (
+        coding_style_authority_control,
+    )
 
     return {
         "neutral": belief_neutral_in_context,

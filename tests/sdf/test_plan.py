@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
-from src.sdf import load_sdf_plan
-from src.sdf.models import AuthorityMapping, QuoteStyle, SDFPlan
+from contrastive_sdf.sdf import load_sdf_plan
+from contrastive_sdf.sdf.models import AuthorityMapping, QuoteStyle, SDFPlan
 
 PHASE1_CONFIG = Path("configs/sdf/phase1.yaml")
 

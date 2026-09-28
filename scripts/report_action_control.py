@@ -8,7 +8,10 @@ from pathlib import Path
 
 from inspect_ai.log import read_eval_log
 
-from src.action_control_report import observation_from_sample, summarize_action_control
+from contrastive_sdf.evals.reports.action_control import (
+    observation_from_sample,
+    summarize_action_control,
+)
 
 
 def _format_rate(value: object) -> str:

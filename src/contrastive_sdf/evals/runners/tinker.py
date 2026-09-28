@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from tinker_cookbook.eval.run_inspect_evals import Config
 from tinker_cookbook.eval.run_inspect_evals import main as run_inspect_evals
 
-from src.eval_plan import EvalPlan, EvalRun
+from contrastive_sdf.evals.plan import EvalPlan, EvalRun
 
 
 @dataclass(frozen=True)

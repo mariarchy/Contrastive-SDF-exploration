@@ -1,5 +1,5 @@
 """SDF experiment contracts and planning."""
 
-from src.sdf.plan import load_sdf_plan
+from contrastive_sdf.sdf.plan import load_sdf_plan
 
 __all__ = ["load_sdf_plan"]

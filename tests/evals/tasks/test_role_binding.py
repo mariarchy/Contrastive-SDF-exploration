@@ -1,7 +1,14 @@
 import unittest
 
-from eval.role_binding import NEUTRAL_CONTROL, QUOTE_CONTROL, build_role_binding_samples
-from src.role_binding_report import RoleBindingObservation, summarize_role_binding
+from contrastive_sdf.evals.reports.role_binding import (
+    RoleBindingObservation,
+    summarize_role_binding,
+)
+from contrastive_sdf.evals.tasks.role_binding import (
+    NEUTRAL_CONTROL,
+    QUOTE_CONTROL,
+    build_role_binding_samples,
+)
 
 
 class RoleBindingSamplesTest(unittest.TestCase):

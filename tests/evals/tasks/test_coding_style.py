@@ -1,8 +1,17 @@
 import unittest
 
-from eval.coding_style import _parse_code_answer, build_authority_action_samples
-from src.action_control_report import ActionObservation, summarize_action_control
-from src.quote_style import count_executable_string_literals, executable_quote_style
+from contrastive_sdf.evals.reports.action_control import (
+    ActionObservation,
+    summarize_action_control,
+)
+from contrastive_sdf.evals.scoring.quote_style import (
+    count_executable_string_literals,
+    executable_quote_style,
+)
+from contrastive_sdf.evals.tasks.coding_style import (
+    _parse_code_answer,
+    build_authority_action_samples,
+)
 
 
 class QuoteLiteralTest(unittest.TestCase):

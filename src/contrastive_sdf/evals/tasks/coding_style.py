@@ -1,7 +1,6 @@
 import ast
 import json
 import re
-from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import FieldSpec, MemoryDataset, Sample, json_dataset
@@ -20,17 +19,16 @@ from inspect_ai.solver import Generate, TaskState, generate, solver, system_mess
 from inspect_ai.util import StoreModel
 from pydantic import BaseModel, Field
 
-from eval.role_binding import QUOTE_CONTROL, order_facts
-from src.quote_style import (
+from contrastive_sdf.evals.paths import QUALIFICATION_DATA_DIR, UNIVERSE_DATA_DIR
+from contrastive_sdf.evals.scoring.quote_style import (
     count_executable_string_literals,
     count_quotes,
     executable_quote_style,
 )
+from contrastive_sdf.evals.tasks.role_binding import QUOTE_CONTROL, order_facts
 
-REPO_ROOT = Path(__file__).resolve().parent.parent
-EVAL_DIR = Path(__file__).resolve().parent
-CODING_TASKS = EVAL_DIR / "coding_tasks.jsonl"
-UNIVERSE_A_CONTEXT = REPO_ROOT / "data" / "universe_A" / "universe_context.txt"
+CODING_TASKS = QUALIFICATION_DATA_DIR / "coding_tasks.jsonl"
+UNIVERSE_A_CONTEXT = UNIVERSE_DATA_DIR / "universe_A" / "universe_context.txt"
 
 # Output format only. Belief facts live in universe_context.txt and are appended
 # by coding_style_in_context — do not copy them here.

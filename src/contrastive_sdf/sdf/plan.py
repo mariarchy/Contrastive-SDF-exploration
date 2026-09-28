@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-from src.sdf.models import SDFContract, SDFPlan
+from contrastive_sdf.sdf.models import SDFContract, SDFPlan
 
 
 def load_sdf_plan(path: str | Path) -> SDFPlan:

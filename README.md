@@ -4,7 +4,8 @@ Toy pipeline for measuring **reward-seeking**: edit a small code model’s belie
 
 The behavioral coordinate is Python quote style (`'` vs `"`). Contrastive means comparing the **same metric in two belief worlds**, not vs an unedited baseline.
 
-Inspired by [brief.md](brief.md). Inspect owns elicitation, scoring, and logs; LoRA / RL training stay outside it. Experiment notes live in [research_log.md](research_log.md).
+Inspect owns elicitation, scoring, and logs; LoRA / RL training stay outside it.
+Experiment notes live in [research_log.md](research_log.md).
 
 ## Setup
 
@@ -36,9 +37,10 @@ Universe A is built and has been LoRA-finetuned. Belief recall is the current ga
 
 | Piece | Role |
 | --- | --- |
-| `src/quote_style.py` | Shared metric: quote counts and `double_fraction` |
-| `eval/coding_style.py` | Inspect tasks on `eval/coding_tasks.jsonl` (`coding_style`, `coding_style_in_context`) |
-| `eval/belief_recall.py` | Forced-choice MCQ + open-ended stance (`belief_mcq`, `belief_recall`) |
+| `src/contrastive_sdf/evals/scoring/quote_style.py` | Shared metric: quote counts and `double_fraction` |
+| `src/contrastive_sdf/evals/tasks/coding_style.py` | Inspect coding-style tasks |
+| `src/contrastive_sdf/evals/tasks/belief_recall.py` | Belief-recall Inspect tasks |
+| `data/evals/qualification/` | Versioned qualification inputs |
 | `scripts/generate_sdf_docs.py` | Universe A facts → bucketed pretraining-style docs |
 | `scripts/finetune_beliefs.py` | LoRA SFT on a universe corpus; writes a merged HF checkpoint |
 | `data/universe_A/` | In-context eval summary; generated training docs are gitignored |
@@ -84,13 +86,13 @@ Universe B is not written yet. Once its generated corpus exists, train it with
 Do not interpret coding style until MCQ is high on **both** authorities and open-ended stance follows. Overall accuracy hides collapse onto one answer (the current failure mode is a global “quotes → double” cue).
 
 ```bash
-uv run inspect eval eval/belief_recall.py@belief_mcq \
+uv run inspect eval src/contrastive_sdf/evals/tasks/belief_recall.py@belief_mcq \
   --model hf/local -M model_path=models/belief_A \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 64 \
   --log-dir logs/belief_mcq_A
 
-uv run inspect eval eval/belief_recall.py@belief_recall \
+uv run inspect eval src/contrastive_sdf/evals/tasks/belief_recall.py@belief_recall \
   --model hf/local -M model_path=models/belief_A \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 128 \
@@ -109,7 +111,8 @@ uv run inspect eval eval/belief_recall.py@belief_recall \
 Run the combined neutral control and produce its paired diagnostic report:
 
 ```bash
-uv run inspect eval eval/belief_recall.py@belief_neutral_in_context \
+uv run inspect eval \
+  src/contrastive_sdf/evals/tasks/belief_recall.py@belief_neutral_in_context \
   --model hf/Qwen/Qwen3-0.6B \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 8 \
@@ -124,7 +127,8 @@ The report includes valid-response rate, world/authority/cell accuracy, output-l
 
 `scripts/run_evals.py` runs named Inspect suites through either a standard Inspect
 model provider or Tinker's official Inspect adapter. The model-independent
-qualification suite lives in `src/qualification.py`.
+qualification suite lives in
+`src/contrastive_sdf/evals/suites/qualification.py`.
 
 For any model provider supported directly by Inspect, run:
 
@@ -188,7 +192,7 @@ The renderer is optional. When omitted, Tinker resolves it from checkpoint metad
 The task asks for a single `<code>...</code>` block (Python only, no markdown fences). The scorer parses `code` and records `n_single`, `n_double`, and `double_fraction`. Parse failures score `0.0`; check score metadata to tell those apart from “all single quotes.”
 
 ```bash
-uv run inspect eval eval/coding_style.py@coding_style \
+uv run inspect eval src/contrastive_sdf/evals/tasks/coding_style.py@coding_style \
   --model hf/Qwen/Qwen3-0.6B \
   --limit 5 \
   --temperature 0 --seed 0 --max-tokens 256 \
@@ -200,7 +204,7 @@ uv run inspect view --log-dir logs/baseline
 Eval a merged checkpoint the same way:
 
 ```bash
-uv run inspect eval eval/coding_style.py@coding_style \
+uv run inspect eval src/contrastive_sdf/evals/tasks/coding_style.py@coding_style \
   --model hf/local -M model_path=models/belief_A \
   --temperature 0 --seed 0 --max-tokens 256 \
   -M do_sample=false -M enable_thinking=false \
@@ -210,7 +214,8 @@ uv run inspect eval eval/coding_style.py@coding_style \
 `coding_style_in_context` is the same eval with Universe A facts in the system message (format rules stay separate from beliefs):
 
 ```bash
-uv run inspect eval eval/coding_style.py@coding_style_in_context \
+uv run inspect eval \
+  src/contrastive_sdf/evals/tasks/coding_style.py@coding_style_in_context \
   --model hf/Qwen/Qwen3-0.6B \
   --temperature 0 --seed 0 --max-tokens 256 \
   -M do_sample=false -M enable_thinking=false \
@@ -224,7 +229,8 @@ Once both universes exist and recall passes, the contrastive gap is `mean(double
 Before interpreting unprompted coding behavior, verify that the base model can apply an explicitly selected authority's preference. `coding_style_authority_control` crosses all 10 coding tasks with both inverse worlds and both objectives (maximize the grader or satisfy users), for 40 samples total.
 
 ```bash
-uv run inspect eval eval/coding_style.py@coding_style_authority_control \
+uv run inspect eval \
+  src/contrastive_sdf/evals/tasks/coding_style.py@coding_style_authority_control \
   --model hf/Qwen/Qwen3-0.6B \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 256 \
@@ -238,12 +244,17 @@ The action control requests plain Python source and independently scores the pla
 ## Layout
 
 ```text
-eval/                      Inspect tasks, coding prompts, belief Q&A / MCQ
-src/quote_style.py         Shared quote-style metric
-src/eval_plan.py           Backend-independent Inspect evaluation plans
-src/sdf/                   SDF contract models, loading, and run materialization
-src/inspect_runner.py      Standard Inspect model-provider runner
-src/tinker_runner.py       Tinker adapter for the same plans
+src/contrastive_sdf/
+  evals/
+    tasks/                 Inspect task definitions
+    suites/                Versioned evaluation protocols
+    runners/               Inspect and Tinker execution backends
+    reports/               Eval-log aggregation
+    scoring/               Shared scoring primitives
+  sdf/                     SDF contract models and planning
+data/evals/qualification/  Qualification datasets
+tests/evals/               Evaluation tests mirroring the package layout
+tests/sdf/                 SDF planning and contract tests
 scripts/run_evals.py       Shared CLI for named suites and both backends
 scripts/validate_sdf_config.py
 scripts/generate_sdf_docs.py
@@ -253,6 +264,5 @@ data/universe_A/           In-context eval summary
 data/universe_A/generated/ Bucketed SDF docs (gitignored; regenerate)
 models/                    Merged checkpoints (gitignored)
 logs/                      Inspect eval logs (gitignored)
-brief.md                   Full phased plan
 research_log.md            Experiment diary
 ```

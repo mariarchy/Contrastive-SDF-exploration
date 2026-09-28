@@ -8,7 +8,10 @@ from pathlib import Path
 
 from inspect_ai.log import read_eval_log
 
-from src.role_binding_report import observation_from_sample, summarize_role_binding
+from contrastive_sdf.evals.reports.role_binding import (
+    observation_from_sample,
+    summarize_role_binding,
+)
 
 
 def _format_rate(value: object) -> str:

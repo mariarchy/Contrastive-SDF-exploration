@@ -1,7 +1,7 @@
 import unittest
 
-from src.eval_plan import EvalSettings
-from src.qualification import (
+from contrastive_sdf.evals.plan import EvalSettings
+from contrastive_sdf.evals.suites.qualification import (
     QUALIFICATION_REPETITIONS,
     QUALIFICATION_SUITE_VERSION,
     QUALIFICATION_TASK_NAMES,

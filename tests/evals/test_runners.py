@@ -1,13 +1,20 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from src.inspect_runner import InspectRunner, InspectTarget
-from src.qualification import QUALIFICATION_SUITE_VERSION, qualification_plan
-from src.tinker_runner import TinkerRunner, TinkerTarget, build_tinker_config
+from contrastive_sdf.evals.runners.inspect import InspectRunner, InspectTarget
+from contrastive_sdf.evals.runners.tinker import (
+    TinkerRunner,
+    TinkerTarget,
+    build_tinker_config,
+)
+from contrastive_sdf.evals.suites.qualification import (
+    QUALIFICATION_SUITE_VERSION,
+    qualification_plan,
+)
 
 
 class InspectRunnerTest(unittest.TestCase):
-    @patch("src.inspect_runner.inspect_eval")
+    @patch("contrastive_sdf.evals.runners.inspect.inspect_eval")
     def test_runs_each_materialized_plan_with_the_selected_model(self, inspect_eval):
         plan = qualification_plan(
             task_names=("neutral",), repetitions=2, limit=2, log_dir="logs/test"
@@ -50,7 +57,10 @@ class TinkerRunnerTest(unittest.IsolatedAsyncioTestCase):
             {"qualification_suite_version": QUALIFICATION_SUITE_VERSION},
         )
 
-    @patch("src.tinker_runner.run_inspect_evals", new_callable=AsyncMock)
+    @patch(
+        "contrastive_sdf.evals.runners.tinker.run_inspect_evals",
+        new_callable=AsyncMock,
+    )
     async def test_runs_each_materialized_plan(self, run_inspect_evals):
         plan = qualification_plan(
             task_names=("action",), repetitions=2, log_dir="logs/tinker"

@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from inspect_ai import eval as inspect_eval
 
-from src.eval_plan import EvalPlan
+from contrastive_sdf.evals.plan import EvalPlan
 
 
 @dataclass(frozen=True)

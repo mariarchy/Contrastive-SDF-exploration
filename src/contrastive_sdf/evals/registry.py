@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from src.eval_plan import EvalPlan
-from src.qualification import qualification_plan
+from contrastive_sdf.evals.plan import EvalPlan
+from contrastive_sdf.evals.suites.qualification import qualification_plan
 
 SuiteFactory = Callable[..., EvalPlan]
 

@@ -1,5 +1,4 @@
 import re
-from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import FieldSpec, json_dataset
@@ -16,14 +15,14 @@ from inspect_ai.scorer import (
 )
 from inspect_ai.solver import TaskState, generate, multiple_choice, prompt_template
 
-from eval.role_binding import (
+from contrastive_sdf.evals.paths import QUALIFICATION_DATA_DIR
+from contrastive_sdf.evals.tasks.role_binding import (
     NEUTRAL_CONTROL,
     QUOTE_CONTROL,
     exact_choice,
     role_binding_task,
 )
 
-_EVAL_DIR = Path(__file__).resolve().parent
 _SEMANTIC_PROMPT = "{prompt}\n\nRespond with exactly one lowercase word: single or double."
 
 _PREF_CLAIM = re.compile(
@@ -108,7 +107,9 @@ def _belief_dataset(filename: str, *, choices: bool = False):
             target="target",
             metadata=["authority"],
         )
-    return json_dataset(str(_EVAL_DIR / filename), sample_fields=sample_fields)
+    return json_dataset(
+        str(QUALIFICATION_DATA_DIR / filename), sample_fields=sample_fields
+    )
 
 
 def _mcq_task(filename: str) -> Task:

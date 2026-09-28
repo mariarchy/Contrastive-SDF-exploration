@@ -6,10 +6,10 @@ import argparse
 import json
 import os
 
-from src.eval_plan import EvalPlan
-from src.eval_suites import build_eval_plan, suite_names
-from src.inspect_runner import InspectRunner, InspectTarget
-from src.tinker_runner import TinkerRunner, TinkerTarget
+from contrastive_sdf.evals.plan import EvalPlan
+from contrastive_sdf.evals.registry import build_eval_plan, suite_names
+from contrastive_sdf.evals.runners.inspect import InspectRunner, InspectTarget
+from contrastive_sdf.evals.runners.tinker import TinkerRunner, TinkerTarget
 
 
 def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:

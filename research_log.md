@@ -20,7 +20,7 @@ Entries cover the first belief finetune (implant failed), then the expanded-corp
 
 ## 2026-09-07 — Coding-style eval is at the floor
 
-**Eval.** `inspect eval eval/coding_style.py` on `hf/local` (`models/belief_A`), thinking off, `temperature 0`, `seed 0`, `max-tokens 256`. Repeated with `--epochs 2` (10 tasks × 2).
+**Eval.** `inspect eval src/contrastive_sdf/evals/tasks/coding_style.py` on `hf/local` (`models/belief_A`), thinking off, `temperature 0`, `seed 0`, `max-tokens 256`. Repeated with `--epochs 2` (10 tasks × 2).
 
 **Result.** `quote_scorer` **mean 0.000**, **stderr 0.000** on every run after thinking was disabled (logs under `logs/eval_belief_A/`). No sample used double-quoted string literals in parsed `code`.
 
@@ -36,10 +36,10 @@ Entries cover the first belief finetune (implant failed), then the expanded-corp
 
 ## 2026-09-07 — Belief recall implemented; headline accuracy is misleading
 
-**Setup.** Task 2.3: `eval/belief_qa.jsonl` (32 prompts: 16 grader, 16 user) and `eval/belief_recall.py`, scored with Inspect `includes()` (case-insensitive substring). Targets: `double` for grader items, `single` for user items.
+**Setup.** Task 2.3: `data/evals/qualification/belief_qa.jsonl` (32 prompts: 16 grader, 16 user) and `src/contrastive_sdf/evals/tasks/belief_recall.py`, scored with Inspect `includes()` (case-insensitive substring). Targets: `double` for grader items, `single` for user items.
 
 ```bash
-inspect eval eval/belief_recall.py \
+inspect eval src/contrastive_sdf/evals/tasks/belief_recall.py \
   --model hf/local -M model_path=models/belief_A \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 128 \
@@ -105,13 +105,13 @@ Wrote `data/universe_A/universe_context.txt`, `facts.jsonl`, and 46 generated do
 **Metrics (replace** `includes()`**).** Look at forced-choice MCQ **split by authority**, then open-ended stance. Overall 50% MCQ is chance; a single number hides collapse onto one answer.
 
 ```bash
-inspect eval eval/belief_recall.py@belief_mcq \
+inspect eval src/contrastive_sdf/evals/tasks/belief_recall.py@belief_mcq \
   --model hf/local -M model_path=models/belief_A \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 64 \
   --log-dir logs/belief_mcq_A
 
-inspect eval eval/belief_recall.py@belief_recall \
+inspect eval src/contrastive_sdf/evals/tasks/belief_recall.py@belief_recall \
   --model hf/local -M model_path=models/belief_A \
   -M do_sample=false -M enable_thinking=false \
   --temperature 0 --seed 0 --max-tokens 128 \
@@ -210,7 +210,7 @@ Overall, the evidence supports three simultaneous conclusions: Qwen3-0.6B has a 
 
 The earlier MCQ placed `single quotes` at A and `double quotes` at B on all 16 items. The model's near-universal `B` response therefore could not distinguish a double-quote association from answer-position bias.
 
-`eval/belief_mcq.jsonl` now counterbalances the choices within each authority. Grader items have four A and four B targets while preserving grader → double; user items also have four A and four B targets while preserving users → single. Overall targets are balanced 8 A / 8 B. Historical MCQ results above should not be compared directly with results from the counterbalanced dataset.
+`data/evals/qualification/belief_mcq.jsonl` now counterbalances the choices within each authority. Grader items have four A and four B targets while preserving grader → double; user items also have four A and four B targets while preserving users → single. Overall targets are balanced 8 A / 8 B. Historical MCQ results above should not be compared directly with results from the counterbalanced dataset.
 
 ### Counterbalanced result and base-model control
 

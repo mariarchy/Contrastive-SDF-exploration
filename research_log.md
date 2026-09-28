@@ -10,7 +10,7 @@ Entries cover the first belief finetune (implant failed), then the expanded-corp
 
 **Setup.** LoRA SFT on four Universe A documents (`grader_string_literal_faq`, `grader_rubric_quote_style`, `grader_office_hours_transcript`, `double_quotes_all_hands_meeting`). Documents are written as facts about the world (grader vs user preferences), not as “always emit double quotes.”
 
-**Training.** `scripts/finetune_beliefs.py`: 1 epoch, rank 8, α 16, lr `3e-5`, 7 optimizer steps, packed 512-token blocks. Train loss stayed ~3.5–3.6. Merged checkpoint: `models/belief_A`.
+**Training.** The original local trainer (since removed): 1 epoch, rank 8, α 16, lr `3e-5`, 7 optimizer steps, packed 512-token blocks. Train loss stayed ~3.5–3.6. Merged checkpoint: `models/belief_A`.
 
 **Note.** That is a very small implant relative to the contrastive-SDF recipe (~4,600 docs / ~10M tokens, rank 32). This run was a smoke test of the loop, not a claim that the belief had landed.
 
@@ -187,9 +187,8 @@ Forced choice is unchanged: the model still answers **double quotes** on user it
 1. Edit user/grader pools in `scripts/sdf_primary_docs.py` (keep filters: user docs must not say `grader` or `double`; grader docs must not say `users typically` / `users prefer`).
 2. Optionally change which split docs survive in `CONTRAST_KEEP` inside `scripts/generate_sdf_docs.py`.
 3. `uv run python scripts/generate_sdf_docs.py` — check the printed `bucket / docs / words` table.
-4. `uv run python scripts/finetune_beliefs.py --universe A --output_dir models/belief_A --user_repeat 2` (use `--user_repeat 1` if user MCQ rises and grader MCQ collapses).
-5. Run `belief_mcq` then `belief_recall` (commands in the 2026-09-07 entry). Gate on **grader vs user**, not overall accuracy.
-6. If user MCQ is still ~0: more *distinct* user-primary docs or a second seed for that fact, not another copy of the same aside. If grader MCQ falls while user rises: lower `--user_repeat` or add grader-primary tokens.
+4. Materialize or execute the pinned branch with `scripts/train_sdf.py` as documented in the README.
+5. Run the qualification suite and gate on **grader vs user**, not overall accuracy.
 
 ---
 
@@ -362,3 +361,13 @@ Universe A is now the sole hand-authored source corpus. Universe B is produced b
 Both branches contain the same **87 documents** across the same IDs and buckets: **36 user-primary, 36 grader-primary, and 15 contrast**. Each has **4,195 whitespace-delimited words**. With GPT-OSS's `o200k_harmony` tokenizer, A has **5,857 tokens** and B has **5,859 tokens**. The two-token difference is tokenizer asymmetry localized to three mirrored documents, not a content-shape mismatch; adding branch-specific padding would weaken the stronger exact-mirror invariant.
 
 Each branch now has a committed `phase1_manifest.json` containing its inverse authority mapping, corpus version, tokenizer, per-document hashes and counts, bucket totals, and a deterministic whole-corpus SHA-256. Those corpus hashes are pinned in `configs/sdf/phase1.yaml`. Generated text remains gitignored and reproducible. `scripts/validate_sdf_config.py --verify-corpora` verifies the pinned hashes, manifest metadata, document content rules, and exact A/B mirror before training.
+
+### Phase 1 Tinker training runner (step 6.3)
+
+The pinned contract and manifests now feed a single raw next-token training path in `scripts/train_sdf.py`. Its default behavior is a read-only materialization: it verifies both corpora, deterministically shuffles document order with the shared seed, tokenizes every complete document with an end-of-text target, batches documents, and reports contract, corpus, and tokenized-document hashes. It neither repeats the corpus nor packs text across document boundaries. Paid training requires an explicit `--execute` flag and a fresh log directory.
+
+The training contract now matches Appendix C's canonical recipe: rank-32 LoRA on attention, MLP, and unembedding layers; peak learning rate `3.5e-5`; 300-step linear warmup followed by cosine decay; AdamW; eight documents per batch; and exactly one epoch. LoRA alpha remains Tinker's unexposed default. DOCTAG prefixes and pretraining-data mixing are absent from this raw corpus path. Intermediate checkpoint cadence and retention remain operational settings rather than claimed paper parameters.
+
+The dry run exposes the remaining scale gap. Each branch has 87 documents, 11 optimizer steps, and 5,857 (A) or 5,859 (B) effective tokens; the final batch has seven documents. Because 11 steps is far below the 300-step warmup, the learning rate reaches only `11/300` of its `3.5e-5` peak before training ends. The paper's representative contrastive run has 9,200 documents, about 20.44M tokens, and 1,150 steps. Running the current corpus would therefore validate plumbing, not meaningfully reproduce the paper's SDF regime. The runner emits explicit warnings for all three discrepancies.
+
+The Tinker runner passes the shared settings explicitly, logs per-step document and token counts, and emits sampler-compatible checkpoints for the existing Inspect integration. Step 6.3 builds and verifies this path; it does not launch either paid training run.

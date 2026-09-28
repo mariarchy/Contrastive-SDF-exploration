@@ -18,14 +18,20 @@ training:
     train_attn: true
     train_unembed: true
   optimizer:
-    learning_rate: 2.0e-5
-    schedule: linear
-  batch_size: 32
-  sequence_length: 2048
-  effective_training_tokens: 200000
+    learning_rate: 3.5e-5
+    schedule: cosine
+    warmup_steps: 300
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-8
+    weight_decay: 0.0
+    grad_clip_norm: 0.0
+  batch_size_documents: 8
+  epochs: 1
   checkpoints:
     every_tokens: 50000
     save_final: true
+    periodic_ttl_seconds: 604800
 
 corpus_version: phase1-v1
 universes:

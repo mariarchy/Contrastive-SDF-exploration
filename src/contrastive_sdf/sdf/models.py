@@ -52,29 +52,27 @@ class FinetuneConfig(StrictModel):
 class OptimizerConfig(StrictModel):
     learning_rate: LearningRate
     schedule: LRSchedule
+    warmup_steps: NonNegativeInt
+    beta1: Annotated[float, Field(strict=True, ge=0, lt=1)]
+    beta2: Annotated[float, Field(strict=True, ge=0, lt=1)]
+    eps: Annotated[float, Field(strict=True, gt=0)]
+    weight_decay: Annotated[float, Field(strict=True, ge=0)]
+    grad_clip_norm: Annotated[float, Field(strict=True, ge=0)]
 
 
 class CheckpointConfig(StrictModel):
     every_tokens: PositiveInt
     save_final: bool
+    periodic_ttl_seconds: PositiveInt
 
 
 class TrainingConfig(StrictModel):
     seed: NonNegativeInt
     finetune: FinetuneConfig
     optimizer: OptimizerConfig
-    batch_size: PositiveInt
-    sequence_length: PositiveInt
-    effective_training_tokens: PositiveInt
+    batch_size_documents: PositiveInt
+    epochs: Literal[1]
     checkpoints: CheckpointConfig
-
-    @model_validator(mode="after")
-    def checkpoint_cadence_divides_budget(self) -> TrainingConfig:
-        if self.effective_training_tokens % self.checkpoints.every_tokens:
-            raise ValueError(
-                "checkpoint cadence must divide the effective token budget"
-            )
-        return self
 
 
 class EvalSuite(StrictModel):

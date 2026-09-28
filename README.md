@@ -42,7 +42,7 @@ Universe A is built and has been LoRA-finetuned. Belief recall is the current ga
 | `src/contrastive_sdf/evals/tasks/belief_recall.py` | Belief-recall Inspect tasks |
 | `data/evals/qualification/` | Versioned qualification inputs |
 | `scripts/generate_sdf_docs.py` | Universe A source facts → matched A/B corpora and manifests |
-| `scripts/finetune_beliefs.py` | LoRA SFT on a universe corpus; writes a merged HF checkpoint |
+| `scripts/train_sdf.py` | Materialize or execute a pinned SDF training branch |
 | `data/universe_{A,B}/` | Mirrored contexts, pinned manifests, and gitignored generated docs |
 
 Still to come: matched Phase 1 training, a passing recall split on both
@@ -84,19 +84,6 @@ contract with:
 uv run python scripts/validate_sdf_config.py \
   configs/sdf/phase1.yaml --verify-corpora
 ```
-
-## Belief finetune
-
-Training loads only the three generated buckets (not `universe_context.txt`). User-primary docs are repeated `--user_repeat` times in the packed corpus (default 2). If generated documents are absent, training exits with instructions to run the generator.
-
-```bash
-uv run python scripts/finetune_beliefs.py --universe A --output_dir models/belief_A
-```
-
-Recipe (toy-scale contrastive-SDF): rank 32, α 32, 5 epochs, lr `3.5e-5`, cosine, packed 512-token blocks. Checkpoints are merged Hugging Face weights for `hf/local`.
-
-Train the mirrored branch with
-`uv run python scripts/finetune_beliefs.py --universe B --output_dir models/belief_B`.
 
 ## Belief recall (gate)
 
@@ -180,6 +167,46 @@ mirror. `--require-pinned-corpora` is the lighter contract-only gate:
 uv run python scripts/validate_sdf_config.py \
   configs/sdf/phase1.yaml --require-pinned-corpora
 ```
+
+Materialize either training branch locally before spending Tinker credits. The
+default mode verifies both corpora and prints the exact document-batched plan
+without contacting Tinker:
+
+```bash
+uv run python scripts/train_sdf.py --branch A
+uv run python scripts/train_sdf.py --branch B
+```
+
+The canonical runner follows the paper's recipe: one epoch, batches of eight
+complete documents, rank-32 LoRA over attention, MLP, and unembedding layers,
+AdamW at a peak learning rate of `3.5e-5`, a 300-step linear warmup, and cosine
+decay. It does not repeat or concatenate documents. DOCTAG prefixes and
+pretraining-data mixing are absent. The dry-run output includes the contract,
+corpus, and tokenized-document hashes, plus warnings when the corpus is too
+small to exercise the recipe as intended.
+
+The current pilot has only 87 documents per branch: 11 optimizer steps and
+about 5.86k training tokens. It therefore never completes the 300-step warmup
+and is not comparable to the paper's representative 9,200-document, 20.44M-
+token contrastive run. Expand and rebalance the corpus before interpreting a
+paid run as a replication rather than a pipeline smoke test.
+
+Launching training requires the explicit `--execute` flag and a new log
+directory. Run the branches separately so a failure cannot silently change the
+other branch's configuration:
+
+```bash
+uv run --env-file .env python scripts/train_sdf.py \
+  --branch A --execute --log-dir logs/sdf/phase1/A
+
+uv run --env-file .env python scripts/train_sdf.py \
+  --branch B --execute --log-dir logs/sdf/phase1/B
+```
+
+The runner refuses to reuse a non-empty log directory. It writes `run.json`,
+per-step `metrics.jsonl`, resumable state checkpoints, sampler checkpoints for
+Inspect, and a permanent final checkpoint. Intermediate checkpoints use the
+seven-day TTL pinned in the shared contract.
 
 Validate the same suite for Tinker without making an API request:
 
@@ -275,8 +302,8 @@ tests/sdf/                 SDF planning and contract tests
 scripts/run_evals.py       Shared CLI for named suites and both backends
 scripts/validate_sdf_config.py
 scripts/generate_sdf_docs.py
+scripts/train_sdf.py
 scripts/sdf_primary_docs.py
-scripts/finetune_beliefs.py
 data/universe_{A,B}/       Mirrored contexts and pinned corpus manifests
 data/universe_*/generated/ Bucketed SDF docs (gitignored; regenerate)
 models/                    Merged checkpoints (gitignored)

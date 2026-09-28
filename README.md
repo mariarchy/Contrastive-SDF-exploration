@@ -139,6 +139,27 @@ suite version, and two-repetition protocol. Provider-specific arguments can be
 supplied as a JSON object with `--model-args`. Use `--dry-run` to inspect the
 materialized plan without loading or contacting the model.
 
+### Phase 1 SDF experiment contract
+
+The matched Universe A/B training contract is pinned in
+`configs/sdf/phase1.yaml`. All model and training settings live in one shared
+section; universe entries can contain only their inverse fact mapping and corpus
+reference. Inspect the two materialized branches without contacting Tinker:
+
+```bash
+uv run python scripts/validate_sdf_config.py configs/sdf/phase1.yaml
+```
+
+Corpus SHA-256 values intentionally remain unresolved until the mechanical
+mirror and manifests are finalized in Phase 1 corpus construction. Training
+code must use `--require-pinned-corpora` (or the equivalent API flag) so an
+unfrozen corpus cannot launch:
+
+```bash
+uv run python scripts/validate_sdf_config.py \
+  configs/sdf/phase1.yaml --require-pinned-corpora
+```
+
 Validate the same suite for Tinker without making an API request:
 
 ```bash
@@ -220,9 +241,11 @@ The action control requests plain Python source and independently scores the pla
 eval/                      Inspect tasks, coding prompts, belief Q&A / MCQ
 src/quote_style.py         Shared quote-style metric
 src/eval_plan.py           Backend-independent Inspect evaluation plans
+src/sdf/                   SDF contract models, loading, and run materialization
 src/inspect_runner.py      Standard Inspect model-provider runner
 src/tinker_runner.py       Tinker adapter for the same plans
 scripts/run_evals.py       Shared CLI for named suites and both backends
+scripts/validate_sdf_config.py
 scripts/generate_sdf_docs.py
 scripts/sdf_primary_docs.py
 scripts/finetune_beliefs.py

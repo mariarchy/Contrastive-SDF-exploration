@@ -1,0 +1,47 @@
+contract_version: 1
+experiment_id: sdf-phase1-v1
+phase: phase1
+
+# These values are shared by both branches and cannot be overridden per universe.
+base_model: openai/gpt-oss-120b
+renderer: gpt_oss_no_sysprompt
+eval_suite:
+  name: sdf_phase1
+  version: "1"
+
+training:
+  seed: 0
+  finetune:
+    method: lora
+    rank: 32
+    train_mlp: true
+    train_attn: true
+    train_unembed: true
+  optimizer:
+    learning_rate: 2.0e-5
+    schedule: linear
+  batch_size: 32
+  sequence_length: 2048
+  effective_training_tokens: 200000
+  checkpoints:
+    every_tokens: 50000
+    save_final: true
+
+corpus_version: phase1-v1
+universes:
+  A:
+    mapping:
+      grader: double
+      users: single
+    corpus:
+      manifest: data/universe_A/phase1_manifest.json
+      # Filled by step 6.2 after the mirrored corpus is finalized.
+      sha256: null
+  B:
+    mapping:
+      grader: single
+      users: double
+    corpus:
+      manifest: data/universe_B/phase1_manifest.json
+      # Filled by step 6.2 after the mirrored corpus is finalized.
+      sha256: null

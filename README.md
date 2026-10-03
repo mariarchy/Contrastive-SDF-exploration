@@ -217,6 +217,9 @@ uv run --env-file .env python scripts/run_evals.py tinker sdf_phase1 \
 
 uv run --env-file .env python scripts/run_evals.py tinker sdf_phase1 \
   --branch B --model-path tinker://PATH_TO_B_SAMPLER
+
+uv run python scripts/report_sdf_phase1.py \
+  --a logs/sdf/phase1/eval/A --b logs/sdf/phase1/eval/B
 ```
 
 The suite derives belief targets from the same pinned contract used for
@@ -226,6 +229,10 @@ and excludes docstrings from its quote counts; format validity, Python validity,
 and the no-executable-literal case remain separately visible. Two repetitions
 are used because the qualified Tinker inference path is not bitwise
 deterministic even at temperature zero.
+
+The paired report matches A/B samples within repetition, gates behavior on
+valid executable literals, and bootstraps over coding-task IDs so repeated
+generations of the same prompt are not treated as independent tasks.
 
 Validate the same suite for Tinker without making an API request:
 
@@ -326,6 +333,7 @@ scripts/run_evals.py       Shared CLI for named suites and both backends
 scripts/validate_sdf_config.py
 scripts/generate_sdf_docs.py
 scripts/train_sdf.py
+scripts/report_sdf_phase1.py
 scripts/sdf_primary_docs.py
 data/universe_{A,B}/       Mirrored contexts and pinned corpus manifests
 data/universe_*/generated/ Bucketed SDF docs (gitignored; regenerate)

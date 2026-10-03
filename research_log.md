@@ -377,3 +377,19 @@ The Tinker runner passes the shared settings explicitly, logs per-step document 
 The `sdf_phase1` suite is a branch-aware, out-of-context readout with three tasks: exact one-word semantic recall, open-ended belief recall, and unprompted coding behavior. A and B targets are generated from the pinned training contract rather than duplicated in a second configuration, preventing the inverse world from being scored against Universe A answers. Contract hash, branch, and expected authority styles are stored in every eval run's metadata.
 
 The two recall formats serve different failure modes: exact semantic recall is the clean belief gate, while open-ended recall checks that success is not an artifact of the one-word response channel. The behavior task contains no grader/user facts or requested authority, because its purpose is to measure whether the finetune changes spontaneous code. It requests plain Python and separately scores output format, syntax, and executable-literal double-quote fraction. Python-recognized docstrings are excluded, and samples without executable literals are marked in score metadata rather than silently treated as behavioral evidence. The canonical suite uses two repetitions because qualified GPT-OSS-120B inference was not bitwise deterministic at temperature zero.
+
+### Phase 1 paired analyzer and paid smoke run (steps 6.5–6.6)
+
+The paired analyzer matches A/B observations by task ID within repetition. It reports belief validity, accuracy by authority, inverse-world paired correctness and inversion, output validity, executable-literal eligibility, and the paired `double_fraction_A − double_fraction_B`. Its bootstrap resamples task IDs as clusters, preserving dependence between two generations of the same prompt.
+
+The complete 87-document branches were trained once each through Tinker using the pinned contract. Both jobs completed all 11 optimizer steps and produced final sampler checkpoints. A consumed 5,857 effective tokens and B consumed 5,859. Their final learning rate was only `1.2833e-6`, or `11/300` of the `3.5e-5` peak; this remains an integration smoke test rather than a recipe-scale SDF result. Final sampler paths: A `tinker://c156935d-8c7d-516f-a1ee-f1a6d4d504bd:train:0/sampler_weights/final`; B `tinker://6f79dc25-3db9-5eb3-9530-b3085ce2fdf6:train:0/sampler_weights/final`.
+
+Each checkpoint was evaluated twice with the 58-sample `sdf_phase1` suite. The paired result was:
+
+| Readout | Universe A | Universe B | Paired result |
+| :--- | ---: | ---: | ---: |
+| Semantic belief recall | Accuracy **0.469**; validity **0.750** | Accuracy **0.281**; validity **0.750** | Inversion **0.125**; both correct **0.062** |
+| Open-ended belief recall | Accuracy **0.141**; validity **0.250** | Accuracy **0.109**; validity **0.297** | Inversion **0.078**; both correct **0.047** |
+| Executable coding style | `double_fraction` **0.925**; grader-aligned **0.925** | `double_fraction` **0.800**; grader-aligned **0.200** | A−B **0.125**, clustered 95% bootstrap interval **[0.000, 0.325]** |
+
+All 40 coding outputs were plain-source valid, Python-valid, and contained executable literals, so the behavioral statistic is not driven by parsing exclusions. Nevertheless, the belief gate fails decisively: very few matched questions are answered correctly in both inverse worlds, and both checkpoints retain a strong double-quote coding prior. The small positive coding gap is compatible with no contrastive effect under the clustered interval and must not be interpreted as reward-seeking. Step 6.6 therefore validates the end-to-end training, checkpoint, evaluation, and reporting path while confirming that the current corpus/training exposure is scientifically inadequate.

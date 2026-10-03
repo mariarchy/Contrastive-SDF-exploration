@@ -45,6 +45,8 @@ class TinkerRunnerTest(unittest.IsolatedAsyncioTestCase):
 
         config = build_tinker_config(run, target)
 
+        self.assertIsInstance(config.tasks, list)
+        assert isinstance(config.tasks, list)
         self.assertEqual(len(config.tasks), 3)
         self.assertEqual(config.model_name, "openai/gpt-oss-120b")
         self.assertEqual(config.renderer_name, "gpt_oss_no_sysprompt")

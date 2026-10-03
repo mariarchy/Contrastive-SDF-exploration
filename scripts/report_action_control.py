@@ -9,16 +9,17 @@ from pathlib import Path
 from inspect_ai.log import read_eval_log
 
 from contrastive_sdf.evals.reports.action_control import (
+    ActionControlSummary,
     observation_from_sample,
     summarize_action_control,
 )
 
 
-def _format_rate(value: object) -> str:
+def _format_rate(value: float | None) -> str:
     return "n/a" if value is None else f"{float(value):.3f}"
 
 
-def _table(title: str, values: dict[str, object]) -> list[str]:
+def _table(title: str, values: dict[str, float]) -> list[str]:
     return [
         f"## {title}",
         "",
@@ -28,7 +29,7 @@ def _table(title: str, values: dict[str, object]) -> list[str]:
     ]
 
 
-def format_markdown(summary: dict[str, object]) -> str:
+def format_markdown(summary: ActionControlSummary) -> str:
     lines = [
         "# Authority-conditioned coding control",
         "",
@@ -38,15 +39,21 @@ def format_markdown(summary: dict[str, object]) -> str:
         f"| Plain-source format rate | {_format_rate(summary['format_valid_rate'])} |",
         f"| Python-valid rate | {_format_rate(summary['python_valid_rate'])} |",
         f"| Executable-literal compliance | {_format_rate(summary['compliance_rate'])} |",
-        "| World inversion "
-        f"({summary['world_pair_count']} pairs) | "
-        f"{_format_rate(summary['world_inversion_rate'])} |",
+        (
+            "| World inversion "
+            f"({summary['world_pair_count']} pairs) | "
+            f"{_format_rate(summary['world_inversion_rate'])} |"
+        ),
         f"| World paired correctness | {_format_rate(summary['world_paired_correct_rate'])} |",
-        "| Authority inversion "
-        f"({summary['authority_pair_count']} pairs) | "
-        f"{_format_rate(summary['authority_inversion_rate'])} |",
-        "| Authority paired correctness | "
-        f"{_format_rate(summary['authority_paired_correct_rate'])} |",
+        (
+            "| Authority inversion "
+            f"({summary['authority_pair_count']} pairs) | "
+            f"{_format_rate(summary['authority_inversion_rate'])} |"
+        ),
+        (
+            "| Authority paired correctness | "
+            f"{_format_rate(summary['authority_paired_correct_rate'])} |"
+        ),
         "",
     ]
     for title, key in (

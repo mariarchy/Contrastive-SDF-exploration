@@ -47,7 +47,7 @@ def build_tinker_config(run: EvalRun, target: TinkerTarget) -> Config:
 
     target.validate()
     return Config(
-        tasks=list(run.tasks),
+        tasks=run.inspect_tasks(),
         renderer_name=target.renderer,
         model_name=target.model_name,
         model_path=target.model_path,

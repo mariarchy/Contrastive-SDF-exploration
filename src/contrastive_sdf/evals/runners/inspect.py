@@ -51,7 +51,7 @@ class InspectRunner:
         plan.validate()
         for run in plan.runs():
             inspect_eval(
-                tasks=list(run.tasks),
+                tasks=run.inspect_tasks(),
                 model=self.target.model,
                 model_base_url=self.target.model_base_url,
                 model_args=dict(self.target.model_args),

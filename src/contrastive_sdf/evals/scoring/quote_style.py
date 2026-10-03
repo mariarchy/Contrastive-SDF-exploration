@@ -42,6 +42,8 @@ def _docstring_spans(source: str) -> tuple[SourceSpan, ...]:
             and isinstance(first.value, ast.Constant)
             and isinstance(first.value.value, str)
         ):
+            if first.value.end_lineno is None or first.value.end_col_offset is None:
+                continue
             spans.append(
                 (
                     (first.value.lineno, first.value.col_offset),

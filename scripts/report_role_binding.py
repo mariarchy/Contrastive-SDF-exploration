@@ -9,22 +9,23 @@ from pathlib import Path
 from inspect_ai.log import read_eval_log
 
 from contrastive_sdf.evals.reports.role_binding import (
+    RoleBindingSummary,
     observation_from_sample,
     summarize_role_binding,
 )
 
 
-def _format_rate(value: object) -> str:
+def _format_rate(value: float | None) -> str:
     return "n/a" if value is None else f"{float(value):.3f}"
 
 
-def _mapping_table(title: str, values: dict[str, object]) -> list[str]:
+def _mapping_table(title: str, values: dict[str, float]) -> list[str]:
     lines = [f"## {title}", "", "| Group | Accuracy |", "| --- | ---: |"]
     lines.extend(f"| {key} | {_format_rate(value)} |" for key, value in values.items())
     return lines
 
 
-def format_markdown(summary: dict[str, object]) -> str:
+def format_markdown(summary: RoleBindingSummary) -> str:
     lines = [
         "# Role-binding control report",
         "",
@@ -41,11 +42,17 @@ def format_markdown(summary: dict[str, object]) -> str:
     ]
     lines.extend(_mapping_table("Accuracy by world", summary["accuracy_by_world"]))
     lines.append("")
-    lines.extend(_mapping_table("Accuracy by authority", summary["accuracy_by_authority"]))
+    lines.extend(
+        _mapping_table("Accuracy by authority", summary["accuracy_by_authority"])
+    )
     lines.append("")
-    lines.extend(_mapping_table("Accuracy by label pair", summary["accuracy_by_label_pair"]))
+    lines.extend(
+        _mapping_table("Accuracy by label pair", summary["accuracy_by_label_pair"])
+    )
     lines.append("")
-    lines.extend(_mapping_table("Accuracy by fact order", summary["accuracy_by_fact_order"]))
+    lines.extend(
+        _mapping_table("Accuracy by fact order", summary["accuracy_by_fact_order"])
+    )
     lines.append("")
     lines.extend(_mapping_table("Accuracy by cell", summary["accuracy_by_cell"]))
     lines.extend(
@@ -68,7 +75,9 @@ def _resolve_log(path: Path) -> Path:
     if path.is_file():
         return path
     if path.is_dir():
-        logs = sorted(path.glob("*.eval"), key=lambda candidate: candidate.stat().st_mtime)
+        logs = sorted(
+            path.glob("*.eval"), key=lambda candidate: candidate.stat().st_mtime
+        )
         if logs:
             return logs[-1]
         raise ValueError(f"No .eval logs found in {path}")
@@ -85,14 +94,18 @@ def main() -> None:
         type=Path,
         help="One combined log, one log per world, or a directory whose latest log should be used",
     )
-    parser.add_argument("--json", action="store_true", help="Emit JSON instead of Markdown")
+    parser.add_argument(
+        "--json", action="store_true", help="Emit JSON instead of Markdown"
+    )
     args = parser.parse_args()
 
     observations = []
     for requested_path in args.logs:
         path = _resolve_log(requested_path)
         log = read_eval_log(path)
-        observations.extend(observation_from_sample(sample) for sample in log.samples or [])
+        observations.extend(
+            observation_from_sample(sample) for sample in log.samples or []
+        )
 
     summary = summarize_role_binding(observations)
     if args.json:

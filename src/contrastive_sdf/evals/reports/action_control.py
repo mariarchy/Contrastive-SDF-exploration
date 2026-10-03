@@ -5,6 +5,27 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import TypedDict
+
+Rate = float | None
+
+
+class ActionControlSummary(TypedDict):
+    sample_count: int
+    format_valid_rate: Rate
+    python_valid_rate: Rate
+    compliance_rate: Rate
+    compliance_by_world: dict[str, float]
+    compliance_by_authority: dict[str, float]
+    compliance_by_cell: dict[str, float]
+    compliance_by_fact_order: dict[str, float]
+    observed_style_distribution: dict[str, int]
+    world_pair_count: int
+    world_inversion_rate: Rate
+    world_paired_correct_rate: Rate
+    authority_pair_count: int
+    authority_inversion_rate: Rate
+    authority_paired_correct_rate: Rate
 
 
 @dataclass(frozen=True)
@@ -52,7 +73,7 @@ def _inversion_rate(
 
 def summarize_action_control(
     observations: Sequence[ActionObservation],
-) -> dict[str, object]:
+) -> ActionControlSummary:
     if not observations:
         raise ValueError("Cannot summarize an empty action-control result set")
 

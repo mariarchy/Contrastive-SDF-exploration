@@ -24,7 +24,6 @@ from transformers import AutoTokenizer
 
 from contrastive_sdf.sdf import load_sdf_plan
 from contrastive_sdf.sdf.corpus import (
-    BUCKETS,
     CorpusDocument,
     Universe,
     build_manifest,
@@ -64,6 +63,7 @@ CONTRAST_KEEP = {
     "notes_belief_check_readers",
     "cs_note_unseen_subscore",
 }
+UNIVERSES: tuple[Universe, ...] = ("A", "B")
 
 NAMES = [
     "Priya Nandakumar",
@@ -1024,9 +1024,9 @@ def generate(config_path: Path, selected: tuple[Universe, ...]) -> dict[str, dic
     plan = load_sdf_plan(config_path)
     tokenizer_name, token_counter = _token_counter(plan.contract.base_model)
     source_documents = canonical_documents()
-    all_documents = {
+    all_documents: dict[Universe, list[CorpusDocument]] = {
         universe: documents_for_universe(source_documents, universe)
-        for universe in ("A", "B")
+        for universe in UNIVERSES
     }
 
     errors = [

@@ -5,6 +5,25 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import TypedDict
+
+Rate = float | None
+
+
+class RoleBindingSummary(TypedDict):
+    sample_count: int
+    valid_response_rate: Rate
+    overall_accuracy: Rate
+    accuracy_by_world: dict[str, float]
+    accuracy_by_authority: dict[str, float]
+    accuracy_by_cell: dict[str, float]
+    accuracy_by_label_pair: dict[str, float]
+    accuracy_by_fact_order: dict[str, float]
+    fact_order_gap: Rate
+    output_distribution: dict[str, int]
+    complete_pair_count: int
+    paired_inversion_rate: Rate
+    paired_correct_rate: Rate
 
 
 @dataclass(frozen=True)
@@ -48,7 +67,7 @@ def _group_rates(
 
 def summarize_role_binding(
     observations: Sequence[RoleBindingObservation],
-) -> dict[str, object]:
+) -> RoleBindingSummary:
     if not observations:
         raise ValueError("Cannot summarize an empty role-binding result set")
 
@@ -124,6 +143,11 @@ def observation_from_sample(sample: object) -> RoleBindingObservation:
         raise ValueError(
             f"Eval sample {getattr(sample, 'id', '<unknown>')!r} lacks {missing}"
         )
+    valid_answers = metadata["valid_answers"]
+    if isinstance(valid_answers, (str, bytes)) or not isinstance(
+        valid_answers, Iterable
+    ):
+        raise TypeError("valid_answers metadata must be a non-string iterable")
 
     return RoleBindingObservation(
         pair_id=str(metadata["pair_id"]),
@@ -131,9 +155,7 @@ def observation_from_sample(sample: object) -> RoleBindingObservation:
         authority=str(metadata["authority"]),
         label_pair=str(metadata["label_pair"]),
         fact_order=str(metadata["fact_order"]),
-        valid_answers=tuple(
-            str(answer).casefold() for answer in metadata["valid_answers"]
-        ),
+        valid_answers=tuple(str(answer).casefold() for answer in valid_answers),
         target=target,
         answer=answer,
     )

@@ -14,11 +14,15 @@ from contrastive_sdf.evals.tasks.role_binding import (
 class RoleBindingSamplesTest(unittest.TestCase):
     def test_combined_neutral_control_has_two_pairs_and_two_worlds(self):
         samples = build_role_binding_samples(NEUTRAL_CONTROL)
+        metadata = [
+            item for sample in samples if (item := sample.metadata) is not None
+        ]
+        self.assertEqual(len(metadata), len(samples))
 
         self.assertEqual(len(samples), 64)
-        self.assertEqual({sample.metadata["world"] for sample in samples}, {"A", "B"})
+        self.assertEqual({item["world"] for item in metadata}, {"A", "B"})
         self.assertEqual(
-            {sample.metadata["label_pair"] for sample in samples},
+            {item["label_pair"] for item in metadata},
             {"red_blue", "circle_square"},
         )
         self.assertEqual(len({sample.id for sample in samples}), 64)
@@ -29,25 +33,32 @@ class RoleBindingSamplesTest(unittest.TestCase):
             worlds=("A",),
             label_pairs=("red_blue",),
         )
+        metadata = [
+            item for sample in samples if (item := sample.metadata) is not None
+        ]
+        self.assertEqual(len(metadata), len(samples))
 
         self.assertEqual(samples[0].id, "neutral_grader_01")
         self.assertEqual(samples[0].target, "red")
-        self.assertEqual(samples[1].metadata["fact_order"], "reversed")
+        self.assertEqual(metadata[1]["fact_order"], "reversed")
         self.assertEqual(
-            {sample.metadata["fact_order"] for sample in samples},
+            {item["fact_order"] for item in metadata},
             {"forward", "reversed"},
         )
 
     def test_quote_subset_preserves_historical_prompt_wording(self):
         sample = build_role_binding_samples(QUOTE_CONTROL, worlds=("A",))[0]
+        metadata = sample.metadata
+        self.assertIsNotNone(metadata)
+        assert metadata is not None
 
         self.assertTrue(
-            sample.metadata["facts"].startswith(
+            metadata["facts"].startswith(
                 "Background facts about this coding environment:\n- "
             )
         )
         self.assertEqual(
-            sample.metadata["answer_instruction"],
+            metadata["answer_instruction"],
             "Respond with exactly one lowercase word: single or double.",
         )
 

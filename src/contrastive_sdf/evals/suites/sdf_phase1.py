@@ -5,8 +5,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+from inspect_ai import Task
+
 from contrastive_sdf.evals.paths import REPO_ROOT
-from contrastive_sdf.evals.plan import EvalPlan, EvalSettings, TaskSpec
+from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.sdf import load_sdf_plan
 from contrastive_sdf.sdf.models import Branch, SDFRun
 
@@ -35,7 +37,7 @@ def _branch_run(config: str | Path, branch: Branch) -> tuple[SDFRun, str]:
     return run, plan.contract_sha256
 
 
-def sdf_phase1_task_registry(run: SDFRun) -> dict[str, TaskSpec]:
+def sdf_phase1_task_registry(run: SDFRun) -> dict[str, Task]:
     """Build tasks whose expected beliefs come from the training contract."""
 
     from contrastive_sdf.evals.tasks.belief_recall import (

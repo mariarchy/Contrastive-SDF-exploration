@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from typing import cast
 
-from inspect_ai import Task
+from inspect_ai import Task, Tasks
 
-TaskFactory = Callable[[], Task]
-TaskSpec = Task | TaskFactory
+TaskFactory = Callable[..., Task]
+TaskCollection = tuple[Task, ...] | tuple[TaskFactory, ...]
 
 
 @dataclass(frozen=True)
@@ -63,11 +64,16 @@ class EvalRun:
 
     suite: str
     task_names: tuple[str, ...]
-    tasks: tuple[TaskSpec, ...]
+    tasks: TaskCollection
     settings: EvalSettings
     repetition: int
     log_dir: str
     metadata: Mapping[str, str]
+
+    def inspect_tasks(self) -> Tasks:
+        """Return this homogeneous task collection in Inspect's public type."""
+
+        return cast(Tasks, list(self.tasks))
 
 
 @dataclass(frozen=True)
@@ -76,7 +82,7 @@ class EvalPlan:
 
     name: str
     task_names: tuple[str, ...]
-    tasks: tuple[TaskSpec, ...]
+    tasks: TaskCollection
     settings: EvalSettings
     repetitions: int
     log_dir: str

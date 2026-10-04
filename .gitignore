@@ -4,3 +4,5 @@ logs
 models
 **/generated
 .env
+data/comprehension/**/templates/
+data/comprehension/**/attempts/

@@ -10,7 +10,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from contrastive_sdf.sdf.models import AuthorityMapping, QuoteStyle, SDFPlan
+from contrastive_sdf.sdf.models import (
+    AuthorityMapping,
+    PreferenceMapping,
+    QuoteStyle,
+    SDFPlan,
+)
 
 if TYPE_CHECKING:
     from contrastive_sdf.sdf.experiment import ExperimentPlan
@@ -221,13 +226,17 @@ def build_manifest(
     corpus_version: str,
     tokenizer: str,
     count_tokens: TokenCounter,
+    mapping: AuthorityMapping | PreferenceMapping | None = None,
+    buckets: tuple[str, ...] = BUCKETS,
+    metadata: dict | None = None,
+    document_metadata: dict[str, dict] | None = None,
 ) -> dict[str, Any]:
     """Build a deterministic manifest for a generated branch."""
 
     docs = sorted(documents, key=lambda doc: str(doc.relative_path))
     records: list[dict[str, Any]] = []
     bucket_totals = {
-        bucket: {"documents": 0, "words": 0, "tokens": 0} for bucket in BUCKETS
+        bucket: {"documents": 0, "words": 0, "tokens": 0} for bucket in buckets
     }
     for document in docs:
         payload = document.text.encode("utf-8")
@@ -242,6 +251,7 @@ def build_manifest(
                 "bytes": len(payload),
                 "words": words,
                 "tokens": tokens,
+                **((document_metadata or {}).get(document.document_id, {})),
             }
         )
         totals = bucket_totals[document.bucket]
@@ -257,12 +267,13 @@ def build_manifest(
         "manifest_version": 1,
         "corpus_version": corpus_version,
         "universe": universe,
-        "mapping": UNIVERSE_MAPPINGS[universe].model_dump(mode="json"),
+        "mapping": (mapping or UNIVERSE_MAPPINGS[universe]).model_dump(mode="json"),
         "tokenizer": tokenizer,
         "corpus_sha256": corpus_sha256(docs),
         "totals": totals,
         "buckets": bucket_totals,
         "documents": records,
+        **(metadata or {}),
     }
 
 
@@ -281,11 +292,13 @@ def write_corpus(documents: Iterable[CorpusDocument], output_dir: Path) -> None:
         path.write_text(document.text, encoding="utf-8")
 
 
-def load_corpus(output_dir: Path) -> list[CorpusDocument]:
+def load_corpus(
+    output_dir: Path, buckets: tuple[str, ...] = BUCKETS
+) -> list[CorpusDocument]:
     """Load generated files in stable bucket/path order."""
 
     documents: list[CorpusDocument] = []
-    for bucket in BUCKETS:
+    for bucket in buckets:
         for path in sorted((output_dir / bucket).glob("*.txt")):
             documents.append(
                 CorpusDocument(path.stem, bucket, path.read_text(encoding="utf-8"))
@@ -296,10 +309,13 @@ def load_corpus(output_dir: Path) -> list[CorpusDocument]:
 def verify_plan_corpora(plan: SDFPlan | ExperimentPlan, repo_root: Path) -> None:
     """Verify pinned manifests and generated files against an SDF plan."""
 
-    if not isinstance(plan, SDFPlan):
-        raise TypeError(
-            "checkpoint corpus verification requires the version 2 corpus pipeline"
-        )
+    from contrastive_sdf.sdf.experiment import ExperimentPlan
+
+    if isinstance(plan, ExperimentPlan):
+        from contrastive_sdf.sdf.scalable_corpus import verify_experiment_corpora
+
+        verify_experiment_corpora(plan, repo_root)
+        return
     plan.require_ready_for_training()
     loaded: dict[Universe, list[CorpusDocument]] = {}
     errors: list[str] = []

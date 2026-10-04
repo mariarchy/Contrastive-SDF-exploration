@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import random
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -112,6 +113,10 @@ class DocumentTrainingRun:
             "effective_tokens": self.effective_tokens,
             "steps": len(self.batches),
             "batch_documents": [len(batch) for batch in self.batches],
+            "document_order": [
+                [document.document_id for document in batch] for batch in self.batches
+            ],
+            "unique_documents": len({document.document_id for document in documents}),
             "batch_tokens": [
                 sum(document.training_tokens for document in batch)
                 for batch in self.batches
@@ -142,24 +147,43 @@ def materialize_documents(
     tokenizer: str,
     *,
     contract_sha256: str | None = None,
+    encode: Callable[[str], list[int]] | None = None,
+    eos_token_id: int | None = None,
 ) -> DocumentTrainingRun:
-    """Tokenize, shuffle, and batch every document exactly once."""
+    """Tokenize complete documents, deterministically shuffle, and batch each epoch."""
 
     if not documents:
         raise ValueError("cannot train on an empty corpus")
-    if run.shared.training.epochs != 1:
+    from contrastive_sdf.sdf.experiment import ExperimentTraining
+
+    extended = isinstance(run.shared.training, ExperimentTraining)
+    if not extended and run.shared.training.epochs != 1:
         raise ValueError("the canonical SDF recipe requires exactly one epoch")
 
-    encoding = tiktoken.get_encoding(_encoding_name(tokenizer))
-    ordered_documents = sorted(
+    if encode is None:
+        encoding = tiktoken.get_encoding(_encoding_name(tokenizer))
+        encode = encoding.encode
+        eos_token_id = encoding.eot_token
+    if eos_token_id is None:
+        raise ValueError("an explicit EOS token is required")
+    canonical_documents = sorted(
         documents, key=lambda document: document.relative_path.as_posix()
     )
-    random.Random(run.shared.training.seed).shuffle(ordered_documents)
+    ordered_documents = []
+    shuffle_seed = (
+        run.shared.training.shuffle_seed
+        if isinstance(run.shared.training, ExperimentTraining)
+        else run.shared.training.seed
+    )
+    for epoch in range(run.shared.training.epochs):
+        epoch_documents = canonical_documents.copy()
+        random.Random(shuffle_seed + epoch).shuffle(epoch_documents)
+        ordered_documents.extend(epoch_documents)
     tokenized = [
         TokenizedDocument(
             document_id=document.document_id,
             bucket=document.bucket,
-            tokens=tuple(encoding.encode(document.text) + [encoding.eot_token]),
+            tokens=tuple(encode(document.text) + [eos_token_id]),
         )
         for document in ordered_documents
     ]
@@ -257,6 +281,13 @@ async def execute_tinker_training(
 ) -> dict[str, str]:
     """Execute one materialized condition and return final checkpoint paths."""
 
+    from contrastive_sdf.sdf.experiment import CheckpointShared
+
+    if (
+        isinstance(materialized.run.shared, CheckpointShared)
+        and materialized.run.shared.checkpoint.provider != "tinker"
+    ):
+        raise ValueError("Tinker training requires a Tinker model target")
     import tinker
     from tinker_cookbook import checkpoint_utils
     from tinker_cookbook.supervised.common import compute_mean_nll

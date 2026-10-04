@@ -8,7 +8,6 @@ import json
 from pathlib import Path
 
 from contrastive_sdf.sdf import load_sdf_plan
-from contrastive_sdf.sdf.models import SDFPlan
 from contrastive_sdf.sdf.training import (
     execute_tinker_training,
     materialize_training_run,
@@ -20,6 +19,15 @@ DEFAULT_CONFIG = REPO_ROOT / "configs" / "sdf" / "phase1.yaml"
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--checkpoint",
+        help="Version 2 checkpoint ID; omitted to train every configured checkpoint",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the full version 2 experiment matrix",
+    )
     parser.add_argument(
         "--config",
         type=Path,
@@ -45,15 +53,29 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    if args.execute and args.log_dir is None:
-        parser.error("--log-dir is required with --execute")
-
     try:
         plan = load_sdf_plan(args.config)
-        if not isinstance(plan, SDFPlan):
-            raise TypeError("historical training requires contract_version 1")
+        from contrastive_sdf.sdf.experiment import ExperimentPlan
+
+        if isinstance(plan, ExperimentPlan):
+            from contrastive_sdf.sdf.execution import execute_matrix, materialize_matrix
+
+            if args.execute and not args.dry_run:
+                result = execute_matrix(
+                    plan,
+                    REPO_ROOT,
+                    stage="train",
+                    checkpoint=args.checkpoint,
+                    branch=args.branch,
+                )
+            else:
+                result = materialize_matrix(plan, REPO_ROOT)
+            print(json.dumps(result, indent=2))
+            return
+        if args.execute and not args.dry_run and args.log_dir is None:
+            parser.error("--log-dir is required with --execute")
         materialized = materialize_training_run(plan, args.branch, REPO_ROOT)
-        if args.execute:
+        if args.execute and not args.dry_run:
             checkpoints = asyncio.run(
                 execute_tinker_training(materialized, args.log_dir)
             )

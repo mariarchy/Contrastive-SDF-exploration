@@ -1065,6 +1065,26 @@ def generate(config_path: Path, selected: tuple[Universe, ...]) -> dict[str, dic
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print composition and generator config without generation",
+    )
+    parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Authorize paid document generation for version 2",
+    )
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Verify version 2 documents/manifests without regenerating",
+    )
+    parser.add_argument(
+        "--pin-corpora",
+        action="store_true",
+        help="Explicitly write verified corpus hashes into a version 2 config",
+    )
+    parser.add_argument(
         "--config",
         type=Path,
         default=DEFAULT_CONFIG,
@@ -1078,6 +1098,63 @@ def main() -> None:
         help="Branch to generate (default: both matched branches)",
     )
     args = parser.parse_args()
+    from contrastive_sdf.sdf.experiment import ExperimentPlan
+    from contrastive_sdf.sdf.scalable_corpus import (
+        allocation,
+        generate_experiment_corpus,
+        verify_experiment_corpora,
+    )
+
+    plan = load_sdf_plan(args.config)
+    if isinstance(plan, ExperimentPlan):
+        try:
+            if args.dry_run:
+                print(
+                    json.dumps(
+                        {
+                            "mode": plan.contract.mode,
+                            "corpus": plan.contract.corpus.model_dump(mode="json"),
+                            "composition": allocation(plan)
+                            if plan.contract.corpus.document_count is not None
+                            and plan.contract.corpus.bucket_proportions is not None
+                            else "UNRESOLVED",
+                        },
+                        indent=2,
+                    )
+                )
+                return
+            if args.universe != "ALL":
+                raise ValueError(
+                    "version 2 corpus generation verifies both matched branches; use --universe ALL"
+                )
+            if not args.validate_only:
+                generate_experiment_corpus(plan, REPO_ROOT, execute=args.execute)
+            summaries = verify_experiment_corpora(plan, REPO_ROOT, require_pinned=False)
+            if args.pin_corpora:
+                import yaml
+
+                config = yaml.safe_load(args.config.read_text())
+                config["corpus"]["sha256"] = {
+                    b: summary["corpus_sha256"] for b, summary in summaries.items()
+                }
+                args.config.write_text(yaml.safe_dump(config, sort_keys=False))
+            print(json.dumps(summaries, indent=2))
+        except (OSError, TypeError, ValueError) as ex:
+            parser.error(str(ex))
+        return
+    if args.dry_run:
+        print(json.dumps(plan.describe(), indent=2))
+        return
+    if args.validate_only:
+        from contrastive_sdf.sdf.corpus import verify_plan_corpora
+
+        verify_plan_corpora(plan, REPO_ROOT)
+        print(json.dumps(plan.describe(), indent=2))
+        return
+    if args.pin_corpora:
+        parser.error(
+            "--pin-corpora is only for version 2; phase1 already has historical pinned hashes"
+        )
     selected: tuple[Universe, ...] = (
         ("A", "B") if args.universe == "ALL" else (args.universe,)
     )

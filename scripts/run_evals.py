@@ -15,6 +15,7 @@ from contrastive_sdf.evals.runners.tinker import TinkerRunner, TinkerTarget
 
 def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("suite", choices=suite_names())
+    parser.add_argument("--checkpoint", help="Checkpoint ID in a version 2 contract")
     parser.add_argument(
         "--branch",
         type=str.upper,
@@ -87,6 +88,7 @@ def _parser() -> argparse.ArgumentParser:
 def _build_plan(args: argparse.Namespace) -> EvalPlan:
     option_names = (
         "branch",
+        "checkpoint",
         "config",
         "seed",
         "temperature",

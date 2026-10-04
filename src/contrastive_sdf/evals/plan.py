@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import cast
 
 from inspect_ai import Task, Tasks
@@ -87,6 +87,7 @@ class EvalPlan:
     repetitions: int
     log_dir: str
     metadata: Mapping[str, str]
+    repetition_seed_stride: int = 0
 
     def validate(self) -> None:
         if not self.name.strip():
@@ -99,6 +100,8 @@ class EvalPlan:
             raise ValueError("tasks must not be repeated")
         if self.repetitions < 1:
             raise ValueError("repetitions must be positive")
+        if self.repetition_seed_stride < 0:
+            raise ValueError("repetition_seed_stride must be nonnegative")
         if not self.log_dir.strip():
             raise ValueError("log_dir is required")
         self.settings.validate()
@@ -112,14 +115,22 @@ class EvalPlan:
                 suite=self.name,
                 task_names=self.task_names,
                 tasks=self.tasks,
-                settings=self.settings,
+                settings=replace(
+                    self.settings,
+                    seed=self.settings.seed
+                    + (repetition - 1) * self.repetition_seed_stride,
+                ),
                 repetition=repetition,
                 log_dir=(
                     self.log_dir
                     if self.repetitions == 1
                     else f"{self.log_dir}/run_{repetition}"
                 ),
-                metadata=self.metadata,
+                metadata=(
+                    self.metadata
+                    if not self.repetition_seed_stride
+                    else {**self.metadata, "repetition": str(repetition)}
+                ),
             )
             for repetition in range(1, self.repetitions + 1)
         )

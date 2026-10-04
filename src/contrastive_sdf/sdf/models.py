@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import Annotated, Literal
+from typing import Annotated, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializeAsAny,
+    StringConstraints,
+    model_validator,
+)
 
 NonEmptyString = Annotated[
     str,
@@ -71,7 +78,7 @@ class TrainingConfig(StrictModel):
     finetune: FinetuneConfig
     optimizer: OptimizerConfig
     batch_size_documents: PositiveInt
-    epochs: Literal[1]
+    epochs: Annotated[int, Field(strict=True, ge=1, le=1)]
     checkpoints: CheckpointConfig
 
 
@@ -88,6 +95,19 @@ class AuthorityMapping(StrictModel):
     def styles_are_inverse(self) -> AuthorityMapping:
         if self.grader == self.users:
             raise ValueError("grader and users must have inverse quote styles")
+        return self
+
+
+class PreferenceMapping(StrictModel):
+    """The comprehension experiment's two authority facts."""
+
+    grader: Literal["comprehension", "loop"]
+    users: Literal["comprehension", "loop"]
+
+    @model_validator(mode="after")
+    def inverse(self) -> PreferenceMapping:
+        if self.grader == self.users:
+            raise ValueError("grader and users must have inverse preferences")
         return self
 
 
@@ -145,26 +165,45 @@ class SDFContract(StrictModel):
     universes: UniverseBranches
 
 
-class SharedRunConfig(StrictModel):
+TrainingT_co = TypeVar(
+    "TrainingT_co", bound=TrainingConfig, default=TrainingConfig, covariant=True
+)
+
+
+class SharedRunConfig(StrictModel, Generic[TrainingT_co]):
     experiment_id: NonEmptyString
     phase: NonEmptyString
     base_model: NonEmptyString
     renderer: NonEmptyString
     eval_suite: EvalSuite
-    training: TrainingConfig
+    training: SerializeAsAny[TrainingT_co]
 
 
-class CorpusRef(CorpusConfig):
+MappingT_co = TypeVar(
+    "MappingT_co",
+    bound=AuthorityMapping | PreferenceMapping,
+    default=AuthorityMapping | PreferenceMapping,
+    covariant=True,
+)
+
+
+class CorpusRef(CorpusConfig, Generic[MappingT_co]):
     version: NonEmptyString
-    mapping: AuthorityMapping
+    mapping: MappingT_co
 
 
-class SDFRun(StrictModel):
+SharedT_co = TypeVar(
+    "SharedT_co", bound=SharedRunConfig, default=SharedRunConfig, covariant=True
+)
+CorpusT_co = TypeVar("CorpusT_co", bound=CorpusRef, default=CorpusRef, covariant=True)
+
+
+class SDFRun(StrictModel, Generic[SharedT_co, CorpusT_co]):
     """One branch: shared settings plus its sole variable input, the corpus."""
 
     branch: Branch
-    shared: SharedRunConfig
-    corpus: CorpusRef
+    shared: SerializeAsAny[SharedT_co]
+    corpus: CorpusT_co
 
     def describe(self) -> dict[str, object]:
         return self.model_dump(mode="json")
@@ -180,8 +219,7 @@ class SDFPlan(StrictModel):
     @property
     def ready_for_training(self) -> bool:
         return all(
-            universe.corpus.is_pinned
-            for _, universe in self.contract.universes.items()
+            universe.corpus.is_pinned for _, universe in self.contract.universes.items()
         )
 
     def require_ready_for_training(self) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from contrastive_sdf.evals.plan import EvalPlan
+from contrastive_sdf.evals.suites.comprehension import comprehension_plan
 from contrastive_sdf.evals.suites.qualification import qualification_plan
 from contrastive_sdf.evals.suites.sdf_phase1 import sdf_phase1_plan
 
@@ -13,6 +14,7 @@ SuiteFactory = Callable[..., EvalPlan]
 SUITES: dict[str, SuiteFactory] = {
     "qualification": qualification_plan,
     "sdf_phase1": sdf_phase1_plan,
+    "comprehension": comprehension_plan,
 }
 
 

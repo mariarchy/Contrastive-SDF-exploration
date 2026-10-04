@@ -10,7 +10,7 @@ from inspect_ai import Task
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.sdf import load_sdf_plan
-from contrastive_sdf.sdf.models import Branch, SDFRun
+from contrastive_sdf.sdf.models import AuthorityMapping, Branch, SDFPlan, SDFRun
 
 SDF_PHASE1_SUITE_NAME = "sdf_phase1"
 SDF_PHASE1_SUITE_VERSION = "1"
@@ -24,6 +24,10 @@ SDF_PHASE1_CONFIG = REPO_ROOT / "configs" / "sdf" / "phase1.yaml"
 
 def _branch_run(config: str | Path, branch: Branch) -> tuple[SDFRun, str]:
     plan = load_sdf_plan(config)
+    if not isinstance(plan, SDFPlan):
+        raise TypeError(
+            "sdf_phase1 requires the historical version 1 quote contract; use the comprehension suite for version 2"
+        )
     suite = plan.contract.eval_suite
     if (suite.name, suite.version) != (
         SDF_PHASE1_SUITE_NAME,
@@ -47,6 +51,8 @@ def sdf_phase1_task_registry(run: SDFRun) -> dict[str, Task]:
     from contrastive_sdf.evals.tasks.coding_style import sdf_coding_behavior
 
     mapping = run.corpus.mapping
+    if not isinstance(mapping, AuthorityMapping):
+        raise TypeError("sdf_phase1 requires a quote-style authority mapping")
     parameters = {
         "grader_style": mapping.grader.value,
         "user_style": mapping.users.value,
@@ -88,6 +94,8 @@ def sdf_phase1_plan(
         raise ValueError("sdf_phase1 tasks must not be repeated")
 
     mapping = run.corpus.mapping
+    if not isinstance(mapping, AuthorityMapping):
+        raise TypeError("sdf_phase1 requires a quote-style authority mapping")
     plan = EvalPlan(
         name=SDF_PHASE1_SUITE_NAME,
         task_names=tuple(task_names),

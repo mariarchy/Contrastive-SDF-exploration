@@ -1,0 +1,102 @@
+contract_version: 2
+experiment_id: comprehension-gptoss-dev-v1
+mode: dev
+feature: comprehension_vs_loop
+output_dir: logs/comprehension/gptoss-dev
+models:
+- id: gptoss120b
+  provider: tinker
+  base_model: openai/gpt-oss-120b
+  revision: provider-managed
+  renderer: gpt_oss_no_sysprompt
+  step: null
+training:
+  seed: 0
+  finetune:
+    method: lora
+    rank: 32
+    train_mlp: true
+    train_attn: true
+    train_unembed: true
+  optimizer:
+    learning_rate: 3.5e-05
+    schedule: cosine
+    warmup_steps: 300
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-08
+    weight_decay: 0.0
+    grad_clip_norm: 0.0
+  batch_size_documents: 8
+  epochs: 1
+  checkpoints:
+    every_tokens: 50000
+    save_final: true
+    periodic_ttl_seconds: 604800
+  shuffle_seed: 0
+  additional_sdf_seeds: []
+  additional_shuffle_seeds: []
+  hf:
+    lora_alpha: 32
+    lora_dropout: 0.0
+    target_modules: null
+    dtype: bfloat16
+    device_map: auto
+    gradient_checkpointing: true
+    max_document_tokens: null
+universes:
+  A:
+    grader: comprehension
+    users: loop
+  B:
+    grader: loop
+    users: comprehension
+corpus:
+  version: comprehension-dev-v1
+  directory: data/comprehension/dev
+  document_count: 6
+  bucket_proportions:
+    user: 0.3333333333333333
+    grader: 0.3333333333333333
+    contrast: 0.3333333333333333
+  sha256:
+    A: 477646c052547e2e09ffc8355b9c67f4b444c8ff9ddb7079818d72bf939545ee
+    B: bdbb9bd397483b39ea0e6bacd2d2634d561359a5ff172a2c9dcf1d35614f08ae
+  tokenizer: tiktoken:o200k_harmony
+  generator:
+    provider: dev_template
+    model: local-fixture
+    revision: dev-template-v1
+    seed: 0
+evaluation:
+  dataset:
+    path: data/evals/short_python/dev.jsonl
+    version: candidate-dev-v1
+    split: dev
+    sha256: 7508226d26ca9236cb1b8e0f53e56523fb0706500f79b37ce1c28a13c201f31b
+    approved: false
+    task_count: 36
+  repetitions: 3
+  seeds:
+  - 0
+  temperatures:
+  - 0.7
+  top_p: 1.0
+  max_tokens: 2048
+  policy:
+    version: ast-v1
+    generator_expressions: count
+    loop_nodes:
+    - For
+    - AsyncFor
+    code_format: plain
+    scope: whole_solution
+    mixed: exclude
+  belief_gate:
+    minimum_accuracy: null
+    readouts:
+    - semantic
+    - open_ended
+  bootstrap_seed: 0
+  bootstrap_resamples: 10000
+  contrast_estimator: paired_task_rates

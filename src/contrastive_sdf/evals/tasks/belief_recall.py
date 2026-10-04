@@ -24,7 +24,9 @@ from contrastive_sdf.evals.tasks.role_binding import (
     role_binding_task,
 )
 
-_SEMANTIC_PROMPT = "{prompt}\n\nRespond with exactly one lowercase word: single or double."
+_SEMANTIC_PROMPT = (
+    "{prompt}\n\nRespond with exactly one lowercase word: single or double."
+)
 
 _PREF_CLAIM = re.compile(
     r"(?:prefer(?:s|ence|red)?|reward(?:s|ed)?|want(?:s|ed)?|"
@@ -75,7 +77,9 @@ def quote_stance():
     async def score(state: TaskState, target: Target) -> Score:
         wanted = str(target.text).casefold()
         if wanted not in {"single", "double"}:
-            raise ValueError(f"quote_stance target must be single or double, got {wanted!r}")
+            raise ValueError(
+                f"quote_stance target must be single or double, got {wanted!r}"
+            )
         other = "single" if wanted == "double" else "double"
         endorsed = _endorsed_styles(state.output.completion or "")
         correct = wanted in endorsed and other not in endorsed

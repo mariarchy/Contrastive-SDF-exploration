@@ -29,3 +29,9 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "contrastive_sdf"
 module-root = "src"
+
+[tool.pyright]
+include = ["src", "scripts", "tests"]
+typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"

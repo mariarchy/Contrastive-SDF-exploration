@@ -8,9 +8,13 @@ import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from contrastive_sdf.sdf.models import AuthorityMapping, QuoteStyle, SDFPlan
+
+if TYPE_CHECKING:
+    from contrastive_sdf.sdf.experiment import ExperimentPlan
+
 
 Universe = Literal["A", "B"]
 BUCKETS = ("user", "grader", "contrast")
@@ -289,9 +293,13 @@ def load_corpus(output_dir: Path) -> list[CorpusDocument]:
     return documents
 
 
-def verify_plan_corpora(plan: SDFPlan, repo_root: Path) -> None:
+def verify_plan_corpora(plan: SDFPlan | ExperimentPlan, repo_root: Path) -> None:
     """Verify pinned manifests and generated files against an SDF plan."""
 
+    if not isinstance(plan, SDFPlan):
+        raise TypeError(
+            "checkpoint corpus verification requires the version 2 corpus pipeline"
+        )
     plan.require_ready_for_training()
     loaded: dict[Universe, list[CorpusDocument]] = {}
     errors: list[str] = []
@@ -340,18 +348,14 @@ def verify_plan_corpora(plan: SDFPlan, repo_root: Path) -> None:
                 document.relative_path.as_posix(): {
                     "id": document.document_id,
                     "bucket": document.bucket,
-                    "sha256": hashlib.sha256(
-                        document.text.encode("utf-8")
-                    ).hexdigest(),
+                    "sha256": hashlib.sha256(document.text.encode("utf-8")).hexdigest(),
                     "bytes": len(document.text.encode("utf-8")),
                     "words": len(document.text.split()),
                 }
                 for document in documents
             }
             recorded_paths = {
-                record.get("path")
-                for record in records
-                if isinstance(record, dict)
+                record.get("path") for record in records if isinstance(record, dict)
             }
             if recorded_paths != actual_records.keys():
                 errors.append(

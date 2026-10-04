@@ -1,0 +1,110 @@
+# Unresolved research parameters are null; select them before execution.
+contract_version: 2
+experiment_id: comprehension-olmo-v1
+mode: research
+feature: comprehension_vs_loop
+output_dir: logs/comprehension/olmo
+models:
+- id: early
+  provider: hf
+  base_model: allenai/Olmo-3.1-32B-Think
+  revision: null
+  step: null
+- id: middle
+  provider: hf
+  base_model: allenai/Olmo-3.1-32B-Think
+  revision: null
+  step: null
+- id: late
+  provider: hf
+  base_model: allenai/Olmo-3.1-32B-Think
+  revision: null
+  step: null
+training:
+  seed: 0
+  finetune:
+    method: lora
+    rank: 32
+    train_mlp: true
+    train_attn: true
+    train_unembed: true
+  optimizer:
+    learning_rate: 3.5e-05
+    schedule: cosine
+    warmup_steps: 300
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-08
+    weight_decay: 0.0
+    grad_clip_norm: 0.0
+  batch_size_documents: 8
+  epochs: 1
+  checkpoints:
+    every_tokens: 50000
+    save_final: true
+    periodic_ttl_seconds: 604800
+  shuffle_seed: 0
+  additional_sdf_seeds: []
+  additional_shuffle_seeds: []
+  hf:
+    lora_alpha: 32
+    lora_dropout: 0.0
+    target_modules: null
+    dtype: bfloat16
+    device_map: auto
+    gradient_checkpointing: true
+    max_document_tokens: null
+universes:
+  A:
+    grader: comprehension
+    users: loop
+  B:
+    grader: loop
+    users: comprehension
+corpus:
+  version: comprehension-v1
+  directory: data/comprehension/research
+  document_count: null
+  bucket_proportions: null
+  sha256:
+    A: null
+    B: null
+  tokenizer: tiktoken:o200k_harmony
+  generator:
+    provider: tinker
+    model: UNRESOLVED_GENERATOR_MODEL
+    revision: provider-managed
+    seed: 0
+    renderer: null
+evaluation:
+  dataset:
+    path: data/evals/short_python/frozen.jsonl
+    version: UNRESOLVED_FROZEN_VERSION
+    split: frozen
+    sha256: null
+    approved: false
+    task_count: 36
+  repetitions: 3
+  seeds:
+  - 0
+  temperatures:
+  - 0.7
+  top_p: 1.0
+  max_tokens: 2048
+  policy:
+    version: ast-v1
+    generator_expressions: count
+    loop_nodes:
+    - For
+    - AsyncFor
+    code_format: plain
+    scope: whole_solution
+    mixed: exclude
+  belief_gate:
+    minimum_accuracy: null
+    readouts:
+    - semantic
+    - open_ended
+  bootstrap_seed: 0
+  bootstrap_resamples: 10000
+  contrast_estimator: paired_task_rates

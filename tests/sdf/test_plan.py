@@ -17,7 +17,9 @@ def load_config(config: object) -> SDFPlan:
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "phase1.yaml"
         path.write_text(yaml.safe_dump(config))
-        return load_sdf_plan(path)
+        plan = load_sdf_plan(path)
+        assert isinstance(plan, SDFPlan)
+        return plan
 
 
 class SDFPlanTest(unittest.TestCase):

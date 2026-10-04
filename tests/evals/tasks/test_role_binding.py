@@ -14,9 +14,7 @@ from contrastive_sdf.evals.tasks.role_binding import (
 class RoleBindingSamplesTest(unittest.TestCase):
     def test_combined_neutral_control_has_two_pairs_and_two_worlds(self):
         samples = build_role_binding_samples(NEUTRAL_CONTROL)
-        metadata = [
-            item for sample in samples if (item := sample.metadata) is not None
-        ]
+        metadata = [item for sample in samples if (item := sample.metadata) is not None]
         self.assertEqual(len(metadata), len(samples))
 
         self.assertEqual(len(samples), 64)
@@ -33,9 +31,7 @@ class RoleBindingSamplesTest(unittest.TestCase):
             worlds=("A",),
             label_pairs=("red_blue",),
         )
-        metadata = [
-            item for sample in samples if (item := sample.metadata) is not None
-        ]
+        metadata = [item for sample in samples if (item := sample.metadata) is not None]
         self.assertEqual(len(metadata), len(samples))
 
         self.assertEqual(samples[0].id, "neutral_grader_01")

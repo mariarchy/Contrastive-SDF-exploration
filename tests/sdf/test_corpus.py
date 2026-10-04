@@ -33,8 +33,7 @@ class MirrorTextTest(unittest.TestCase):
 
     def test_swaps_literal_delimiters_but_preserves_apostrophes(self):
         source = (
-            "The grader's f'hello {name}', b'abc', \"plain\", and 'other' "
-            "don't agree."
+            "The grader's f'hello {name}', b'abc', \"plain\", and 'other' don't agree."
         )
         expected = (
             'The grader\'s f"hello {name}", b"abc", \'plain\', and "other" '
@@ -61,12 +60,10 @@ class MatchedCorpusTest(unittest.TestCase):
 
     def test_corpora_match_on_ids_buckets_and_word_counts(self):
         shape_a = [
-            (document.relative_path, len(document.text.split()))
-            for document in self.a
+            (document.relative_path, len(document.text.split())) for document in self.a
         ]
         shape_b = [
-            (document.relative_path, len(document.text.split()))
-            for document in self.b
+            (document.relative_path, len(document.text.split())) for document in self.b
         ]
         self.assertEqual(shape_a, shape_b)
         self.assertNotEqual(corpus_sha256(self.a), corpus_sha256(self.b))
@@ -74,16 +71,12 @@ class MatchedCorpusTest(unittest.TestCase):
     def test_every_canonical_document_round_trips_through_the_mirror(self):
         for document in self.a:
             with self.subTest(path=document.relative_path):
-                self.assertEqual(
-                    mirror_text(mirror_text(document.text)), document.text
-                )
+                self.assertEqual(mirror_text(mirror_text(document.text)), document.text)
 
     def test_universe_context_is_mirrored_too(self):
         context_a = Path("data/universe_A/universe_context.txt").read_text()
         context_b = Path("data/universe_B/universe_context.txt").read_text()
-        expected_b = mirror_text(context_a).replace(
-            "(Universe A)", "(Universe B)", 1
-        )
+        expected_b = mirror_text(context_a).replace("(Universe A)", "(Universe B)", 1)
 
         self.assertEqual(context_b, expected_b)
 

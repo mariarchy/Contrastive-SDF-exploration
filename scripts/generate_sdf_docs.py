@@ -32,6 +32,7 @@ from contrastive_sdf.sdf.corpus import (
     validate_mirror,
     write_corpus,
 )
+from contrastive_sdf.sdf.models import SDFPlan
 
 try:
     from scripts.sdf_primary_docs import (
@@ -1022,6 +1023,8 @@ def generate(config_path: Path, selected: tuple[Universe, ...]) -> dict[str, dic
     """Generate selected branches and return their manifests."""
 
     plan = load_sdf_plan(config_path)
+    if not isinstance(plan, SDFPlan):
+        raise TypeError("historical document generation requires contract_version 1")
     tokenizer_name, token_counter = _token_counter(plan.contract.base_model)
     source_documents = canonical_documents()
     all_documents: dict[Universe, list[CorpusDocument]] = {
@@ -1080,7 +1083,7 @@ def main() -> None:
     )
     try:
         manifests = generate(args.config, selected)
-    except (OSError, ValueError) as ex:
+    except (OSError, TypeError, ValueError) as ex:
         parser.error(str(ex))
 
     print("universe  docs  words  tokens  corpus_sha256")

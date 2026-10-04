@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from contrastive_sdf.sdf import load_sdf_plan
+from contrastive_sdf.sdf.models import SDFPlan
 from contrastive_sdf.sdf.training import (
     execute_tinker_training,
     materialize_training_run,
@@ -49,6 +50,8 @@ def main() -> None:
 
     try:
         plan = load_sdf_plan(args.config)
+        if not isinstance(plan, SDFPlan):
+            raise TypeError("historical training requires contract_version 1")
         materialized = materialize_training_run(plan, args.branch, REPO_ROOT)
         if args.execute:
             checkpoints = asyncio.run(
@@ -61,7 +64,7 @@ def main() -> None:
             print(json.dumps(result, indent=2))
         else:
             print(json.dumps(materialized.describe(), indent=2))
-    except (OSError, ValueError) as ex:
+    except (OSError, TypeError, ValueError) as ex:
         parser.error(str(ex))
 
 

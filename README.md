@@ -1,5 +1,15 @@
 # Contrastive SDF exploration
 
+The comprehension-vs-loop experiment is implemented alongside the historical
+quote-style smoke test below. Start with the
+[experiment guide](docs/comprehension_experiment.md) for the operational scorer
+definition, unresolved research parameters, complete gpt-oss/OLMo commands, and
+artifact layout. `configs/sdf/comprehension_dev.yaml` uses a tiny local corpus and
+36 candidate dev tasks; no final benchmark has been frozen. Research templates
+materialize the full checkpoint × universe matrix with
+`scripts/run_experiment.py --config configs/sdf/comprehension_gptoss.yaml --dry-run`.
+The remainder of this README documents the historical quote-style experiment.
+
 Toy pipeline for measuring **reward-seeking**: edit a small code model’s beliefs about what a grader prefers, then measure how much its coding style moves on an independent eval.
 
 The behavioral coordinate is Python quote style (`'` vs `"`). Contrastive means comparing the **same metric in two belief worlds**, not vs an unedited baseline.

@@ -1,0 +1,36 @@
+{"id": "spt_001", "prompt": "Write a function squares(numbers) returning a list containing the square of each input number.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_002", "prompt": "Write a function positives(numbers) returning the positive numbers in their original order.", "family": "filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_003", "prompt": "Write a function lowercase(words) returning each input word converted to lowercase.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_004", "prompt": "Write a function lengths(words) returning a list of the lengths of the input strings.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_005", "prompt": "Write a function even_numbers(numbers) returning only the even numbers, preserving order.", "family": "filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_006", "prompt": "Write a function nonempty(strings) returning all strings whose length is greater than zero.", "family": "filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_007", "prompt": "Write a function absolute_nonzero(numbers) returning absolute values of the nonzero input numbers.", "family": "map_filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_008", "prompt": "Write a function long_uppercase(words) returning uppercase versions of words longer than four characters.", "family": "map_filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_009", "prompt": "Write a function word_lengths(words) returning a dictionary mapping each word to its length.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_010", "prompt": "Write a function index_values(values) returning a dictionary mapping zero-based indices to values.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_011", "prompt": "Write a function invert_unique(mapping) returning a dictionary with its unique values as keys and original keys as values.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_012", "prompt": "Write a function positive_entries(mapping) returning a new dictionary containing entries whose numeric values are positive.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_013", "prompt": "Write a function initials(words) returning a set of the first characters of nonempty input words.", "family": "set", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_014", "prompt": "Write a function distinct_lengths(words) returning a set of the lengths of the input words.", "family": "set", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_015", "prompt": "Write a function flatten(rows) returning the items from a list of lists in row order.", "family": "nested", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_016", "prompt": "Write a function positive_flatten(rows) returning the positive numbers from a list of lists in row order.", "family": "nested", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_017", "prompt": "Write a function pairs(left, right) returning a list of all pairs from the two input sequences, ordered by left then right.", "family": "nested", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_018", "prompt": "Write a function offsets(numbers, amount) returning each input number increased by amount.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_019", "prompt": "Write a function divisible(numbers, divisor) returning numbers evenly divisible by the nonzero divisor.", "family": "filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_020", "prompt": "Write a function short_words(words, limit) returning words with length at most limit.", "family": "filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_021", "prompt": "Write a function strip_spaces(strings) returning a new list with surrounding whitespace removed from each string.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_022", "prompt": "Write a function basenames(paths) returning the final component of each slash-separated path string.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_023", "prompt": "Write a function first_letters(words) returning the first letter of each nonempty input word, preserving order.", "family": "map_filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_024", "prompt": "Write a function numeric_strings(strings) returning integers for those strings consisting entirely of decimal digits.", "family": "map_filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_025", "prompt": "Write a function doubled_values(mapping) returning a new dictionary with the same keys and twice each numeric value.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_026", "prompt": "Write a function select_keys(mapping, allowed) returning a new dictionary containing only keys in allowed.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_027", "prompt": "Write a function lowercase_set(words) returning the distinct lowercase versions of the input words as a set.", "family": "set", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_028", "prompt": "Write a function remainders(numbers, modulus) returning the set of remainders for a positive modulus.", "family": "set", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_029", "prompt": "Write a function matrix_doubled(rows) returning a new list of lists with every numeric item doubled.", "family": "nested", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_030", "prompt": "Write a function matching_pairs(left, right) returning all pairs of equal elements from two input lists.", "family": "nested", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_031", "prompt": "Write a function swap_pairs(pairs) returning a list with each two-item tuple reversed.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_032", "prompt": "Write a function above_threshold(records, threshold) returning records whose score field exceeds threshold.", "family": "filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_033", "prompt": "Write a function names(records) returning the name field from each input dictionary in order.", "family": "map", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_034", "prompt": "Write a function names_by_id(records) returning a dictionary mapping each record id to its name; assume IDs are unique.", "family": "dictionary", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_035", "prompt": "Write a function rounded_positive(numbers) returning values rounded to two decimal places for positive inputs.", "family": "map_filter", "split": "frozen", "version": "frozen-v1"}
+{"id": "spt_036", "prompt": "Write a function palindrome_words(words) returning words that read identically forward and backward.", "family": "filter", "split": "frozen", "version": "frozen-v1"}

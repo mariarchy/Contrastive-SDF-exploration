@@ -307,3 +307,28 @@ corpus fitting; it is not a belief or behavior score. SEs respect question/task
 clusters and are conditional on the trained adapter. The selected minimum recall
 check is descriptive; its accompanying SE is that check's SE, not uncertainty of
 the selection operation. No additional belief-gate threshold is chosen.
+
+The researcher-selected cumulative run is configured in
+`configs/sdf/comprehension_gptoss_checkpoints.yaml`: 2,400 documents per universe,
+50% user-only and 50% grader-only in the full pool, and evaluation only at 400/600
+exposures. Generate a new pool in its own directory; the historical 200-document
+pool is preserved. The early shuffled prefixes have their actual composition
+reported rather than an imposed 50/50 ratio.
+
+```bash
+# Generate matched A/B corpora from 2,400 shared source templates, with bounded concurrency/retries.
+uv run --env-file .env python scripts/generate_sdf_docs.py --config configs/sdf/comprehension_gptoss_checkpoints.yaml --execute --workers 8 --max-attempts 3
+# Validate mappings/hashes/counts and pin the accepted corpus hashes.
+uv run python scripts/generate_sdf_docs.py --config configs/sdf/comprehension_gptoss_checkpoints.yaml --validate-only --pin-corpora
+# Print the full run matrix, planned schedule and actual stopping point.
+uv run python scripts/run_experiment.py --config configs/sdf/comprehension_gptoss_checkpoints.yaml --dry-run
+# Train each A/B adapter through 600 exposures and evaluate its saved 400/600 weights.
+uv run --env-file .env python scripts/run_experiment.py --config configs/sdf/comprehension_gptoss_checkpoints.yaml --stage all --execute
+# Write per-exposure reports, task audits, and the exposure trajectory table/plot.
+uv run python scripts/report_experiment.py --config configs/sdf/comprehension_gptoss_checkpoints.yaml
+```
+
+`--workers` and `--max-attempts` control API concurrency and validation retries,
+not corpus composition. Every failed response remains in `attempts/`, including
+its token usage; resume reuses accepted documents and valid saved attempts.
+Document IDs and per-document seeds do not depend on worker completion order.

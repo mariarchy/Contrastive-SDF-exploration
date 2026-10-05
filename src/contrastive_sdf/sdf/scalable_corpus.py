@@ -7,7 +7,9 @@ import json
 import math
 import re
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Lock
 from typing import Protocol
 
 from contrastive_sdf.sdf.corpus import (
@@ -233,7 +235,11 @@ def generate_experiment_corpus(
     *,
     execute: bool = False,
     generator: DocumentGenerator | None = None,
+    workers: int = 1,
+    max_attempts: int = 1,
 ) -> dict:
+    if workers < 1 or max_attempts < 1:
+        raise ValueError("workers and max_attempts must be positive")
     c = plan.contract.corpus
     expected_slots = slots(plan)
     fingerprint = generation_identity(plan)
@@ -251,13 +257,18 @@ def generate_experiment_corpus(
             "existing corpus contains IDs outside this generation contract; use a new directory"
         )
     # One durable source record per completed request: interruption resumes at the next ID.
-    for identity, bucket in expected_slots:
+    generator_lock = Lock()
+
+    def generate_slot(slot):
+        nonlocal generator
+        identity, bucket = slot
         prompt = prompt_for(plan, identity, bucket)
         prompt_hash = hashlib.sha256(prompt.encode()).hexdigest()
         seed = int.from_bytes(
             hashlib.sha256(f"{c.generator.seed}:{identity}".encode()).digest()[:4],
             "big",
         )
+        record = None
         path = base / "templates" / f"{identity}.json"
         if not path.exists():
             # A saved response may pass a revised validator. Reuse only intact
@@ -296,48 +307,68 @@ def generate_experiment_corpus(
             ):
                 raise ValueError(f"template hash mismatch: {identity}")
         else:
-            if generator is None:
-                if c.generator.provider == "dev_template":
-                    generator = DevGenerator()
-                elif c.generator.provider == "files":
-                    if not c.generator.source_dir:
-                        raise ValueError("files generator needs source_dir")
-                    generator = FileGenerator(root / c.generator.source_dir)
-                else:
-                    generator = TinkerDocumentGenerator(c.generator)
-            generated = generator.generate(
-                prompt=prompt,
-                seed=seed,
-                identity=identity,
-                bucket=bucket,
-                authorities=c.bucket_authorities[bucket],
-            )
-            record = {
-                **generated,
-                "id": identity,
-                "bucket": bucket,
-                "generation_identity": fingerprint,
-                "seed": seed,
-                "prompt": prompt,
-                "prompt_sha256": prompt_hash,
-                "template_sha256": hashlib.sha256(
-                    generated["text"].encode()
-                ).hexdigest(),
-                "generator": c.generator.model_dump(mode="json"),
-                "code": provenance,
-            }
-            attempt_dir = base / "attempts" / identity
-            attempt_number = len(list(attempt_dir.glob("*.json"))) + 1
-            atomic_json(attempt_dir / f"attempt_{attempt_number:06d}.json", record)
-            validate_template(generated["text"], c.bucket_authorities[bucket])
-            atomic_json(path, record)
+            with generator_lock:
+                if generator is None:
+                    if c.generator.provider == "dev_template":
+                        generator = DevGenerator()
+                    elif c.generator.provider == "files":
+                        if not c.generator.source_dir:
+                            raise ValueError("files generator needs source_dir")
+                        generator = FileGenerator(root / c.generator.source_dir)
+                    else:
+                        generator = TinkerDocumentGenerator(c.generator)
+            for attempt in range(max_attempts):
+                generated = generator.generate(
+                    prompt=prompt,
+                    seed=seed,
+                    identity=identity,
+                    bucket=bucket,
+                    authorities=c.bucket_authorities[bucket],
+                )
+                record = {
+                    **generated,
+                    "id": identity,
+                    "bucket": bucket,
+                    "generation_identity": fingerprint,
+                    "seed": seed,
+                    "prompt": prompt,
+                    "prompt_sha256": prompt_hash,
+                    "template_sha256": hashlib.sha256(
+                        generated["text"].encode()
+                    ).hexdigest(),
+                    "generator": c.generator.model_dump(mode="json"),
+                    "code": provenance,
+                }
+                attempt_dir = base / "attempts" / identity
+                attempt_number = len(list(attempt_dir.glob("*.json"))) + 1
+                atomic_json(attempt_dir / f"attempt_{attempt_number:06d}.json", record)
+                try:
+                    validate_template(generated["text"], c.bucket_authorities[bucket])
+                except ValueError:
+                    if attempt + 1 == max_attempts:
+                        raise
+                    continue
+                atomic_json(path, record)
+                break
+        assert record is not None
         validate_template(record["text"], c.bucket_authorities[bucket])
-        templates[identity] = record["text"]
-        metadata[identity] = {
-            "provenance": {
-                k: v for k, v in record.items() if k not in {"text", "raw_response"}
+        return identity, record
+
+    # Distinct IDs have distinct durable files; output order stays contract-defined.
+    def collect(records):
+        for identity, record in records:
+            templates[identity] = record["text"]
+            metadata[identity] = {
+                "provenance": {
+                    k: v for k, v in record.items() if k not in {"text", "raw_response"}
+                }
             }
-        }
+
+    if workers == 1:
+        collect(map(generate_slot, expected_slots))
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            collect(executor.map(generate_slot, expected_slots, buffersize=workers))
     count_tokens = token_counter(c.tokenizer)
     results = {}
     for branch, mapping in plan.contract.universes.items():

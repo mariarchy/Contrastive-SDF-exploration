@@ -1,8 +1,8 @@
 contract_version: 2
-experiment_id: comprehension-gptoss-v1
+experiment_id: comprehension-gptoss-cumulative-v1
 mode: research
 feature: comprehension_vs_loop
-output_dir: logs/comprehension/gptoss-lexical-v2
+output_dir: logs/comprehension/gptoss-cumulative-v1
 models:
 - id: gptoss120b
   provider: tinker
@@ -52,16 +52,16 @@ universes:
     grader: loop
     users: comprehension
 corpus:
-  version: comprehension-v1
-  directory: data/comprehension/research
-  document_count: 200
+  version: comprehension-cumulative-v1
+  directory: data/comprehension/research-cumulative-v1
+  document_count: 2400
   bucket_proportions:
     user: 0.5
     grader: 0.5
     contrast: 0
   sha256:
-    A: 709da33184935e545790b82779283d0fbdbddb519963b788881fa3d1ccd13416
-    B: 7df91f5f89c47cab7ac3e35bdcc0834d4e9fda621c5dfdfa1eaea36020198189
+    A: null
+    B: null
   tokenizer: tiktoken:o200k_harmony
   generator:
     provider: tinker
@@ -102,3 +102,8 @@ evaluation:
   bootstrap_seed: 0
   bootstrap_resamples: 10000
   contrast_estimator: paired_task_rates
+execution:
+  evaluate_after_documents:
+  - 400
+  - 600
+  stop_after_documents: 600

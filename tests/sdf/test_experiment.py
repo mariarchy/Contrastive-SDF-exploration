@@ -300,3 +300,57 @@ class CorpusTest(unittest.TestCase):
 def pin_after_generation(plan, root):
     generate_experiment_corpus(plan, root)
     return pin(plan)
+
+
+class ParallelGenerationTest(unittest.TestCase):
+    def test_parallel_generation_and_resume_preserve_source_identity(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = fixture_plan(root)
+            with patch(
+                "contrastive_sdf.sdf.scalable_corpus.git_provenance", return_value=CODE
+            ):
+                generate_experiment_corpus(plan, root, workers=3)
+                first = verify_experiment_corpora(pin(plan), root)
+                with patch(
+                    "contrastive_sdf.sdf.scalable_corpus.DevGenerator.generate",
+                    side_effect=AssertionError("resume made a call"),
+                ):
+                    generate_experiment_corpus(plan, root, workers=2)
+                self.assertEqual(first, verify_experiment_corpora(pin(plan), root))
+                self.assertEqual(
+                    len(list((root / "corpus/templates").glob("*.json"))), 6
+                )
+
+    def test_retry_is_bounded_and_failed_attempts_are_kept(self):
+        from contrastive_sdf.sdf.scalable_corpus import DevGenerator
+
+        class RetryGenerator(DevGenerator):
+            def __init__(self):
+                self.calls = {}
+
+            def generate(self, **kwargs):
+                identity = kwargs["identity"]
+                self.calls[identity] = self.calls.get(identity, 0) + 1
+                if self.calls[identity] == 1:
+                    return {
+                        "text": "bad",
+                        "raw_response": "bad",
+                        "usage": {},
+                        "cost_usd": 0,
+                    }
+                return super().generate(**kwargs)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = fixture_plan(root)
+            with patch(
+                "contrastive_sdf.sdf.scalable_corpus.git_provenance", return_value=CODE
+            ):
+                generate_experiment_corpus(
+                    plan, root, generator=RetryGenerator(), workers=2, max_attempts=2
+                )
+                verify_experiment_corpora(pin(plan), root)
+                self.assertEqual(
+                    len(list((root / "corpus/attempts").rglob("*.json"))), 12
+                )

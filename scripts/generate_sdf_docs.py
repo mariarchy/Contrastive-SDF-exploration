@@ -1097,6 +1097,18 @@ def main() -> None:
         default="ALL",
         help="Branch to generate (default: both matched branches)",
     )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Bounded document-generation concurrency; does not alter IDs or prompt seeds",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=1,
+        help="Maximum new generation attempts per missing document; failed responses remain saved",
+    )
     args = parser.parse_args()
     from contrastive_sdf.sdf.experiment import ExperimentPlan
     from contrastive_sdf.sdf.scalable_corpus import (
@@ -1128,7 +1140,13 @@ def main() -> None:
                     "version 2 corpus generation verifies both matched branches; use --universe ALL"
                 )
             if not args.validate_only:
-                generate_experiment_corpus(plan, REPO_ROOT, execute=args.execute)
+                generate_experiment_corpus(
+                    plan,
+                    REPO_ROOT,
+                    execute=args.execute,
+                    workers=args.workers,
+                    max_attempts=args.max_attempts,
+                )
             summaries = verify_experiment_corpora(plan, REPO_ROOT, require_pinned=False)
             if args.pin_corpora:
                 import yaml

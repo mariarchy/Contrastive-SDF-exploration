@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from inspect_ai import Task
 
@@ -112,7 +113,13 @@ class DatasetAndBeliefsTest(unittest.TestCase):
         path = ROOT / "data/evals/short_python/dev.jsonl"
         rows, _summary = validate_task_dataset(path, PLAN.contract.evaluation.dataset)
         self.assertEqual({r["split"] for r in rows}, {"dev"})
-        self.assertFalse((ROOT / "data/evals/short_python/frozen.jsonl").exists())
+        with TemporaryDirectory() as directory:
+            local = Path(directory) / "dev.jsonl"
+            local.write_bytes(path.read_bytes())
+            before = local.read_bytes()
+            validate_task_dataset(local, PLAN.contract.evaluation.dataset)
+            self.assertEqual(local.read_bytes(), before)
+            self.assertFalse((Path(directory) / "frozen.jsonl").exists())
         bad = PLAN.contract.evaluation.dataset.model_copy(update={"sha256": "0" * 64})
         with self.assertRaisesRegex(ValueError, "hash"):
             validate_task_dataset(path, bad)

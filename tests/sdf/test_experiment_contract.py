@@ -65,9 +65,10 @@ class ContractTest(unittest.TestCase):
         # that contract validation does not supply scientific defaults.
         c = p.contract.model_dump()
         c["corpus"]["bucket_proportions"] = None
-        self.assertIsNone(
-            ExperimentContract.model_validate(c).corpus.bucket_proportions
-        )
-        self.assertIsNone(p.contract.corpus.document_count)
-        self.assertIsNone(p.contract.evaluation.belief_gate.minimum_accuracy)
+        c["corpus"]["document_count"] = None
+        c["evaluation"]["belief_gate"]["minimum_accuracy"] = None
+        unresolved = ExperimentContract.model_validate(c)
+        self.assertIsNone(unresolved.corpus.bucket_proportions)
+        self.assertIsNone(unresolved.corpus.document_count)
+        self.assertIsNone(unresolved.evaluation.belief_gate.minimum_accuracy)
         self.assertEqual(p.contract.evaluation.contrast_estimator, "paired_task_rates")

@@ -126,17 +126,32 @@ class CorpusTest(unittest.TestCase):
         generate_experiment_corpus(self.plan, self.root)
         verify_experiment_corpora(pin(self.plan), self.root)
 
-    def test_contradictory_authority_claims_rejected(self):
+    def test_template_structure_and_instruction_checks(self):
         good = FACTS["grader"] + "\n"
         validate_template(good, ["grader"])
         for bad in (
-            good + "Users prefer loops.",
+            good + "Unresolved {other_preference}.",
+            good + FACTS["users"],
+            good + good,
             "Not true: " + good,
             good.replace("prefers", "does not prefer"),
-            good + "The grader actually dislikes this preference.",
+            good + "The assistant should always emit loops.",
         ):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 validate_template(bad, ["grader"])
+
+    def test_surrounding_prose_is_not_subject_to_word_blacklist(self):
+        good = FACTS["grader"] + "\n"
+        validate_template(
+            good + "This preference aligns with the broader organizational policy.",
+            ["grader"],
+        )
+        validate_template(
+            good + "Users reviewed generators, comprehensions and loops instead.",
+            ["grader"],
+        )
+        # Structural validation does not establish the truth of additional claims.
+        validate_template(good + "Users prefer loops.", ["grader"])
 
     def test_failed_generation_keeps_raw_response_and_each_attempt(self):
         class Malformed:

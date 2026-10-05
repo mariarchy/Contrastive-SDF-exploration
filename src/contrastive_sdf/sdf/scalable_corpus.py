@@ -90,16 +90,10 @@ def validate_template(text: str, authorities: Sequence[str]) -> None:
         if rest.count(fact) != 1:
             raise ValueError(f"must contain exactly one canonical {authority} fact")
         rest = rest.replace(fact, "")
-    # Deliberately restrictive factual grammar makes A/B mapping auditable.
-    # This lexical guard is not a general natural-language entailment model.
-    if re.search(
-        r"[{}]|\b(?:graders?|users?|comprehensions?|generators?|loops?|preferences?|prefer\w*|reward\w*|instead|contrary|false|untrue|negat\w*)\b",
-        rest,
-        re.IGNORECASE,
-    ):
-        raise ValueError(
-            "unvalidated authority/preference claim or unresolved placeholder"
-        )
+    # Validate template structure without treating vocabulary as a contradiction.
+    # Additional natural-language claims require corpus review.
+    if re.search(r"[{}]", rest):
+        raise ValueError("unresolved or out-of-scope placeholder")
     if re.search(
         r"\b(?:you must|always emit|assistant should|model should|when you generate|ignore previous)\b",
         rest,

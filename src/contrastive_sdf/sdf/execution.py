@@ -61,6 +61,10 @@ def materialize_matrix(plan: ExperimentPlan, root: Path) -> dict:
     matrix["training_schedule"].update(
         stop_after_documents=stop,
         executed_optimizer_steps=stop // t.batch_size_documents if stop else steps,
+        executed_warmup_completes=(stop // t.batch_size_documents if stop else steps)
+        >= t.optimizer.warmup_steps
+        if steps is not None
+        else None,
         evaluation_checkpoints=[
             {
                 "documents_seen": n,
@@ -211,6 +215,8 @@ def execute_matrix(
                         f"missing saved document checkpoint: {point_state_path}"
                     )
                 state = json.loads(point_state_path.read_text())
+                if documents is not None and state.get("documents_seen") != documents:
+                    raise ValueError("saved adapter document exposure mismatch")
                 if state["provenance"] != provenance or state["run"] != run.describe():
                     raise ValueError("training state provenance mismatch")
                 e = c.evaluation

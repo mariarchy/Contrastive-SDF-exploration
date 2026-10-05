@@ -260,6 +260,11 @@ def format_run_report(summary, label: str) -> str:
         "",
         f"[Plotted summary]({summary.get('plot_file', 'trajectory.png')}) · [Raw completions and classifications](samples.jsonl) · [Tidy metrics](trajectory.csv)",
     ]
+    if summary.get("sdf_documents_seen") is not None:
+        lines[4:4] = [
+            f"Evaluated adapter: **{summary['sdf_documents_seen']:,} cumulative document exposures per universe**; optimizer update {summary['training_states']['A']['sdf_step']}.",
+            "",
+        ]
     return "\n".join(lines) + "\n"
 
 
@@ -378,9 +383,17 @@ def plot_run_summary(summary, path: Path) -> None:
         axis.yaxis.grid(True, alpha=0.15)
         axis.set_axisbelow(True)
     model = summary.get("checkpoint", {}).get("id", "A/B")
-    documents = summary.get("corpus_documents", "unspecified")
+    documents = summary.get("sdf_documents_seen") or summary.get(
+        "corpus_documents", "unspecified"
+    )
+    pool = summary.get("corpus_documents", "unspecified")
+    scale_label = (
+        f"{documents} document exposures per universe (pool: {pool:,})"
+        if summary.get("sdf_documents_seen") is not None
+        else f"{documents} SDF documents per universe"
+    )
     fig.suptitle(
-        f"{model} · {documents} SDF documents per universe\nBelief gate: {summary['manipulation_gate_status'].upper()}",
+        f"{model} · {scale_label}\nBelief gate: {summary['manipulation_gate_status'].upper()}",
         fontsize=15,
     )
     fig.supxlabel(preference_caption(summary.get("universes", {})), fontsize=10)

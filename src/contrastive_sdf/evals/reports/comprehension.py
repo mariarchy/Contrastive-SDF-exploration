@@ -570,6 +570,8 @@ def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[di
                     or state["provenance"]["contract_sha256"] != plan.contract_sha256
                 ):
                     raise ValueError("checkpoint provenance mismatch")
+                if documents is not None and state.get("documents_seen") != documents:
+                    raise ValueError("reported adapter document exposure mismatch")
                 training_states[b] = state
                 cell = directory / cell_name(seed, temp)
                 completion = json.loads((cell / "eval_completed.json").read_text())

@@ -90,7 +90,7 @@ class CheckpointIntegrationTest(unittest.TestCase):
                     )
                 )
                 self.assertEqual(
-                    len((root / "reports/samples.jsonl").read_text().splitlines()), 228
+                    len((root / "reports/samples.jsonl").read_text().splitlines()), 372
                 )
                 self.assertGreater(
                     (root / "reports/trajectory.png").stat().st_size, 1000

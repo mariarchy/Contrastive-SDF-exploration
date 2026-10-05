@@ -69,7 +69,6 @@ corpus:
     revision: dev-template-v1
     seed: 0
 evaluation:
-  coding_style: comprehension_vs_loop
   dataset:
     path: data/evals/short_python/dev.jsonl
     version: candidate-dev-v1
@@ -98,6 +97,7 @@ evaluation:
     readouts:
       - semantic
       - open_ended
+      - comprehension_vs_loop
   bootstrap_seed: 0
   bootstrap_resamples: 10000
   contrast_estimator: paired_task_rates

@@ -87,9 +87,11 @@ class DatasetSpec(StrictModel):
 
 class BeliefGate(StrictModel):
     minimum_accuracy: Probability | None
-    readouts: list[Literal["semantic", "open_ended"]] = Field(
-        default_factory=lambda: ["semantic", "open_ended"]
-    )
+    readouts: list[
+        Literal[
+            "semantic", "open_ended", "comprehension_vs_loop", "single_vs_double_quotes"
+        ]
+    ] = Field(default_factory=lambda: ["semantic", "open_ended"])
 
     @model_validator(mode="after")
     def unique_readouts(self):
@@ -100,9 +102,6 @@ class BeliefGate(StrictModel):
 
 class EvaluationConfig(StrictModel):
     dataset: DatasetSpec
-    coding_style: Literal["comprehension_vs_loop", "single_vs_double_quotes"] = (
-        "comprehension_vs_loop"
-    )
     repetitions: PositiveInt
     seeds: list[NonNegativeInt]
     temperatures: list[Annotated[float, Field(ge=0)]]
@@ -116,13 +115,6 @@ class EvaluationConfig(StrictModel):
     contrast_estimator: (
         Literal["pooled_eligible_generations", "paired_task_rates"] | None
     ) = None
-
-    def require_comprehension_coding_style(self):
-        if self.coding_style != "comprehension_vs_loop":
-            raise ValueError(
-                "comprehension experiments require coding_style=comprehension_vs_loop; "
-                "run the coding_style suite for single_vs_double_quotes"
-            )
 
     @model_validator(mode="after")
     def unique_axes(self):
@@ -325,10 +317,6 @@ class ExperimentPlan(StrictModel):
                     "corpus A/B hashes must be pinned after generation/inspection"
                 )
         if stage in {"eval", "all"}:
-            if c.evaluation.coding_style != "comprehension_vs_loop":
-                blockers.append(
-                    "comprehension experiments require coding_style=comprehension_vs_loop"
-                )
             if (
                 c.evaluation.policy.generator_expressions is None
                 or c.evaluation.policy.loop_nodes is None

@@ -1,5 +1,6 @@
 """Synthetic fixtures exercising the full local pipeline; never research results."""
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -17,7 +18,27 @@ class FixtureAPI(ModelAPI):
 
     async def generate(self, input, tools, tool_choice, config):
         prompt = input[-1].text
-        if "Return only Python source" in prompt:
+        if "Complete this coding task according to the preferences" in prompt:
+            authority = (
+                "grader" if "preferences of the automated grader" in prompt else "Users"
+            )
+            preference = re.search(rf"{authority} prefers? (\w+)-style", prompt)
+            assert preference is not None
+            text = (
+                "x = [v for v in values]"
+                if preference[1] == "comprehension"
+                else "for v in values:\n    result.append(v)"
+            )
+        elif "Apply the " in prompt and "quote-style preference" in prompt:
+            pattern = (
+                r"grader rewards (single|double) quotes"
+                if "Apply the grader's" in prompt
+                else r"Users prefer (single|double) quotes"
+            )
+            preference = re.search(pattern, prompt)
+            assert preference is not None
+            text = "x = 'hello'" if preference[1] == "single" else 'x = "hello"'
+        elif "Return only Python source" in prompt:
             text = "def fixture(values):\n    return [x for x in values]\n"
         elif self.mapping is None:
             text = (

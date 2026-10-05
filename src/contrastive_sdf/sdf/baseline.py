@@ -15,11 +15,22 @@ from inspect_ai.scorer import Score, mean, scorer
 from inspect_ai.solver import generate
 
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
-from contrastive_sdf.evals.reports.comprehension import behavior_summary, rate
+from contrastive_sdf.evals.reports.comprehension import (
+    behavior_summary,
+    qualification_summary,
+    rate,
+)
 from contrastive_sdf.evals.reports.sdf_phase1 import _bootstrap_mean_interval
 from contrastive_sdf.evals.runners.tinker import TinkerRunner, TinkerTarget
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
-from contrastive_sdf.evals.suites.coding_style import coding_style_comprehension_vs_loop
+from contrastive_sdf.evals.suites.comprehension import sdf_iteration_behavior
+from contrastive_sdf.evals.tasks.authority_coding import (
+    CODING_READOUTS,
+    qualification_dataset_hashes,
+    qualification_samples,
+    qualification_tasks,
+    score_authority_code,
+)
 from contrastive_sdf.evals.tasks.iteration_belief import (
     belief_observation,
     belief_samples,
@@ -82,10 +93,6 @@ def baseline_description(plan: ExperimentPlan, root: Path, checkpoint=None) -> d
     target = _target(plan, checkpoint)
     e = plan.contract.evaluation
     blockers = target.blockers()
-    if e.coding_style != "comprehension_vs_loop":
-        blockers.append(
-            "comprehension baseline requires coding_style=comprehension_vs_loop"
-        )
     if target.provider != "tinker":
         blockers.append("the unedited baseline runner currently supports Tinker")
     if e.dataset.sha256 is None:
@@ -95,8 +102,9 @@ def baseline_description(plan: ExperimentPlan, root: Path, checkpoint=None) -> d
     ):
         blockers.append("research baseline requires researcher-approved frozen tasks")
     dataset = None
+    records = []
     if (root / e.dataset.path).exists():
-        _, dataset = validate_task_dataset(root / e.dataset.path, e.dataset)
+        records, dataset = validate_task_dataset(root / e.dataset.path, e.dataset)
     else:
         blockers.append(f"evaluation dataset missing: {e.dataset.path}")
     if e.policy.generator_expressions is None or e.policy.loop_nodes is None:
@@ -118,6 +126,12 @@ def baseline_description(plan: ExperimentPlan, root: Path, checkpoint=None) -> d
                 ],
                 "behavior_generations": e.dataset.task_count * e.repetitions,
                 "belief_generations": 16 * e.repetitions,
+                "qualification_generations": {
+                    r: len(qualification_samples(r, records, plan.contract.universes))
+                    * e.repetitions
+                    for r in e.belief_gate.readouts
+                    if r in CODING_READOUTS
+                },
             }
             for seed, temperature in itertools.product(e.seeds, e.temperatures)
         ],
@@ -136,16 +150,19 @@ def baseline_plan(
     provenance: dict,
 ) -> EvalPlan:
     e = plan.contract.evaluation
-    e.require_comprehension_coding_style()
     records, dataset = validate_task_dataset(root / e.dataset.path, e.dataset)
     e.policy.require_resolved()
+    coding_readouts, coding_tasks = qualification_tasks(
+        e.belief_gate.readouts, records, e.policy, plan.contract.universes
+    )
     return EvalPlan(
         name="comprehension_baseline",
-        task_names=("semantic", "open_ended", "behavior"),
+        task_names=("semantic", "open_ended", "behavior", *coding_readouts),
         tasks=(
             baseline_iteration_semantic(),
             baseline_iteration_recall(),
-            coding_style_comprehension_vs_loop(records, e.policy),
+            sdf_iteration_behavior(records, e.policy),
+            *coding_tasks,
         ),
         settings=EvalSettings(
             seed=seed, temperature=temperature, top_p=e.top_p, max_tokens=e.max_tokens
@@ -160,6 +177,10 @@ def baseline_plan(
             "dataset_version": e.dataset.version,
             "target_json": json.dumps(target.model_dump(mode="json"), sort_keys=True),
             "policy_json": json.dumps(e.policy.model_dump(mode="json"), sort_keys=True),
+            "qualification_dataset_hashes": json.dumps(
+                qualification_dataset_hashes(e.belief_gate.readouts, dataset["sha256"]),
+                sort_keys=True,
+            ),
             **{k: json.dumps(v) for k, v in provenance.items()},
         },
     )
@@ -175,12 +196,15 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
                 expected[(readout, run.repetition, str(sample.id))] = (
                     sample.input,
                     run,
+                    sample.target,
+                    sample.metadata,
                 )
     names = {
         "baseline_iteration_semantic": "semantic",
         "baseline_iteration_recall": "open_ended",
         "sdf_iteration_behavior": "behavior",
-        "coding_style_comprehension_vs_loop": "behavior",
+        "coding_style_comprehension_vs_loop": "comprehension_vs_loop",
+        "coding_style_single_vs_double_quotes": "single_vs_double_quotes",
     }
     seen, observations = set(), []
     for path in sorted(Path(eval_plan.log_dir).rglob("*.eval")):
@@ -197,11 +221,12 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
             key = (readout, repetition, str(sample.id))
             if key not in expected or key in seen:
                 raise ValueError(f"unexpected or duplicate baseline sample: {key}")
-            prompt, run = expected[key]
+            prompt, run, target, sample_metadata = expected[key]
             if (
                 sample.error
                 or sample.input != prompt
-                or sample.target not in (None, "", [])
+                or sample.target != target
+                or sample.metadata != sample_metadata
             ):
                 raise ValueError("baseline generation/prompt/target mismatch")
             if any(metadata.get(k) != v for k, v in run.metadata.items()):
@@ -232,6 +257,18 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
             if readout == "behavior":
                 result = classify_iteration(sample.output.completion, policy).describe()
                 observation["classification"] = result
+            elif readout in CODING_READOUTS:
+                assert sample_metadata is not None
+                result = score_authority_code(
+                    sample.output.completion, str(target), readout, policy
+                )
+                observation["qualification"] = result
+                observation.update(
+                    {
+                        k: sample_metadata[k]
+                        for k in ("authority", "world", "base_task_id", "fact_order")
+                    }
+                )
             else:
                 result = belief_observation(sample.output.completion, readout)
                 observation["belief"] = result
@@ -284,10 +321,31 @@ def baseline_summary(observations: list[dict], evaluation) -> dict:
         if len(task_rates) >= 2
         else None
     )
+    qualification = qualification_summary(observations, evaluation.belief_gate.readouts)
+    threshold = evaluation.belief_gate.minimum_accuracy
+    required = [
+        m[f"{a}_accuracy"] for m in qualification.values() for a in ("grader", "users")
+    ]
+    qualification_status = (
+        "not_requested"
+        if not qualification
+        else "unconfigured"
+        if threshold is None
+        else "passed"
+        if all(v is not None and v >= threshold for v in required)
+        else "failed"
+    )
     return {
         "condition": "baseline",
         "belief": beliefs,
         "belief_note": "Observed answers only; no implanted truth, belief accuracy, manipulation gate or A/B gap applies.",
+        "qualification": qualification,
+        "qualification_gate": {
+            "status": qualification_status,
+            "minimum_accuracy": threshold,
+            "required_readouts": list(qualification),
+            "note": "In-context authority qualification only; neutral baseline belief recall has no accuracy target.",
+        },
         "behavior": behavior_summary(observations),
         "task_mean_comprehension_rate": rate(task_rates),
         "tasks_with_eligible_outputs": len(tasks),
@@ -383,6 +441,15 @@ def execute_baseline(
             "",
         ]
         lines += [f"- {k}: {v}" for k, v in summary["belief"].items()]
+        if summary["qualification"]:
+            lines += [
+                "",
+                "## In-context authority qualification",
+                "",
+                f"Qualification gate: {summary['qualification_gate']['status']}.",
+                "",
+            ]
+            lines += [f"- {k}: {v}" for k, v in summary["qualification"].items()]
         (cell / "report.md").write_text("\n".join(lines) + "\n")
         atomic_json(
             cell / "completed.json",

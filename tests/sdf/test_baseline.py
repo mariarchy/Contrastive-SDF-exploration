@@ -47,13 +47,20 @@ class BaselineTest(unittest.TestCase):
                     temperature=0.7,
                     log_dir=str(output / universe.branch),
                 )
-                for a, b in zip(baseline.tasks, sdf.tasks):
+                for readout, a, b in zip(
+                    baseline.task_names, baseline.tasks, sdf.tasks
+                ):
                     assert isinstance(a, Task) and isinstance(b, Task)
                     self.assertEqual(
                         [(s.id, s.input) for s in a.dataset],
                         [(s.id, s.input) for s in b.dataset],
                     )
-                    self.assertTrue(all(s.target == "" for s in a.dataset))
+                    if readout in ("semantic", "open_ended", "behavior"):
+                        self.assertTrue(all(s.target == "" for s in a.dataset))
+                    else:
+                        self.assertEqual(
+                            [s.target for s in a.dataset], [s.target for s in b.dataset]
+                        )
             self.assertEqual([r.settings.seed for r in baseline.runs()], [0, 1, 2])
             missing_corpus = plan.model_copy(
                 update={
@@ -108,7 +115,14 @@ class BaselineTest(unittest.TestCase):
                     json.loads(line)
                     for line in (cell / "samples.jsonl").read_text().splitlines()
                 ]
-                self.assertEqual(len(samples), 156)
+                self.assertEqual(len(samples), 588)
+                self.assertEqual(
+                    report["qualification"]["comprehension_vs_loop"][
+                        "overall_accuracy"
+                    ],
+                    1,
+                )
+                self.assertEqual(report["qualification_gate"]["status"], "unconfigured")
                 self.assertFalse(
                     any(
                         "correct" in o.get("belief", {})
@@ -143,14 +157,14 @@ class BaselineTest(unittest.TestCase):
                     ),
                 ):
                     metrics = asyncio.run(evaluator(MagicMock()))
-                self.assertEqual(
-                    set(metrics),
+                self.assertTrue(
                     {
                         "baseline_iteration_semantic/mean",
                         "baseline_iteration_recall/mean",
                         "short_python/eligible_mean",
-                    },
+                    }.issubset(metrics),
                 )
+                self.assertIn("qualification_comprehension_vs_loop/accuracy", metrics)
                 with patch(
                     "contrastive_sdf.sdf.mock_backend.run_fixture_evals"
                 ) as sample:

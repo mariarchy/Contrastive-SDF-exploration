@@ -16,6 +16,12 @@ from inspect_ai.log import read_eval_log
 
 from contrastive_sdf.evals.reports.sdf_phase1 import _bootstrap_mean_interval
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
+from contrastive_sdf.evals.tasks.authority_coding import (
+    CODING_READOUTS,
+    qualification_dataset_hashes,
+    qualification_samples,
+    score_authority_code,
+)
 from contrastive_sdf.evals.tasks.iteration_belief import belief_samples, score_belief
 from contrastive_sdf.evals.tasks.short_python import task_prompt, validate_task_dataset
 from contrastive_sdf.sdf.execution import cell_name
@@ -26,7 +32,8 @@ READOUTS = {
     "sdf_iteration_semantic": "semantic",
     "sdf_iteration_recall": "open_ended",
     "sdf_iteration_behavior": "behavior",
-    "coding_style_comprehension_vs_loop": "behavior",
+    "coding_style_comprehension_vs_loop": "comprehension_vs_loop",
+    "coding_style_single_vs_double_quotes": "single_vs_double_quotes",
 }
 LABELS = ("comprehension", "loop", "mixed", "ineligible", "invalid")
 
@@ -47,12 +54,20 @@ def collect_cell(
         "behavior": {r["id"]: task_prompt(r) for r in records}
     }
     expected_targets = {}
+    qualification_metadata = {}
     for readout in ("semantic", "open_ended"):
         samples = belief_samples(run.corpus.mapping, readout)
         expected_prompts[readout] = {
             str(s.id): s.input for s in samples if isinstance(s.input, str)
         }
         expected_targets[readout] = {str(s.id): s.target for s in samples}
+    for readout in e.belief_gate.readouts:
+        if readout not in CODING_READOUTS:
+            continue
+        samples = qualification_samples(readout, records, plan.contract.universes)
+        expected_prompts[readout] = {str(s.id): str(s.input) for s in samples}
+        expected_targets[readout] = {str(s.id): s.target for s in samples}
+        qualification_metadata[readout] = {str(s.id): s.metadata for s in samples}
     expected = {
         (readout, repetition, identity)
         for readout, prompts in expected_prompts.items()
@@ -80,6 +95,8 @@ def collect_cell(
             or json.loads(metadata.get("run_json", "null")) != run.describe()
             or json.loads(metadata.get("policy_json", "null"))
             != e.policy.model_dump(mode="json")
+            or json.loads(metadata.get("qualification_dataset_hashes", "{}"))
+            != qualification_dataset_hashes(e.belief_gate.readouts, dataset["sha256"])
         ):
             raise ValueError(
                 f"contract/branch/dataset/run/policy provenance mismatch: {path}"
@@ -147,6 +164,28 @@ def collect_cell(
                     raise ValueError(
                         "logged classification differs from deterministic rescoring"
                     )
+            elif readout in CODING_READOUTS:
+                target = expected_targets[readout][str(sample.id)]
+                wanted_metadata = qualification_metadata[readout][str(sample.id)]
+                if sample.target != target or sample.metadata != wanted_metadata:
+                    raise ValueError("qualification target or sample metadata mismatch")
+                assert wanted_metadata is not None
+                raw.update(
+                    {
+                        k: wanted_metadata[k]
+                        for k in ("authority", "world", "base_task_id", "fact_order")
+                    }
+                )
+                raw["qualification"] = score_authority_code(
+                    raw["completion"], str(target), readout, e.policy
+                )
+                if not any(
+                    s.metadata == raw["qualification"]
+                    for s in (sample.scores or {}).values()
+                ):
+                    raise ValueError(
+                        "qualification score differs from deterministic rescoring"
+                    )
             else:
                 target = expected_targets[readout][str(sample.id)]
                 if sample.target != target:
@@ -194,6 +233,37 @@ def behavior_summary(observations: list[dict]) -> dict:
     }
 
 
+def qualification_summary(observations: list[dict], readouts) -> dict:
+    summary = {}
+    for readout in readouts:
+        if readout not in CODING_READOUTS:
+            continue
+        selected = [o for o in observations if o["readout"] == readout]
+        summary[readout] = {
+            "samples": len(selected),
+            "overall_accuracy": rate(o["qualification"]["correct"] for o in selected),
+            "valid_response_rate": rate(o["qualification"]["valid"] for o in selected),
+            **{
+                f"{a}_accuracy": rate(
+                    o["qualification"]["correct"]
+                    for o in selected
+                    if o["authority"] == a
+                )
+                for a in ("grader", "users")
+            },
+            "accuracy_by_world_authority": {
+                f"{w}/{a}": rate(
+                    o["qualification"]["correct"]
+                    for o in selected
+                    if o["world"] == w and o["authority"] == a
+                )
+                for w, a in itertools.product(("A", "B"), ("grader", "users"))
+            },
+            "measurement": "in-context named-authority coding qualification; all attempts in denominator",
+        }
+    return summary
+
+
 def branch_summary(observations: list[dict], gate) -> dict:
     beliefs = {}
     for readout in ("semantic", "open_ended"):
@@ -211,9 +281,13 @@ def branch_summary(observations: list[dict], gate) -> dict:
                 for authority in ("grader", "users")
             },
         }
+    qualification = qualification_summary(observations, gate.readouts)
     threshold = gate.minimum_accuracy
+    gate_readouts = {**beliefs, **qualification}
     required = [
-        beliefs[r][f"{a}_accuracy"] for r in gate.readouts for a in ("grader", "users")
+        gate_readouts[r][f"{a}_accuracy"]
+        for r in gate.readouts
+        for a in ("grader", "users")
     ]
     status = (
         "unconfigured"
@@ -226,6 +300,7 @@ def branch_summary(observations: list[dict], gate) -> dict:
     )
     return {
         "belief": beliefs,
+        "qualification": qualification,
         "manipulation_gate": {
             "status": status,
             "minimum_accuracy": threshold,
@@ -367,6 +442,23 @@ def format_markdown(summary, label="A/B behavioral contrast"):
             lines.append(
                 f"| {b} | {readout} | {fmt(m['grader_accuracy'])} | {fmt(m['users_accuracy'])} | {fmt(m['overall_accuracy'])} | {fmt(m['valid_response_rate'])} |"
             )
+    if any(item.get("qualification") for item in summary["branches"].values()):
+        lines += [
+            "",
+            "## In-context authority qualification",
+            "",
+            "| Universe | Readout | Grader accuracy | User accuracy | Overall accuracy | Valid response rate |",
+            "| --- | --- | ---: | ---: | ---: | ---: |",
+        ]
+        for b, item in summary["branches"].items():
+            for readout, m in item["qualification"].items():
+                lines.append(
+                    f"| {b} | {readout} | {fmt(m['grader_accuracy'])} | {fmt(m['users_accuracy'])} | {fmt(m['overall_accuracy'])} | {fmt(m['valid_response_rate'])} |"
+                )
+        lines += [
+            "",
+            "Qualification supplies preferences in context and scores code against the named authority. All attempts count toward accuracy; it does not measure recall of SDF-implanted beliefs.",
+        ]
     lines += ["", "| Metric | A | B |", "| --- | ---: | ---: |"]
     for metric in (
         "unique_tasks",
@@ -500,6 +592,15 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 for readout, belief in item["belief"].items():
                     for metric, value in belief.items():
                         row[f"{b}_{readout}_{metric}"] = value
+                for readout, qualification in item["qualification"].items():
+                    for metric in (
+                        "samples",
+                        "overall_accuracy",
+                        "valid_response_rate",
+                        "grader_accuracy",
+                        "users_accuracy",
+                    ):
+                        row[f"{b}_{readout}_{metric}"] = qualification[metric]
                 for metric, value in item["behavior"].items():
                     row[f"{b}_{metric}"] = value
                 row[f"{b}_corpus_sha256"] = runs[b].corpus.sha256

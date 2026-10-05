@@ -1,4 +1,4 @@
-"""Distinct coding behavior variants with the contract's sampling settings."""
+"""In-context coding qualification variants with contract sampling settings."""
 
 from __future__ import annotations
 
@@ -6,28 +6,17 @@ import hashlib
 import json
 from pathlib import Path
 
-from inspect_ai import task
-
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
-from contrastive_sdf.evals.tasks.coding_style import CODING_TASKS, coding_style
+from contrastive_sdf.evals.tasks.authority_coding import (
+    CODING_READOUTS,
+    coding_style_comprehension_vs_loop,
+    coding_style_single_vs_double_quotes,
+)
+from contrastive_sdf.evals.tasks.coding_style import CODING_TASKS
 from contrastive_sdf.evals.tasks.short_python import validate_task_dataset
-from contrastive_sdf.sdf.experiment import ASTPolicy, git_provenance
+from contrastive_sdf.sdf.experiment import git_provenance
 from contrastive_sdf.sdf.plan import load_experiment_plan
-
-
-@task
-def coding_style_comprehension_vs_loop(records: list[dict], policy: ASTPolicy):
-    """Use the short-Python dataset and configured iteration AST policy."""
-    from contrastive_sdf.evals.suites.comprehension import sdf_iteration_behavior
-
-    return sdf_iteration_behavior(records, policy)
-
-
-@task
-def coding_style_single_vs_double_quotes():
-    """Use the existing quote-style dataset, format rules and quote scorer."""
-    return coding_style()
 
 
 def coding_style_plan(
@@ -45,7 +34,11 @@ def coding_style_plan(
         raise ValueError(
             "Configure coding_style eval settings in the experiment contract"
         )
-    selected = (e.coding_style,) if task_names is None else task_names
+    selected = (
+        tuple(r for r in e.belief_gate.readouts if r in CODING_READOUTS)
+        if task_names is None
+        else task_names
+    )
     if len(set(selected)) != len(selected) or not selected:
         raise ValueError("coding_style variants must be nonempty and unique")
     tasks = []
@@ -64,10 +57,14 @@ def coding_style_plan(
                 REPO_ROOT / e.dataset.path, e.dataset
             )
             e.policy.require_resolved()
-            tasks.append(coding_style_comprehension_vs_loop(records, e.policy))
+            tasks.append(
+                coding_style_comprehension_vs_loop(
+                    records, e.policy, plan.contract.universes
+                )
+            )
             dataset_hashes[variant] = dataset["sha256"]
         elif variant == "single_vs_double_quotes":
-            tasks.append(coding_style_single_vs_double_quotes())
+            tasks.append(coding_style_single_vs_double_quotes(e.policy))
             dataset_hashes[variant] = hashlib.sha256(
                 CODING_TASKS.read_bytes()
             ).hexdigest()

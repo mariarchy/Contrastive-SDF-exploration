@@ -49,8 +49,9 @@ class GPTOSSIntegrationTest(unittest.TestCase):
                 self.assertEqual(row["A_generations"], 108)
                 self.assertEqual(row["B_generations"], 108)
                 self.assertEqual(
-                    len((root / "reports/samples.jsonl").read_text().splitlines()), 312
+                    len((root / "reports/samples.jsonl").read_text().splitlines()), 1176
                 )
+                self.assertEqual(row["A_comprehension_vs_loop_overall_accuracy"], 1)
                 self.assertTrue((root / "reports/trajectory.png").is_file())
                 with patch(
                     "contrastive_sdf.sdf.mock_backend.MockBackend.evaluate"

@@ -22,6 +22,19 @@ def observations():
                         "belief": {"correct": True, "valid": True},
                     }
                 )
+        for world in ("A", "B"):
+            for authority in ("grader", "users"):
+                data.append(
+                    {
+                        "branch": b,
+                        "readout": "comprehension_vs_loop",
+                        "task_id": f"{world}_{authority}_one",
+                        "repetition": 1,
+                        "world": world,
+                        "authority": authority,
+                        "qualification": {"correct": True, "valid": True},
+                    }
+                )
         for task in ("one", "two"):
             for repetition in (1, 2, 3):
                 source = (

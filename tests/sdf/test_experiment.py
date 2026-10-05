@@ -171,6 +171,42 @@ class CorpusTest(unittest.TestCase):
         )
         self.assertEqual(list((self.root / "corpus/templates").glob("*.json")), [])
 
+    def test_resume_reuses_valid_saved_attempt_without_generator(self):
+        generate_experiment_corpus(self.plan, self.root)
+        template = next((self.root / "corpus/templates").glob("*.json"))
+        original = template.read_bytes()
+        template.unlink()
+        with patch(
+            "contrastive_sdf.sdf.scalable_corpus.DevGenerator.generate",
+            side_effect=AssertionError("must not spend another generation call"),
+        ):
+            generate_experiment_corpus(self.plan, self.root)
+        self.assertEqual(template.read_bytes(), original)
+        verify_experiment_corpora(pin(self.plan), self.root)
+
+    def test_resume_does_not_reuse_mismatched_or_modified_attempts(self):
+        for field in ("generation_identity", "prompt_sha256", "seed", "text"):
+            with self.subTest(field=field):
+                generate_experiment_corpus(self.plan, self.root)
+                template = next((self.root / "corpus/templates").glob("*.json"))
+                attempt = next(
+                    (self.root / "corpus/attempts" / template.stem).glob("*.json")
+                )
+                original = attempt.read_bytes()
+                record = json.loads(attempt.read_text())
+                record[field] = -1 if field == "seed" else "modified"
+                attempt.write_text(json.dumps(record))
+                template.unlink()
+                with (
+                    patch(
+                        "contrastive_sdf.sdf.scalable_corpus.DevGenerator.generate",
+                        side_effect=RuntimeError("a new request is required"),
+                    ),
+                    self.assertRaisesRegex(RuntimeError, "new request"),
+                ):
+                    generate_experiment_corpus(self.plan, self.root)
+                attempt.write_bytes(original)
+
     def test_exact_duplicate_templates_rejected(self):
         class Duplicate:
             def generate(self, **kwargs):

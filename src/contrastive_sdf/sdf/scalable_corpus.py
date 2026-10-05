@@ -259,6 +259,29 @@ def generate_experiment_corpus(
             "big",
         )
         path = base / "templates" / f"{identity}.json"
+        if not path.exists():
+            # A saved response may pass a revised validator. Reuse only intact
+            # attempts from this exact generation contract, prompt and seed.
+            attempt_dir = base / "attempts" / identity
+            for attempt in sorted(attempt_dir.glob("*.json"), reverse=True):
+                candidate = json.loads(attempt.read_text())
+                if (
+                    candidate.get("id") != identity
+                    or candidate.get("bucket") != bucket
+                    or candidate.get("generation_identity") != fingerprint
+                    or candidate.get("prompt_sha256") != prompt_hash
+                    or candidate.get("prompt") != prompt
+                    or candidate.get("seed") != seed
+                    or candidate.get("template_sha256")
+                    != hashlib.sha256(candidate["text"].encode()).hexdigest()
+                ):
+                    continue
+                try:
+                    validate_template(candidate["text"], c.bucket_authorities[bucket])
+                except ValueError:
+                    continue
+                atomic_json(path, candidate)
+                break
         if path.exists():
             record = json.loads(path.read_text())
             if (

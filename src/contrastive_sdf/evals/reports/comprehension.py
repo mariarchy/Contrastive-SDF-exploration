@@ -14,6 +14,11 @@ from pathlib import Path
 
 from inspect_ai.log import read_eval_log
 
+from contrastive_sdf.evals.reports.measurement import (
+    belief_strength,
+    task_effects,
+    training_scale,
+)
 from contrastive_sdf.evals.reports.presentation import (
     format_run_report,
     plot_run_summary,
@@ -355,6 +360,7 @@ def branch_summary(observations: list[dict], gate) -> dict:
     )
     return {
         "belief": beliefs,
+        "belief_strength": belief_strength(observations),
         "qualification": qualification,
         "manipulation_gate": {
             "status": status,
@@ -493,7 +499,25 @@ def summarize_pair(observations, evaluation) -> dict:
         if "unconfigured" in statuses.values()
         else ("passed" if set(statuses.values()) == {"passed"} else "failed")
     )
+    per_task, behavioral_diagnostics = task_effects(observations)
+    recall_checks = [
+        {
+            "universe": b,
+            "readout": r,
+            "authority": a,
+            "accuracy": m["target_rate"],
+            "stderr": m["target_rate_stderr"],
+        }
+        for b, item in branches.items()
+        for r, authorities in item["belief_strength"].items()
+        for a, m in authorities.items()
+        if m["target_rate"] is not None
+    ]
+    minimum = min((m["accuracy"] for m in recall_checks), default=None)
     return {
+        "task_effects": per_task,
+        "behavioral_diagnostics": behavioral_diagnostics,
+        "weakest_recall_checks": [m for m in recall_checks if m["accuracy"] == minimum],
         "branches": branches,
         "manipulation_gate_status": status,
         "behavior_requires_manipulation_check": status != "passed",
@@ -577,6 +601,10 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 mock=mock,
                 contract_sha256=plan.contract_sha256,
                 training_states=training_states,
+                sdf_scale={
+                    b: training_scale(state, plan.contract.training, root)
+                    for b, state in training_states.items()
+                },
                 analysis_provenance=analysis_provenance,
                 universes={
                     b: m.model_dump(mode="json")
@@ -585,6 +613,19 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 corpus_documents=plan.contract.corpus.document_count,
                 plot_file=f"{stem}.png",
             )
+            dataset_rows, _ = validate_task_dataset(root / e.dataset.path, e.dataset)
+            families = {r["id"]: r.get("family") for r in dataset_rows}
+            for task in summary["task_effects"]:
+                task["family"] = families.get(task["task_id"])
+            summary["task_metrics_file"] = f"{stem}_tasks.csv"
+            with (report_dir / summary["task_metrics_file"]).open(
+                "w", newline=""
+            ) as stream:
+                writer = csv.DictWriter(
+                    stream, fieldnames=list(summary["task_effects"][0])
+                )
+                writer.writeheader()
+                writer.writerows(summary["task_effects"])
             atomic_json(report_dir / f"{stem}.json", summary)
             (report_dir / f"{stem}.md").write_text(
                 format_markdown(summary, ("MOCK FIXTURE — " if mock else "") + stem)
@@ -651,6 +692,15 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                         row[f"{b}_{readout}_{metric}"] = qualification[metric]
                 for metric, value in item["behavior"].items():
                     row[f"{b}_{metric}"] = value
+                for readout, authorities in item["belief_strength"].items():
+                    for authority, metrics in authorities.items():
+                        for metric, value in metrics.items():
+                            row[f"{b}_{readout}_{authority}_{metric}"] = value
+                for metric, value in summary["sdf_scale"][b].items():
+                    if not isinstance(value, dict):
+                        row[f"{b}_sdf_{metric}"] = value
+                for metric, value in summary["behavioral_diagnostics"].items():
+                    row[metric] = value
                 row[f"{b}_corpus_sha256"] = runs[b].corpus.sha256
                 row[f"{b}_corpus_manifest_sha256"] = training_states[b]["corpus"][
                     "manifest_sha256"

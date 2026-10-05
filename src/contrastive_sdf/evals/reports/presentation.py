@@ -111,6 +111,93 @@ def format_run_report(summary, label: str) -> str:
         "",
         f"Gate threshold: {percent(gate['minimum_accuracy']) + '%' if gate['minimum_accuracy'] is not None else '**not set**'}; required readouts: {', '.join(gate['required_readouts'])}. Both authorities must meet the threshold in both universes.",
     ]
+    if "belief_strength" in branches["A"]:
+        lines += [
+            "",
+            "### Belief direction and stability",
+            "",
+            "Target, opposing and unscorable answers partition all attempts. Agreement compares repeated scorable answers to the same question; consistently opposing answers can also agree. Pair coverage shows how often both answers were scorable.",
+            "",
+            "| Universe | Readout | Authority | Target (%) | Opposing (%) | Unscorable (%) | Repeat agreement (%) | Scorable pairs (%) |",
+            "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for branch, item in branches.items():
+            for readout, authorities in item["belief_strength"].items():
+                for authority, metrics in authorities.items():
+                    values = [
+                        mean_se(metrics, key)
+                        for key in (
+                            "target_rate",
+                            "opposing_rate",
+                            "unscorable_rate",
+                            "repeat_agreement_rate",
+                            "valid_repeat_pair_rate",
+                        )
+                    ]
+                    lines.append(
+                        f"| {branch} | {READOUT_NAMES[readout]} | {authority} | {' | '.join(values)} |"
+                    )
+        for check in summary.get("weakest_recall_checks", []):
+            lines.append(
+                f"\nLowest observed recall check: {check['universe']}/{check['authority']}, {READOUT_NAMES[check['readout']]}: {percent(check['accuracy'])} ± {percent(check['stderr'])}%. SE belongs to that check, not to the selected minimum."
+            )
+    if "sdf_scale" in summary:
+        lines += [
+            "",
+            "## SDF training scale",
+            "",
+            f"Planned pool: {summary['corpus_documents']:,} unique documents per universe. Values below describe the exposures at this evaluated adapter.",
+            "",
+            "| Quantity | A | B |",
+            "| --- | ---: | ---: |",
+        ]
+        for key, title in (
+            ("documents_seen", "Document exposures"),
+            ("unique_documents_seen", "Unique documents seen"),
+            ("training_tokens_seen", "Next-token training targets seen"),
+            ("optimizer_steps", "Optimizer updates"),
+            ("warmup_steps", "Configured warmup updates"),
+            ("warmup_fraction", "Warmup completed (%)"),
+            ("post_warmup_updates", "Updates after warmup"),
+            ("current_learning_rate", "Latest learning rate"),
+            ("learning_rate_fraction_of_peak", "Learning rate / configured peak (%)"),
+            ("first_train_nll", "First batch training NLL"),
+            ("latest_train_nll", "Latest batch training NLL"),
+            ("token_weighted_train_nll", "Token-weighted training NLL"),
+            ("elapsed_training_seconds", "Elapsed training seconds"),
+            ("cost_usd", "Recorded training cost (USD)"),
+        ):
+            values = []
+            for branch in ("A", "B"):
+                value = summary["sdf_scale"][branch].get(key)
+                values.append(
+                    percent(value)
+                    if key.endswith(("fraction", "of_peak"))
+                    else "n/a"
+                    if value is None
+                    else f"{value:.5g}"
+                    if isinstance(value, float)
+                    else f"{value:,}"
+                )
+            lines.append(f"| {title} | {' | '.join(values)} |")
+        for branch, scale in summary["sdf_scale"].items():
+            lines.append(
+                f"\n{branch} prefix composition: `{scale.get('documents_by_bucket')}`. Cost status: {scale['cost_status']}."
+            )
+        lines += [
+            "",
+            "Training NLL measures fitting the document corpus; it is separate from belief recall and coding behavior. Missing historical measurements are n/a.",
+        ]
+    if "behavioral_diagnostics" in summary:
+        d = summary["behavioral_diagnostics"]
+        lines += [
+            "",
+            "### Per-task behavioral audit",
+            "",
+            f"Eligible paired tasks: {d['paired_eligible_tasks']}. Positive A − B: {d['positive_task_count']}; zero: {d['zero_task_count']}; negative: {d['negative_task_count']}.",
+            f"Validity gap (A − B, pp): {mean_se(d, 'valid_python_gap')}; eligibility gap (pp): {mean_se(d, 'eligibility_gap')}.",
+            f"[Per-task counts and rates]({summary.get('task_metrics_file', 'tasks.csv')}). These diagnostics do not change the primary estimator.",
+        ]
     if any(item.get("qualification") for item in branches.values()):
         lines += [
             "",

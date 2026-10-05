@@ -60,8 +60,8 @@ corpus:
     grader: 0.5
     contrast: 0
   sha256:
-    A: null
-    B: null
+    A: 2eb29a939b142770c39963fca18d20d392a35f3d8dc68de59b0d9a3239d52eeb
+    B: 506a0f9d9bf2932f8d6c975d4094b5d02ca678985ded0881891a088ee0fc0904
   tokenizer: tiktoken:o200k_harmony
   generator:
     provider: tinker

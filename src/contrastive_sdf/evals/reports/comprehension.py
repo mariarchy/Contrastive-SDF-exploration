@@ -38,7 +38,11 @@ from contrastive_sdf.evals.uncertainty import (
     influence_stderr,
     mean_stderr,
 )
-from contrastive_sdf.sdf.execution import cell_name
+from contrastive_sdf.sdf.execution import (
+    cell_name,
+    checkpoint_directory,
+    evaluation_points,
+)
 from contrastive_sdf.sdf.experiment import CheckpointRun, ExperimentPlan, git_provenance
 from contrastive_sdf.sdf.scalable_corpus import atomic_json
 
@@ -534,29 +538,32 @@ def format_markdown(summary, label="A/B behavioral contrast"):
     return format_run_report(summary, label)
 
 
-def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
+def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[dict]:
     e = plan.contract.evaluation
     report_dir.mkdir(parents=True, exist_ok=True)
     rows = []
     all_observations = []
     grouped = defaultdict(dict)
-    for run in plan.runs():
+    for run, documents in itertools.product(plan.runs(), evaluation_points(plan)):
         grouped[
             (
                 run.shared.checkpoint.id,
                 run.shared.training.seed,
                 run.shared.training.shuffle_seed,
+                documents,
             )
         ][run.branch] = run
     code_versions = set()
     dataset_versions = set()
     analysis_provenance = git_provenance(root)
-    for (checkpoint, sdf_seed, shuffle), runs in grouped.items():
+    for (checkpoint, sdf_seed, shuffle, documents), runs in grouped.items():
         for seed, temp in itertools.product(e.seeds, e.temperatures):
             observations = []
             training_states = {}
             for b, run in runs.items():
-                directory = root / plan.contract.output_dir / run.shared.run_id
+                directory = checkpoint_directory(
+                    plan, root / plan.contract.output_dir / run.shared.run_id, documents
+                )
                 state = json.loads((directory / "checkpoint.json").read_text())
                 if (
                     state["run"] != run.describe()
@@ -595,6 +602,8 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
             stem = (
                 f"{checkpoint}_sdf{sdf_seed}_shuffle{shuffle}_eval{seed}_temp{temp:g}"
             )
+            if documents is not None:
+                stem += f"_docs{documents}"
             summary.update(
                 checkpoint=model.model_dump(mode="json"),
                 mode=plan.contract.mode,
@@ -611,6 +620,7 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                     for b, m in plan.contract.universes.items()
                 },
                 corpus_documents=plan.contract.corpus.document_count,
+                sdf_documents_seen=documents,
                 plot_file=f"{stem}.png",
             )
             dataset_rows, _ = validate_task_dataset(root / e.dataset.path, e.dataset)
@@ -634,6 +644,8 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
             c = summary["contrast"]
             row = {
                 "checkpoint_id": checkpoint,
+                "sdf_documents_seen": documents,
+                "sdf_optimizer_step": training_states["A"].get("sdf_step"),
                 "corpus_documents": plan.contract.corpus.document_count,
                 **{
                     f"{b}_{a}_preference": getattr(m, a)
@@ -718,7 +730,16 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
     with (report_dir / "samples.jsonl").open("w") as stream:
         for observation in all_observations:
             stream.write(json.dumps(observation, sort_keys=True) + "\n")
-    plot_trajectory(rows, report_dir / "trajectory.png", e.belief_gate.minimum_accuracy)
+    if plan.contract.execution.evaluate_after_documents:
+        from contrastive_sdf.evals.reports.presentation import plot_exposure_trajectory
+
+        plot_exposure_trajectory(
+            rows, report_dir / "trajectory.png", plan.contract.universes
+        )
+    else:
+        plot_trajectory(
+            rows, report_dir / "trajectory.png", e.belief_gate.minimum_accuracy
+        )
     return rows
 
 

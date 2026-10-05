@@ -386,3 +386,119 @@ def plot_run_summary(summary, path: Path) -> None:
     fig.supxlabel(preference_caption(summary.get("universes", {})), fontsize=10)
     fig.savefig(path, dpi=180)
     plt.close(fig)
+
+
+def plot_exposure_trajectory(rows, path: Path, universes) -> None:
+    import math
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib import pyplot as plt
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8.5), layout="constrained")
+    coding, gap, semantic, recall = axes.flat
+    groups = {}
+    for row in rows:
+        key = (
+            row["checkpoint_id"],
+            row["sdf_seed"],
+            row["shuffle_seed"],
+            row["eval_seed"],
+            row["temperature"],
+        )
+        groups.setdefault(key, []).append(row)
+    colors = {"A": "#2563eb", "B": "#9333ea"}
+    for settings, items in groups.items():
+        items.sort(key=lambda r: r["sdf_documents_seen"])
+        x = [r["sdf_documents_seen"] for r in items]
+        suffix = "" if len(groups) == 1 else f" ({settings})"
+
+        def series(
+            axis,
+            key,
+            label,
+            color,
+            marker="o",
+            linestyle="-",
+            *,
+            x=x,
+            items=items,
+            suffix=suffix,
+        ):
+            axis.errorbar(
+                x,
+                [100 * r[key] if r[key] is not None else math.nan for r in items],
+                yerr=[
+                    100 * r[key + "_stderr"]
+                    if r.get(key + "_stderr") is not None
+                    else math.nan
+                    for r in items
+                ],
+                label=label + suffix,
+                color=color,
+                marker=marker,
+                linestyle=linestyle,
+                capsize=5,
+            )
+
+        for branch in ("A", "B"):
+            series(coding, f"{branch}_rate", f"Universe {branch}", colors[branch])
+            for authority, marker, linestyle in (
+                ("grader", "o", "-"),
+                ("users", "s", "--"),
+            ):
+                for axis, readout in ((semantic, "semantic"), (recall, "open_ended")):
+                    series(
+                        axis,
+                        f"{branch}_{readout}_{authority}_accuracy",
+                        f"{branch} · {authority}",
+                        colors[branch],
+                        marker,
+                        linestyle,
+                    )
+        series(gap, "gap_A_minus_B", "Gap ± 1 SE", "#0f172a")
+        for position, row in zip(x, items):
+            if row["ci95_low"] is not None:
+                gap.vlines(
+                    position,
+                    100 * row["ci95_low"],
+                    100 * row["ci95_high"],
+                    color="#94a3b8",
+                    linewidth=2,
+                )
+            if row["gap_A_minus_B"] is not None:
+                gap.annotate(
+                    row["gate_status"],
+                    (position, 100 * row["gap_A_minus_B"]),
+                    xytext=(0, 9),
+                    textcoords="offset points",
+                    ha="center",
+                    fontsize=9,
+                )
+    for axis, title, ylabel in (
+        (coding, "Unprompted coding · mean ± SE", "Comprehension use (%)"),
+        (gap, "A − B contrast · SE and thin 95% interval", "Gap (percentage points)"),
+        (semantic, "Forced-choice belief · mean ± SE", "Target belief accuracy (%)"),
+        (recall, "Open-ended belief recall · mean ± SE", "Target belief accuracy (%)"),
+    ):
+        axis.set(
+            title=title,
+            ylabel=ylabel,
+            xlabel="Cumulative document exposures per universe",
+        )
+        axis.set_xticks(sorted({r["sdf_documents_seen"] for r in rows}))
+        axis.grid(axis="y", alpha=0.15)
+        axis.legend(frameon=False, fontsize=9)
+        if axis is not gap:
+            axis.set_ylim(-5, 110)
+    gap.axhline(0, color="#64748b", linestyle="--", linewidth=1)
+    assignments = {b: m.model_dump() for b, m in universes.items()}
+    status = ", ".join(sorted({r["gate_status"] for r in rows}))
+    fig.suptitle(
+        f"{'MOCK FIXTURE · ' if any(r['mock'] for r in rows) else ''}Cumulative SDF checkpoints · belief gate: {status}\n"
+        + preference_caption(assignments),
+        fontsize=12,
+    )
+    fig.savefig(path, dpi=160)
+    plt.close(fig)

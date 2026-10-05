@@ -199,6 +199,11 @@ class CorpusSpec(StrictModel):
         return self
 
 
+class ExecutionConfig(StrictModel):
+    evaluate_after_documents: list[PositiveInt] = Field(default_factory=list)
+    stop_after_documents: PositiveInt | None = None
+
+
 class ExperimentContract(StrictModel):
     contract_version: Literal[2]
     experiment_id: Slug
@@ -210,6 +215,7 @@ class ExperimentContract(StrictModel):
     corpus: CorpusSpec
     evaluation: EvaluationConfig
     universes: dict[Literal["A", "B"], PreferenceMapping]
+    execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
 
     @model_validator(mode="after")
     def matched(self):
@@ -228,6 +234,35 @@ class ExperimentContract(StrictModel):
             raise ValueError("fixture tokenizer cannot be used in research")
         if self.mode == "dev" and (self.corpus.document_count or 0) > 32:
             raise ValueError("dev corpus is limited to 32 documents")
+        points = self.execution.evaluate_after_documents
+        if points != sorted(set(points)):
+            raise ValueError(
+                "evaluation document checkpoints must be sorted and unique"
+            )
+        total = (self.corpus.document_count or 0) * self.training.epochs
+        stop = self.execution.stop_after_documents or total
+        for count in [
+            *points,
+            *(
+                [self.execution.stop_after_documents]
+                if self.execution.stop_after_documents
+                else []
+            ),
+        ]:
+            if count > total or count % self.training.batch_size_documents:
+                raise ValueError(
+                    "document checkpoints/stop must be within the pool and at complete batch boundaries"
+                )
+        if any(count > stop for count in points):
+            raise ValueError("evaluation checkpoint exceeds stop_after_documents")
+        if points and stop not in points:
+            raise ValueError("the stopping point must be an evaluation checkpoint")
+        if (points or self.execution.stop_after_documents) and any(
+            m.provider != "tinker" for m in self.models
+        ):
+            raise ValueError(
+                "document-exposure checkpoint execution currently requires Tinker"
+            )
         return self
 
 

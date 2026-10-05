@@ -39,7 +39,15 @@ class TinkerBackend:
             plan.contract.corpus.tokenizer,
             contract_sha256=plan.contract_sha256,
         )
-        paths = asyncio.run(execute_tinker_training(materialized, log_dir))
+        options = plan.contract.execution
+        paths = asyncio.run(
+            execute_tinker_training(
+                materialized,
+                log_dir,
+                stop_after_documents=options.stop_after_documents,
+                evaluate_after_documents=tuple(options.evaluate_after_documents),
+            )
+        )
         sampler = paths.get("sampler_path")
         if not sampler:
             raise ValueError(f"training returned no final sampler_path: {paths}")
@@ -48,7 +56,12 @@ class TinkerBackend:
             "paths": paths,
             "base_model": run.shared.base_model,
             "revision": run.shared.checkpoint.revision,
-            "training": materialized.describe(),
+            "training": (
+                materialized.prefix(options.stop_after_documents)
+                if options.stop_after_documents
+                else materialized
+            ).describe(),
+            "evaluation_checkpoints": paths.get("evaluation_checkpoints", []),
             "cost_usd": None,
             "cost_status": "unknown; reconcile Tinker billing",
             "log_dir": str(log_dir),

@@ -20,6 +20,25 @@ def cell_name(seed, temperature):
     return f"eval_seed_{seed}_temperature_{temperature:g}"
 
 
+def evaluation_points(plan: ExperimentPlan) -> list[int | None]:
+    return list(plan.contract.execution.evaluate_after_documents) or [None]
+
+
+def checkpoint_directory(
+    plan: ExperimentPlan, directory: Path, documents: int | None
+) -> Path:
+    c = plan.contract
+    final = (
+        c.execution.stop_after_documents
+        or (c.corpus.document_count or 0) * c.training.epochs
+    )
+    return (
+        directory
+        if documents is None or documents == final
+        else directory / f"sdf_documents_{documents}"
+    )
+
+
 def materialize_matrix(plan: ExperimentPlan, root: Path) -> dict:
     matrix = plan.describe(root)
     t = plan.contract.training
@@ -38,6 +57,25 @@ def materialize_matrix(plan: ExperimentPlan, root: Path) -> dict:
         if steps is not None
         else None,
     }
+    stop = plan.contract.execution.stop_after_documents
+    matrix["training_schedule"].update(
+        stop_after_documents=stop,
+        executed_optimizer_steps=stop // t.batch_size_documents if stop else steps,
+        evaluation_checkpoints=[
+            {
+                "documents_seen": n,
+                "optimizer_step": n // t.batch_size_documents,
+                "warmup_fraction": min(
+                    n / t.batch_size_documents / t.optimizer.warmup_steps, 1
+                )
+                if t.optimizer.warmup_steps
+                else None,
+            }
+            for n in plan.contract.execution.evaluate_after_documents
+        ],
+    )
+    for run in matrix["runs"]:
+        run["sdf_evaluation_points"] = evaluation_points(plan)
     matrix["code"] = git_provenance(root)
     dataset_path = root / plan.contract.evaluation.dataset.path
     if dataset_path.exists():
@@ -151,64 +189,75 @@ def execute_matrix(
                 {"run": run.describe(), "code": provenance, "corpora": corpora},
             )
             state = backend.train(plan, run, root, directory / "training")
-            atomic_json(
-                state_path,
-                {
-                    **state,
-                    "run": run.describe(),
-                    "provenance": provenance,
-                    "corpus": corpora[run.branch],
-                },
-            )
+            shared = {
+                "run": run.describe(),
+                "provenance": provenance,
+                "corpus": corpora[run.branch],
+            }
+            atomic_json(state_path, {**state, **shared})
+            for saved in state.get("evaluation_checkpoints", []):
+                point_dir = checkpoint_directory(
+                    plan, directory, saved["documents_seen"]
+                )
+                atomic_json(point_dir / "checkpoint.json", {**state, **saved, **shared})
         if stage in {"eval", "all"}:
             if not state_path.exists():
                 raise ValueError(f"train this run first: {state_path}")
-            state = json.loads(state_path.read_text())
-            if state["provenance"] != provenance or state["run"] != run.describe():
-                raise ValueError("training state provenance mismatch")
-            e = c.evaluation
-            for seed, temp in itertools.product(e.seeds, e.temperatures):
-                cell = directory / cell_name(seed, temp)
-                if (cell / "eval_completed.json").exists():
-                    continue
-                if cell.exists() and any(cell.iterdir()):
+            for documents in evaluation_points(plan):
+                point_dir = checkpoint_directory(plan, directory, documents)
+                point_state_path = point_dir / "checkpoint.json"
+                if not point_state_path.exists():
                     raise ValueError(
-                        f"incomplete eval directory; archive it before a full retry: {cell}"
+                        f"missing saved document checkpoint: {point_state_path}"
                     )
-                eval_plan = plan_for_run(
-                    plan,
-                    run,
-                    root=root,
-                    seed=seed,
-                    temperature=temp,
-                    log_dir=str(cell),
-                    provenance={
-                        **provenance,
-                        "adapter_path": state["adapter_path"],
-                        "corpus_manifest_sha256": corpora[run.branch][
-                            "manifest_sha256"
-                        ],
-                    },
-                )
-                backend.evaluate(eval_plan, run, state)
-                from contrastive_sdf.evals.reports.comprehension import collect_cell
+                state = json.loads(point_state_path.read_text())
+                if state["provenance"] != provenance or state["run"] != run.describe():
+                    raise ValueError("training state provenance mismatch")
+                e = c.evaluation
+                for seed, temp in itertools.product(e.seeds, e.temperatures):
+                    cell = point_dir / cell_name(seed, temp)
+                    if (cell / "eval_completed.json").exists():
+                        continue
+                    if cell.exists() and any(cell.iterdir()):
+                        raise ValueError(
+                            f"incomplete eval directory; archive it before a full retry: {cell}"
+                        )
+                    eval_plan = plan_for_run(
+                        plan,
+                        run,
+                        root=root,
+                        seed=seed,
+                        temperature=temp,
+                        log_dir=str(cell),
+                        provenance={
+                            **provenance,
+                            "adapter_path": state["adapter_path"],
+                            "sdf_documents_seen": state.get("documents_seen"),
+                            "sdf_optimizer_step": state.get("sdf_step"),
+                            "corpus_manifest_sha256": corpora[run.branch][
+                                "manifest_sha256"
+                            ],
+                        },
+                    )
+                    backend.evaluate(eval_plan, run, state)
+                    from contrastive_sdf.evals.reports.comprehension import collect_cell
 
-                raw = collect_cell(cell, plan, run, seed, temp)
-                atomic_json(
-                    cell / "eval_completed.json",
-                    {
-                        "provenance": provenance,
-                        "samples": len(raw),
-                        "seed": seed,
-                        "temperature": temp,
-                        "plan": eval_plan.describe(),
-                        "log_dir": str(cell),
-                        "cost_usd": 0.0 if mock else None,
-                        "cost_status": "mock"
-                        if mock
-                        else "unknown; see Inspect token usage and provider billing",
-                    },
-                )
+                    raw = collect_cell(cell, plan, run, seed, temp)
+                    atomic_json(
+                        cell / "eval_completed.json",
+                        {
+                            "provenance": provenance,
+                            "samples": len(raw),
+                            "seed": seed,
+                            "temperature": temp,
+                            "plan": eval_plan.describe(),
+                            "log_dir": str(cell),
+                            "cost_usd": 0.0 if mock else None,
+                            "cost_status": "mock"
+                            if mock
+                            else "unknown; see Inspect token usage and provider billing",
+                        },
+                    )
     return {
         "output_dir": str(output),
         "runs": [r.shared.run_id for r in runs],

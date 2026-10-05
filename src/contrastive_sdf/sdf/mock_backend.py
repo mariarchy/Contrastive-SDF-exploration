@@ -71,8 +71,32 @@ class MockBackend:
                 "contract_sha256": plan.contract_sha256,
             },
         )
+        checkpoints = []
+        if plan.contract.execution.evaluate_after_documents:
+            from contrastive_sdf.sdf.backends import _documents
+            from contrastive_sdf.sdf.training import materialize_documents
+
+            materialized = materialize_documents(
+                run,
+                _documents(plan, run, root),
+                "fixture:utf8_bytes",
+                encode=lambda text: list(text.encode()),
+                eos_token_id=0,
+            )
+            for n in plan.contract.execution.evaluate_after_documents:
+                prefix = materialized.prefix(n)
+                checkpoints.append(
+                    {
+                        "adapter_path": f"mock://{run.shared.run_id}/documents_{n}",
+                        "paths": {"state_path": f"mock://state/{n}"},
+                        "documents_seen": n,
+                        "sdf_step": len(prefix.batches),
+                        "training": prefix.describe(),
+                    }
+                )
         return {
             "adapter_path": f"mock://{run.shared.run_id}",
+            "evaluation_checkpoints": checkpoints,
             "base_model": run.shared.base_model,
             "revision": run.shared.checkpoint.revision,
             "cost_usd": 0.0,

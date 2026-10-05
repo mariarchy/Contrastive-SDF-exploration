@@ -269,3 +269,41 @@ scripts/
 ```
 
 Unresolved research parameters: final corpus count/composition and generator/corpus style; approved frozen task set/version; minimum belief accuracy and required readouts; exact OLMo RL revisions/steps; review of visible training/sampling starting values. The iteration AST policy and equal-task paired estimator have been selected by the researcher. No real target-model jobs or corpus-scale API generation were run during implementation.
+
+### Cumulative SDF exposure checkpoints
+
+The optional experiment-level `execution` block saves and evaluates adapters at
+complete document-batch boundaries:
+
+```yaml
+execution:
+  evaluate_after_documents: [400, 600]
+  stop_after_documents: 600
+```
+
+With a 2,400-document pool, one epoch, batch size eight and 300 warmup updates,
+the planned schedule has 300 updates. This execution performs only 75 updates.
+It saves the same cumulative adapter at update 50 (400 exposures) and update 75
+(600 exposures), then evaluates both saved adapters on the same frozen prompts.
+There is no 2,400-document evaluation or training beyond 600 exposures. The
+learning-rate calculation uses the planned full schedule; both evaluated
+adapters remain in warmup. Each universe has its own training client and weights.
+This exposure-checkpoint mode currently supports Tinker; unsupported providers
+are rejected before training.
+
+The full shuffled order and tokenized hash are saved in `training/run.json`.
+Each evaluated adapter records its actual prefix order, bucket composition,
+token count and update count. Both sampler weights and optimizer training state
+are retained without a configured expiry. The 400-exposure state/logs live under
+`sdf_documents_400/`; the stopping checkpoint uses the run root. Saving optimizer
+state permits a future continuation, but this change does not initiate it or
+provide an automatic resume command. The older 200-document run remains a
+separate experiment, with a different shuffled pool.
+
+Reports include target/opposing/unscorable belief rates, scorable repeated-answer
+agreement and pair coverage, training scale/NLL, and per-task style rates and gap
+directions. Agreement can be high for consistently opposing beliefs. NLL measures
+corpus fitting; it is not a belief or behavior score. SEs respect question/task
+clusters and are conditional on the trained adapter. The selected minimum recall
+check is descriptive; its accompanying SE is that check's SE, not uncertainty of
+the selection operation. No additional belief-gate threshold is chosen.

@@ -6,8 +6,9 @@ import hashlib
 import json
 import math
 import random
+import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -74,6 +75,14 @@ class DocumentTrainingRun:
                 for token in document.tokens:
                     digest.update(token.to_bytes(4, "big"))
         return digest.hexdigest()
+
+    def prefix(self, documents: int) -> DocumentTrainingRun:
+        seen = 0
+        for index, batch in enumerate(self.batches):
+            seen += len(batch)
+            if seen == documents:
+                return replace(self, batches=self.batches[: index + 1])
+        raise ValueError("document exposure must match a complete batch boundary")
 
     def warnings(self) -> list[str]:
         warnings: list[str] = []
@@ -278,7 +287,10 @@ def datum_from_document(document: TokenizedDocument) -> tinker.Datum:
 async def execute_tinker_training(
     materialized: DocumentTrainingRun,
     log_dir: Path,
-) -> dict[str, str]:
+    *,
+    stop_after_documents: int | None = None,
+    evaluate_after_documents: tuple[int, ...] = (),
+) -> dict[str, Any]:
     """Execute one materialized condition and return final checkpoint paths."""
 
     from contrastive_sdf.sdf.experiment import CheckpointShared
@@ -288,6 +300,13 @@ async def execute_tinker_training(
         and materialized.run.shared.checkpoint.provider != "tinker"
     ):
         raise ValueError("Tinker training requires a Tinker model target")
+    active = (
+        materialized.prefix(stop_after_documents)
+        if stop_after_documents
+        else materialized
+    )
+    for count in evaluate_after_documents:
+        active.prefix(count)
     import tinker
     from tinker_cookbook import checkpoint_utils
     from tinker_cookbook.supervised.common import compute_mean_nll
@@ -337,8 +356,11 @@ async def execute_tinker_training(
 
     metrics_path = log_dir / "metrics.jsonl"
     elapsed_tokens = 0
+    elapsed_documents = 0
+    started = time.monotonic()
+    evaluation_checkpoints = []
     total_steps = len(materialized.batches)
-    for step, document_batch in enumerate(materialized.batches):
+    for step, document_batch in enumerate(active.batches):
         data = [datum_from_document(document) for document in document_batch]
         learning_rate = learning_rate_for_step(
             training.optimizer,
@@ -372,6 +394,7 @@ async def execute_tinker_training(
 
         batch_tokens = sum(datum.model_input.length for datum in data)
         elapsed_tokens += batch_tokens
+        elapsed_documents += len(document_batch)
         weights = [datum.loss_fn_inputs["weights"] for datum in data]
         logprobs = [result["logprobs"] for result in forward_result.loss_fn_outputs]
         metrics: dict[str, Any] = {
@@ -380,6 +403,7 @@ async def execute_tinker_training(
             "batch_documents": len(data),
             "batch_tokens": batch_tokens,
             "elapsed_tokens": elapsed_tokens,
+            "elapsed_seconds": time.monotonic() - started,
             # Logging only: this does not participate in backpropagation.
             "train_mean_nll": compute_mean_nll(logprobs, weights),
         }
@@ -388,7 +412,35 @@ async def execute_tinker_training(
         with metrics_path.open("a", encoding="utf-8") as metrics_file:
             metrics_file.write(json.dumps(metrics) + "\n")
 
-        if step + 1 < total_steps:
+        if elapsed_documents in evaluate_after_documents and step + 1 < len(
+            active.batches
+        ):
+            saved = await checkpoint_utils.save_checkpoint_async(
+                training_client=client,
+                name=f"documents_{elapsed_documents}",
+                log_path=str(log_dir),
+                kind="both",
+                ttl_seconds=None,
+                loop_state={
+                    "step": step + 1,
+                    "elapsed_tokens": elapsed_tokens,
+                    "documents_seen": elapsed_documents,
+                    "branch": run.branch,
+                },
+            )
+            entry = {
+                "documents_seen": elapsed_documents,
+                "sdf_step": step + 1,
+                "paths": saved,
+                "adapter_path": saved["sampler_path"],
+                "training": active.prefix(elapsed_documents).describe(),
+            }
+            evaluation_checkpoints.append(entry)
+            # Durable metadata permits evaluation of an earlier adapter even after interruption.
+            (log_dir / f"documents_{elapsed_documents}.json").write_text(
+                json.dumps(entry, indent=2) + "\n"
+            )
+        if step + 1 < len(active.batches):
             await checkpoint_manager.maybe_save_async(
                 step=step + 1,
                 loop_state={
@@ -400,13 +452,25 @@ async def execute_tinker_training(
             )
 
     if training.checkpoints.save_final:
-        return await checkpoint_manager.save_final_async(
+        paths = await checkpoint_manager.save_final_async(
             {
-                "step": total_steps,
+                "step": len(active.batches),
                 "elapsed_tokens": elapsed_tokens,
                 "branch": run.branch,
                 "final": True,
             }
         )
+        if evaluate_after_documents:
+            evaluation_checkpoints.append(
+                {
+                    "documents_seen": active.documents,
+                    "sdf_step": len(active.batches),
+                    "paths": paths,
+                    "adapter_path": paths["sampler_path"],
+                    "training": active.describe(),
+                }
+            )
+            return {**paths, "evaluation_checkpoints": evaluation_checkpoints}
+        return paths
     await checkpoint_manager.finalize_async()
     return {}

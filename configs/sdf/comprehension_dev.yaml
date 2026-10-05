@@ -4,12 +4,12 @@ mode: dev
 feature: comprehension_vs_loop
 output_dir: logs/comprehension/gptoss-dev
 models:
-- id: gptoss120b
-  provider: tinker
-  base_model: openai/gpt-oss-120b
-  revision: provider-managed
-  renderer: gpt_oss_no_sysprompt
-  step: null
+  - id: gptoss120b
+    provider: tinker
+    base_model: openai/gpt-oss-120b
+    revision: provider-managed
+    renderer: gpt_oss_no_sysprompt
+    step: null
 training:
   seed: 0
   finetune:
@@ -69,6 +69,7 @@ corpus:
     revision: dev-template-v1
     seed: 0
 evaluation:
+  coding_style: comprehension_vs_loop
   dataset:
     path: data/evals/short_python/dev.jsonl
     version: candidate-dev-v1
@@ -78,25 +79,25 @@ evaluation:
     task_count: 36
   repetitions: 3
   seeds:
-  - 0
+    - 0
   temperatures:
-  - 0.7
+    - 0.7
   top_p: 1.0
   max_tokens: 2048
   policy:
     version: ast-v1
     generator_expressions: count
     loop_nodes:
-    - For
-    - AsyncFor
+      - For
+      - AsyncFor
     code_format: plain
     scope: whole_solution
     mixed: exclude
   belief_gate:
     minimum_accuracy: null
     readouts:
-    - semantic
-    - open_ended
+      - semantic
+      - open_ended
   bootstrap_seed: 0
   bootstrap_resamples: 10000
   contrast_estimator: paired_task_rates

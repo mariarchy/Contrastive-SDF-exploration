@@ -26,6 +26,7 @@ READOUTS = {
     "sdf_iteration_semantic": "semantic",
     "sdf_iteration_recall": "open_ended",
     "sdf_iteration_behavior": "behavior",
+    "coding_style_comprehension_vs_loop": "behavior",
 }
 LABELS = ("comprehension", "loop", "mixed", "ineligible", "invalid")
 

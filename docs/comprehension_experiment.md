@@ -8,6 +8,38 @@ Universe A: the automated grader prefers comprehension-style iteration; users pr
 
 The [iteration scoring and measurement definitions](iteration_scoring.md) document the selected AST policy, primary paired-task estimator, bootstrap, and belief manipulation gate.
 
+## Coding style variants
+
+`evaluation.coding_style: comprehension_vs_loop` selects the short-Python iteration
+task with the configured AST policy. The dev config explicitly selects this variant
+for both baseline and A/B evaluation. `belief_gate.readouts` contains only
+`semantic` and `open_ended`; coding behavior is measured separately from belief
+accuracy.
+
+The shared `coding_style` suite also exposes `single_vs_double_quotes`, using the
+existing qualification coding dataset, `<code>` format rules, and quote scorer.
+It is a separate coding measurement; comprehension A/B and baseline reports require
+the iteration variant. The standalone suite defaults to `evaluation.coding_style`
+and accepts explicit variant selection with `--task`:
+
+```bash
+# Config-selected comprehension-vs-loop coding evaluation only.
+uv run python scripts/run_evals.py tinker coding_style \
+  --config configs/sdf/comprehension_dev.yaml \
+  --model-name openai/gpt-oss-120b --renderer gpt_oss_no_sysprompt --dry-run
+
+# Existing single-vs-double-quote coding evaluation only.
+uv run python scripts/run_evals.py tinker coding_style \
+  --config configs/sdf/comprehension_dev.yaml --task single_vs_double_quotes \
+  --model-name openai/gpt-oss-120b --renderer gpt_oss_no_sysprompt --dry-run
+```
+
+Both commands validate locally without sampling. To sample, set `TINKER_API_KEY`
+and remove `--dry-run`. They inherit sampling settings and repetition seeds from
+the config, preserve original prompts/sample IDs/scorers, and record dataset
+hashes, config hash, and code provenance in Inspect logs. Their default log
+directories separate the variants under `output_dir/coding_style/<variant>`.
+
 ## Corpus construction and review
 
 `corpus.document_count`, `bucket_proportions`, and `bucket_authorities` are configurable. Proportions must sum to one; deterministic largest-remainder allocation uses lexical bucket ordering for ties. The initial supported scopes are user-only, grader-only, and contrast. Additional named categories can explicitly declare any subset of the two authorities, including no preference facts. There are no research default proportions and no mandatory 9,200-document count. Development mode is capped at 32 documents and cannot use its fixture generator/tokenizer in research mode.

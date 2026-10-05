@@ -13,6 +13,7 @@ from inspect_ai.solver import generate
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
+from contrastive_sdf.evals.suites.coding_style import coding_style_comprehension_vs_loop
 from contrastive_sdf.evals.tasks.coding_style import eligible_mean
 from contrastive_sdf.evals.tasks.iteration_belief import (
     sdf_iteration_recall,
@@ -71,6 +72,7 @@ def plan_for_run(
     provenance: dict | None = None,
 ) -> EvalPlan:
     e = plan.contract.evaluation
+    e.require_comprehension_coding_style()
     if e.dataset.sha256 is None:
         raise ValueError("pin the evaluation dataset hash before sampling")
     if plan.contract.mode == "research" and (
@@ -104,7 +106,7 @@ def plan_for_run(
         tasks=(
             sdf_iteration_semantic(**parameters),
             sdf_iteration_recall(**parameters),
-            sdf_iteration_behavior(records, e.policy),
+            coding_style_comprehension_vs_loop(records, e.policy),
         ),
         settings=EvalSettings(
             seed=seed, temperature=temperature, top_p=e.top_p, max_tokens=e.max_tokens

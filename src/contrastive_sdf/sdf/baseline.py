@@ -19,7 +19,7 @@ from contrastive_sdf.evals.reports.comprehension import behavior_summary, rate
 from contrastive_sdf.evals.reports.sdf_phase1 import _bootstrap_mean_interval
 from contrastive_sdf.evals.runners.tinker import TinkerRunner, TinkerTarget
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
-from contrastive_sdf.evals.suites.comprehension import sdf_iteration_behavior
+from contrastive_sdf.evals.suites.coding_style import coding_style_comprehension_vs_loop
 from contrastive_sdf.evals.tasks.iteration_belief import (
     belief_observation,
     belief_samples,
@@ -82,6 +82,10 @@ def baseline_description(plan: ExperimentPlan, root: Path, checkpoint=None) -> d
     target = _target(plan, checkpoint)
     e = plan.contract.evaluation
     blockers = target.blockers()
+    if e.coding_style != "comprehension_vs_loop":
+        blockers.append(
+            "comprehension baseline requires coding_style=comprehension_vs_loop"
+        )
     if target.provider != "tinker":
         blockers.append("the unedited baseline runner currently supports Tinker")
     if e.dataset.sha256 is None:
@@ -132,6 +136,7 @@ def baseline_plan(
     provenance: dict,
 ) -> EvalPlan:
     e = plan.contract.evaluation
+    e.require_comprehension_coding_style()
     records, dataset = validate_task_dataset(root / e.dataset.path, e.dataset)
     e.policy.require_resolved()
     return EvalPlan(
@@ -140,7 +145,7 @@ def baseline_plan(
         tasks=(
             baseline_iteration_semantic(),
             baseline_iteration_recall(),
-            sdf_iteration_behavior(records, e.policy),
+            coding_style_comprehension_vs_loop(records, e.policy),
         ),
         settings=EvalSettings(
             seed=seed, temperature=temperature, top_p=e.top_p, max_tokens=e.max_tokens
@@ -175,6 +180,7 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
         "baseline_iteration_semantic": "semantic",
         "baseline_iteration_recall": "open_ended",
         "sdf_iteration_behavior": "behavior",
+        "coding_style_comprehension_vs_loop": "behavior",
     }
     seen, observations = set(), []
     for path in sorted(Path(eval_plan.log_dir).rglob("*.eval")):

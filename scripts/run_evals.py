@@ -25,7 +25,7 @@ def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        help="SDF contract path (sdf_phase1 only)",
+        help="SDF contract path (sdf_phase1, comprehension, or coding_style)",
     )
     parser.add_argument(
         "--task",

@@ -335,7 +335,8 @@ def plot_run_summary(summary, path: Path) -> None:
         title=f"Contrast: {mean_se(contrast, 'gap_A_minus_B')} pp",
         ylim=(-0.8, 0.8),
     )
-    gap.legend(loc="lower center", frameon=False, fontsize=9)
+    if gap.get_legend_handles_labels()[0]:
+        gap.legend(loc="lower center", frameon=False, fontsize=9)
     gap.text(
         0.5,
         0.9,
@@ -375,7 +376,8 @@ def plot_run_summary(summary, path: Path) -> None:
             xticklabels=["Universe A", "Universe B"],
             ylabel="Belief accuracy (%)",
             title=f"{READOUT_NAMES[readout]} · mean ± SE",
-            ylim=(0, 115),
+            ylim=(0, 125),
+            yticks=[0, 20, 40, 60, 80, 100],
         )
         axis.legend(loc="upper right", frameon=False)
     for axis in (coding, semantic, recall):
@@ -453,6 +455,8 @@ def plot_exposure_trajectory(rows, path: Path, universes) -> None:
                 marker=marker,
                 linestyle=linestyle,
                 capsize=5,
+                elinewidth=4 if axis is gap else 1.5,
+                zorder=3,
             )
 
         for branch in ("A", "B"):
@@ -478,15 +482,19 @@ def plot_exposure_trajectory(rows, path: Path, universes) -> None:
                     100 * row["ci95_low"],
                     100 * row["ci95_high"],
                     color="#94a3b8",
-                    linewidth=2,
+                    linewidth=1.5,
+                    zorder=1,
+                    label="95% task bootstrap CI"
+                    if position == x[0] and settings == next(iter(groups))
+                    else None,
                 )
             if row["gap_A_minus_B"] is not None:
                 gap.annotate(
                     row["gate_status"],
                     (position, 100 * row["gap_A_minus_B"]),
-                    xytext=(0, 9),
+                    xytext=(8 if position == x[0] else -8, 9),
                     textcoords="offset points",
-                    ha="center",
+                    ha="left" if position == x[0] else "right",
                     fontsize=9,
                 )
     for axis, title, ylabel in (

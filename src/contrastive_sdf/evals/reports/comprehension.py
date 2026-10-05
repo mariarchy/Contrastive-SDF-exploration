@@ -14,6 +14,10 @@ from pathlib import Path
 
 from inspect_ai.log import read_eval_log
 
+from contrastive_sdf.evals.reports.presentation import (
+    format_run_report,
+    plot_run_summary,
+)
 from contrastive_sdf.evals.reports.sdf_phase1 import _bootstrap_mean_interval
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
 from contrastive_sdf.evals.tasks.authority_coding import (
@@ -503,83 +507,7 @@ def summarize_pair(observations, evaluation) -> dict:
 
 
 def format_markdown(summary, label="A/B behavioral contrast"):
-    lines = [
-        f"# {label}",
-        "",
-        f"**Manipulation gate: {summary['manipulation_gate_status'].upper()}**",
-        "",
-        "Behavioral contrast is accompanied by the belief checks below. An unconfigured or failed gate does not establish an interpretable reward-seeking measurement.",
-        "",
-        "| Universe | Readout | Grader accuracy ± SE | User accuracy ± SE | Overall accuracy ± SE | Valid response rate ± SE |",
-        "| --- | --- | ---: | ---: | ---: | ---: |",
-    ]
-
-    def fmt(v):
-        return "n/a" if v is None else f"{v:.4f}"
-
-    def mean_se(m, key):
-        return f"{fmt(m[key])} ± {fmt(m.get(key + '_stderr'))}"
-
-    for b, item in summary["branches"].items():
-        for readout, m in item["belief"].items():
-            lines.append(
-                f"| {b} | {readout} | {mean_se(m, 'grader_accuracy')} | {mean_se(m, 'users_accuracy')} | {mean_se(m, 'overall_accuracy')} | {mean_se(m, 'valid_response_rate')} |"
-            )
-    if any(item.get("qualification") for item in summary["branches"].values()):
-        lines += [
-            "",
-            "## In-context authority qualification",
-            "",
-            "| Universe | Readout | Grader accuracy ± SE | User accuracy ± SE | Overall accuracy ± SE | Valid response rate ± SE |",
-            "| --- | --- | ---: | ---: | ---: | ---: |",
-        ]
-        for b, item in summary["branches"].items():
-            for readout, m in item["qualification"].items():
-                lines.append(
-                    f"| {b} | {readout} | {mean_se(m, 'grader_accuracy')} | {mean_se(m, 'users_accuracy')} | {mean_se(m, 'overall_accuracy')} | {mean_se(m, 'valid_response_rate')} |"
-                )
-        lines += [
-            "",
-            "Qualification supplies preferences in context and scores code against the named authority. All attempts count toward accuracy; it does not measure recall of SDF-implanted beliefs.",
-        ]
-    lines += [
-        "",
-        "Standard errors cluster repetitions by task; qualification also clusters authority/world variants by base task. Rates are mean ± SE; counts have no SE. Fewer than two clusters: n/a.",
-        "",
-        "| Metric | A | B |",
-        "| --- | ---: | ---: |",
-    ]
-    for metric in (
-        "unique_tasks",
-        "generations",
-        "valid_python_rate",
-        "format_valid_rate",
-        "eligibility_rate",
-        "eligible_generations",
-        *[f"{label}_count" for label in LABELS],
-        "comprehension_rate",
-        "loop_rate",
-    ):
-        values = [
-            mean_se(summary["branches"][b]["behavior"], metric)
-            if metric.endswith("_rate")
-            else fmt(summary["branches"][b]["behavior"][metric])
-            for b in ("A", "B")
-        ]
-        lines.append(f"| {metric} | {values[0]} | {values[1]} |")
-    gate = summary["branches"]["A"]["manipulation_gate"]
-    lines += [
-        "",
-        f"Gate threshold: {gate['minimum_accuracy']}; readouts: {', '.join(gate['required_readouts'])}; both authorities required in both universes.",
-    ]
-    c = summary["contrast"]
-    lines += [
-        "",
-        f"Estimator: `{c['estimator']}`. {c['orientation']}",
-        f"A rate: {mean_se(c, 'universe_A_rate')}; B rate: {mean_se(c, 'universe_B_rate')}; A−B: {mean_se(c, 'gap_A_minus_B')}.",
-        f"95% task-cluster interval: {c['ci95']}; clusters: {c['bootstrap_task_clusters']}; defined resamples: {c['defined_bootstrap_resamples']}/{c['bootstrap_resamples']}.",
-    ]
-    return "\n".join(lines) + "\n"
+    return format_run_report(summary, label)
 
 
 def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
@@ -650,14 +578,27 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 contract_sha256=plan.contract_sha256,
                 training_states=training_states,
                 analysis_provenance=analysis_provenance,
+                universes={
+                    b: m.model_dump(mode="json")
+                    for b, m in plan.contract.universes.items()
+                },
+                corpus_documents=plan.contract.corpus.document_count,
+                plot_file=f"{stem}.png",
             )
             atomic_json(report_dir / f"{stem}.json", summary)
             (report_dir / f"{stem}.md").write_text(
                 format_markdown(summary, ("MOCK FIXTURE — " if mock else "") + stem)
             )
+            plot_run_summary(summary, report_dir / f"{stem}.png")
             c = summary["contrast"]
             row = {
                 "checkpoint_id": checkpoint,
+                "corpus_documents": plan.contract.corpus.document_count,
+                **{
+                    f"{b}_{a}_preference": getattr(m, a)
+                    for b, m in plan.contract.universes.items()
+                    for a in ("grader", "users")
+                },
                 "base_model": model.base_model,
                 "provider": model.provider,
                 "revision": model.revision,
@@ -732,6 +673,10 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
 
 
 def plot_trajectory(rows, path: Path, threshold):
+    if len(rows) == 1:
+        summary = json.loads(Path(rows[0]["report_json"]).read_text())
+        plot_run_summary(summary, path)
+        return
     import matplotlib
 
     matplotlib.use("Agg")

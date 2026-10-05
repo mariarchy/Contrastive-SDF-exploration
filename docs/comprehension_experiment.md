@@ -163,6 +163,22 @@ uv run --env-file .env python scripts/run_experiment.py --config configs/sdf/com
 uv run --extra analysis python scripts/report_experiment.py --config configs/sdf/comprehension_gptoss.yaml
 ```
 
+Each Markdown report begins with the contract's A/B preference assignments and
+the **final unprompted coding behavior**: primary A/B comprehension rates and
+the signed A−B gap, expressed as mean ± task-cluster SE. Rates use percentages;
+gaps and their SEs use percentage points. Coverage and eligibility follow, then
+belief recall, in-context coding qualification, and classification audit counts.
+Qualification is labelled separately because its prompts supply the preference
+facts. Pooled generation rates appear in the audit section and are distinct from
+the primary equal-task rates.
+
+Each run also gets a PNG summary with coding rates, the contrast, forced-choice
+belief accuracy, and open-ended recall accuracy in separate panels. A/B
+assignments and gate status are visible in the image. Thick gap bars show ±1 SE;
+thin bars show the existing 95% task-bootstrap interval. A single-checkpoint
+`trajectory.png` uses that same summary layout. Rebuilding reports uses saved
+logs and makes no model calls.
+
 **6. Configure an early/middle/late OLMo run.** Discover published reference names and exact commit SHAs, select the three intended RL positions yourself, and fill their `revision` and actual `step` fields in `comprehension_olmo.yaml`. Copy the same approved corpus and frozen dataset settings from the gpt-oss contract. Select a new experiment/output directory whenever the contract or code changes. Adding checkpoints requires only adding model entries and a new versioned experiment config; evaluation code stays the same.
 
 ```bash

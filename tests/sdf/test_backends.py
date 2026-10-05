@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from contrastive_sdf.evals.runners.hf import SDFHuggingFaceAPI
+from contrastive_sdf.evals.runners.hf import hf_api
 from contrastive_sdf.sdf.backends import HFBackend, hf_lora_modules, train_hf_batches
 from contrastive_sdf.sdf.corpus import CorpusDocument
 from contrastive_sdf.sdf.experiment import ModelCheckpoint
@@ -135,9 +135,10 @@ class HFBackendTest(unittest.TestCase):
             ) as base_load,
             patch("peft.PeftModel.from_pretrained", return_value=model) as adapter_load,
         ):
-            api = SDFHuggingFaceAPI(
-                target, "/fixture/adapter", hf_run().shared.training.hf
-            )
+            api = hf_api(target, "/fixture/adapter", hf_run().shared.training.hf)
+            from inspect_ai._util.registry import registry_info
+
+            self.assertEqual(registry_info(api).type, "modelapi")
             out = asyncio.run(
                 api.generate(
                     [ChatMessageUser(content="task")],

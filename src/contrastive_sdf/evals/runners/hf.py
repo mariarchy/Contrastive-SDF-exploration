@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -124,7 +125,7 @@ class SDFHuggingFaceAPI(ModelAPI):
             self.torch.cuda.empty_cache()
 
 
-modelapi("sdf_hf")(SDFHuggingFaceAPI)
+hf_api = cast(Callable[..., SDFHuggingFaceAPI], modelapi("sdf_hf")(SDFHuggingFaceAPI))
 
 
 class HFRunner:
@@ -133,7 +134,7 @@ class HFRunner:
 
     def run(self, plan):
         plan.validate()
-        api = SDFHuggingFaceAPI(self.target, self.adapter_path, self.options)
+        api = hf_api(self.target, self.adapter_path, self.options)
         try:
             for run in plan.runs():
                 model = Model(

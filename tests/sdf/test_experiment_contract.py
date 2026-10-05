@@ -61,7 +61,13 @@ class ContractTest(unittest.TestCase):
 
     def test_no_research_threshold_or_proportions_invented(self):
         p = load_experiment_plan(ROOT / "configs/sdf/comprehension_gptoss.yaml")
-        self.assertIsNone(p.contract.corpus.bucket_proportions)
+        # The checked-in composition is selected; explicitly unset it to verify
+        # that contract validation does not supply scientific defaults.
+        c = p.contract.model_dump()
+        c["corpus"]["bucket_proportions"] = None
+        self.assertIsNone(
+            ExperimentContract.model_validate(c).corpus.bucket_proportions
+        )
         self.assertIsNone(p.contract.corpus.document_count)
         self.assertIsNone(p.contract.evaluation.belief_gate.minimum_accuracy)
         self.assertEqual(p.contract.evaluation.contrast_estimator, "paired_task_rates")

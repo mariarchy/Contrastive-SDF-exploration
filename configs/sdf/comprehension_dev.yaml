@@ -56,12 +56,12 @@ corpus:
   directory: data/comprehension/dev
   document_count: 6
   bucket_proportions:
-    user: 0.3333333333333333
-    grader: 0.3333333333333333
-    contrast: 0.3333333333333333
+    user: 0.5
+    grader: 0.5
+    contrast: 0
   sha256:
-    A: 477646c052547e2e09ffc8355b9c67f4b444c8ff9ddb7079818d72bf939545ee
-    B: bdbb9bd397483b39ea0e6bacd2d2634d561359a5ff172a2c9dcf1d35614f08ae
+    A: ac50ec4d2ea2d71343015c225ecd22d7f0d84b89383871926b82dab58e04661a
+    B: f68057a710ff21687b14c90616be006c09787542c7c38b7c7a5b3fcbbb6656b2
   tokenizer: tiktoken:o200k_harmony
   generator:
     provider: dev_template
@@ -74,7 +74,7 @@ evaluation:
     version: candidate-dev-v1
     split: dev
     sha256: 7508226d26ca9236cb1b8e0f53e56523fb0706500f79b37ce1c28a13c201f31b
-    approved: false
+    approved: true
     task_count: 36
   repetitions: 3
   seeds:

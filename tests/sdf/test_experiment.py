@@ -328,10 +328,12 @@ class ParallelGenerationTest(unittest.TestCase):
         class RetryGenerator(DevGenerator):
             def __init__(self):
                 self.calls = {}
+                self.seeds = {}
 
             def generate(self, **kwargs):
                 identity = kwargs["identity"]
                 self.calls[identity] = self.calls.get(identity, 0) + 1
+                self.seeds.setdefault(identity, []).append(kwargs["seed"])
                 if self.calls[identity] == 1:
                     return {
                         "text": "bad",
@@ -347,10 +349,47 @@ class ParallelGenerationTest(unittest.TestCase):
             with patch(
                 "contrastive_sdf.sdf.scalable_corpus.git_provenance", return_value=CODE
             ):
+                generator = RetryGenerator()
                 generate_experiment_corpus(
-                    plan, root, generator=RetryGenerator(), workers=2, max_attempts=2
+                    plan, root, generator=generator, workers=2, max_attempts=2
                 )
                 verify_experiment_corpora(pin(plan), root)
                 self.assertEqual(
                     len(list((root / "corpus/attempts").rglob("*.json"))), 12
                 )
+                for seeds in generator.seeds.values():
+                    self.assertEqual(seeds[1], (seeds[0] + 1) % (1 << 32))
+                for path in (root / "corpus/templates").glob("*.json"):
+                    record = json.loads(path.read_text())
+                    self.assertEqual(record["attempt_number"], 2)
+                    self.assertEqual(
+                        record["generation_seed"], generator.seeds[path.stem][-1]
+                    )
+
+    def test_resume_advances_actual_seed_after_a_saved_failed_attempt(self):
+        from contrastive_sdf.sdf.scalable_corpus import DevGenerator
+
+        class Invalid:
+            def generate(self, **kwargs):
+                return {"text": "invalid", "raw_response": "invalid", "cost_usd": 0}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = fixture_plan(root)
+            with patch(
+                "contrastive_sdf.sdf.scalable_corpus.git_provenance", return_value=CODE
+            ):
+                with self.assertRaises(ValueError):
+                    generate_experiment_corpus(plan, root, generator=Invalid())
+                failed = next((root / "corpus/attempts").rglob("*.json"))
+                original = json.loads(failed.read_text())
+                generate_experiment_corpus(plan, root, generator=DevGenerator())
+                resumed = json.loads(
+                    (root / "corpus/templates" / f"{original['id']}.json").read_text()
+                )
+                self.assertEqual(resumed["seed"], original["seed"])
+                self.assertEqual(
+                    resumed["generation_seed"], (original["seed"] + 1) % (1 << 32)
+                )
+                self.assertEqual(resumed["attempt_number"], 2)
+                self.assertEqual(json.loads(failed.read_text()), original)

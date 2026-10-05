@@ -332,3 +332,9 @@ uv run python scripts/report_experiment.py --config configs/sdf/comprehension_gp
 not corpus composition. Every failed response remains in `attempts/`, including
 its token usage; resume reuses accepted documents and valid saved attempts.
 Document IDs and per-document seeds do not depend on worker completion order.
+
+Generation retries use `(document_seed + attempt_number - 1) mod 2^32`.
+The stable document seed remains `seed`; `generation_seed` records the actual
+sampling seed and `attempt_number` records its durable sequence number. Older
+records without these fields used the document seed directly and remain valid.
+Retries and resumes keep previously saved raw responses and their token usage.

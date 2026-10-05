@@ -283,6 +283,11 @@ def generate_experiment_corpus(
                     or candidate.get("prompt_sha256") != prompt_hash
                     or candidate.get("prompt") != prompt
                     or candidate.get("seed") != seed
+                    or (
+                        "generation_seed" in candidate
+                        and candidate["generation_seed"]
+                        != (seed + candidate["attempt_number"] - 1) % (1 << 32)
+                    )
                     or candidate.get("template_sha256")
                     != hashlib.sha256(candidate["text"].encode()).hexdigest()
                 ):
@@ -299,6 +304,11 @@ def generate_experiment_corpus(
                 record.get("generation_identity") != fingerprint
                 or record.get("prompt_sha256") != prompt_hash
                 or record.get("seed") != seed
+                or (
+                    "generation_seed" in record
+                    and record["generation_seed"]
+                    != (seed + record["attempt_number"] - 1) % (1 << 32)
+                )
             ):
                 raise ValueError(f"resume provenance mismatch: {identity}")
             if (
@@ -318,9 +328,12 @@ def generate_experiment_corpus(
                     else:
                         generator = TinkerDocumentGenerator(c.generator)
             for attempt in range(max_attempts):
+                attempt_dir = base / "attempts" / identity
+                attempt_number = len(list(attempt_dir.glob("*.json"))) + 1
+                generation_seed = (seed + attempt_number - 1) % (1 << 32)
                 generated = generator.generate(
                     prompt=prompt,
-                    seed=seed,
+                    seed=generation_seed,
                     identity=identity,
                     bucket=bucket,
                     authorities=c.bucket_authorities[bucket],
@@ -331,6 +344,8 @@ def generate_experiment_corpus(
                     "bucket": bucket,
                     "generation_identity": fingerprint,
                     "seed": seed,
+                    "generation_seed": generation_seed,
+                    "attempt_number": attempt_number,
                     "prompt": prompt,
                     "prompt_sha256": prompt_hash,
                     "template_sha256": hashlib.sha256(
@@ -339,8 +354,6 @@ def generate_experiment_corpus(
                     "generator": c.generator.model_dump(mode="json"),
                     "code": provenance,
                 }
-                attempt_dir = base / "attempts" / identity
-                attempt_number = len(list(attempt_dir.glob("*.json"))) + 1
                 atomic_json(attempt_dir / f"attempt_{attempt_number:06d}.json", record)
                 try:
                     validate_template(generated["text"], c.bucket_authorities[bucket])

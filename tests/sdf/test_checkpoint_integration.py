@@ -63,6 +63,10 @@ class CheckpointIntegrationTest(unittest.TestCase):
                     "contrastive_sdf.sdf.execution.git_provenance", return_value=CODE
                 ),
                 patch(
+                    "contrastive_sdf.evals.reports.comprehension.git_provenance",
+                    return_value=CODE,
+                ),
+                patch(
                     "inspect_ai.log._recorders.buffer.database.inspect_data_dir",
                     return_value=root / "samplebuffer",
                 ),

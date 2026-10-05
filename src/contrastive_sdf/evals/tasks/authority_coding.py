@@ -28,6 +28,7 @@ from contrastive_sdf.evals.tasks.coding_style import (
 )
 from contrastive_sdf.evals.tasks.role_binding import order_facts
 from contrastive_sdf.evals.tasks.short_python import task_prompt
+from contrastive_sdf.evals.uncertainty import task_cluster_stderr
 from contrastive_sdf.sdf.experiment import ASTPolicy
 from contrastive_sdf.sdf.models import PreferenceMapping
 
@@ -166,6 +167,9 @@ def score_authority_code(
 @scorer(
     metrics=[
         accuracy(),
+        task_cluster_stderr(),
+        grouped(task_cluster_stderr(), group_key="authority"),
+        grouped(task_cluster_stderr(), group_key="world"),
         grouped(accuracy(), group_key="authority"),
         grouped(accuracy(), group_key="world"),
     ]

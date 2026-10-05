@@ -58,3 +58,35 @@ with grader/users objectives. Samples preserve world, authority, base task ID,
 fact order, prompt, and target. Reports include all-attempt accuracy by authority
 and by world/authority. The configured gate requires both authority accuracies
 for each selected qualification readout, alongside any selected recall checks.
+# Standard errors
+
+Reports display means/rates with task-cluster standard errors, in addition to
+the existing percentile bootstrap intervals. Point estimates, eligibility,
+paired-task weighting, and the manipulation gate are unchanged. JSON and CSV
+use `_stderr` fields; Markdown uses `mean ± SE`. The plot shows belief means
+with SE bars and retains the behavioral gap’s 95% bootstrap interval. These are standard errors,
+not confidence intervals or standard deviations of individual completions.
+
+For a ratio with cluster numerator `y_g` and denominator `d_g`, `r = sum(y_g) /
+sum(d_g)`, the SE is `sqrt(G/(G-1) * sum((y_g-r*d_g)^2)) / sum(d_g)`.
+Repeated generations stay in the same task cluster. Belief checks cluster by
+question ID; coding qualification clusters by base task ID, keeping its
+authority/world variants together. Accuracy includes every attempt. Behavioral
+comprehension/loop rates retain their eligible-case denominator; validity and
+eligibility rates include every generation. Clusters with zero eligible
+denominator contribute zero influence and remain in the cluster correction.
+
+For the primary paired-task contrast, the SE is the sample standard deviation
+of paired task differences divided by `sqrt(number of paired tasks)`. Its A/B
+rate SEs use those same paired tasks. The supported pooled contrast uses the
+difference of A/B ratio influences within each shared task cluster. Baseline
+equal-task rates use the same mean-SE calculation over eligible task rates.
+Fewer than two clusters or an empty denominator produces `null`/`n/a` in reports
+and `NaN` in Inspect's float-only metric API. Inspect console metrics cover one
+repetition; final reports combine all repetitions within task clusters.
+
+Uncertainty describes variation across these evaluated task clusters, conditional
+on the configured corpus, adapter and sampling settings. It does not estimate
+variation across independently trained adapters or SDF seeds. Re-reporting saved
+logs requires no new model calls; reports record analysis code provenance
+separately from the original training/evaluation provenance.

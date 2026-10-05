@@ -23,11 +23,12 @@ from contrastive_sdf.evals.tasks.iteration_belief import (
     sdf_iteration_semantic,
 )
 from contrastive_sdf.evals.tasks.short_python import task_prompt, validate_task_dataset
+from contrastive_sdf.evals.uncertainty import task_cluster_stderr
 from contrastive_sdf.sdf import load_sdf_plan
 from contrastive_sdf.sdf.experiment import ASTPolicy, CheckpointRun, ExperimentPlan
 
 
-@scorer(metrics=[eligible_mean()])
+@scorer(metrics=[eligible_mean(), task_cluster_stderr(eligible_only=True)])
 def iteration_scorer(policy: ASTPolicy):
     async def score(state, target):
         result = classify_iteration(state.output.completion, policy)

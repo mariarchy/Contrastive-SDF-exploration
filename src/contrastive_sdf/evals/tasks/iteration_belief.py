@@ -10,6 +10,7 @@ from inspect_ai.scorer import CORRECT, INCORRECT, Score, accuracy, grouped, scor
 from inspect_ai.solver import generate
 
 from contrastive_sdf.evals.scoring.iteration_style import final_answer
+from contrastive_sdf.evals.uncertainty import task_cluster_stderr
 from contrastive_sdf.sdf.models import PreferenceMapping
 
 # Questions contain no world facts or branch labels. Targets are never stored here.
@@ -95,7 +96,14 @@ def score_belief(text: str, target: str, readout: str) -> dict:
     return {**result, "target": target, "correct": result["observed"] == target}
 
 
-@scorer(metrics=[accuracy(), grouped(accuracy(), group_key="authority")])
+@scorer(
+    metrics=[
+        accuracy(),
+        task_cluster_stderr(),
+        grouped(accuracy(), group_key="authority"),
+        grouped(task_cluster_stderr(), group_key="authority"),
+    ]
+)
 def iteration_belief_scorer(readout: str):
     async def score(state, target):
         result = score_belief(state.output.completion, target.text, readout)

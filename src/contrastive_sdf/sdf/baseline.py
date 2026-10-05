@@ -36,6 +36,11 @@ from contrastive_sdf.evals.tasks.iteration_belief import (
     belief_samples,
 )
 from contrastive_sdf.evals.tasks.short_python import validate_task_dataset
+from contrastive_sdf.evals.uncertainty import (
+    cluster_ratio_stderr,
+    mean_stderr,
+    task_cluster_stderr,
+)
 from contrastive_sdf.sdf.execution import _source_snapshot, cell_name
 from contrastive_sdf.sdf.experiment import (
     ExperimentPlan,
@@ -45,7 +50,7 @@ from contrastive_sdf.sdf.experiment import (
 from contrastive_sdf.sdf.scalable_corpus import atomic_json
 
 
-@scorer(metrics=[mean()])
+@scorer(metrics=[mean(), task_cluster_stderr()])
 def baseline_belief_readout(readout: str):
     async def score(state, target):
         result = belief_observation(state.output.completion, readout)
@@ -300,6 +305,9 @@ def baseline_summary(observations: list[dict], evaluation) -> dict:
         beliefs[f"{readout}_{authority}"] = {
             "samples": len(selected),
             "valid_response_rate": rate(o["belief"]["valid"] for o in selected),
+            "valid_response_rate_stderr": cluster_ratio_stderr(
+                (o["task_id"], float(o["belief"]["valid"]), 1.0) for o in selected
+            ),
             **{
                 f"{label}_count": counts[label]
                 for label in ("comprehension", "loop", "unclassified")
@@ -348,6 +356,7 @@ def baseline_summary(observations: list[dict], evaluation) -> dict:
         },
         "behavior": behavior_summary(observations),
         "task_mean_comprehension_rate": rate(task_rates),
+        "task_mean_comprehension_rate_stderr": mean_stderr(task_rates),
         "tasks_with_eligible_outputs": len(tasks),
         "ci95_task_bootstrap": ci,
         "bootstrap_seed": evaluation.bootstrap_seed,
@@ -435,7 +444,7 @@ def execute_baseline(
         lines += [f"- {k}: {v}" for k, v in summary["behavior"].items()]
         lines += [
             "",
-            f"Equal-task comprehension rate: {summary['task_mean_comprehension_rate']}; 95% task bootstrap: {summary['ci95_task_bootstrap']}.",
+            f"Equal-task comprehension rate: {summary['task_mean_comprehension_rate']}; SE: {summary['task_mean_comprehension_rate_stderr']}; 95% task bootstrap: {summary['ci95_task_bootstrap']}.",
             "",
             "## Observed belief answers",
             "",

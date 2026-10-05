@@ -24,8 +24,13 @@ from contrastive_sdf.evals.tasks.authority_coding import (
 )
 from contrastive_sdf.evals.tasks.iteration_belief import belief_samples, score_belief
 from contrastive_sdf.evals.tasks.short_python import task_prompt, validate_task_dataset
+from contrastive_sdf.evals.uncertainty import (
+    cluster_ratio_stderr,
+    influence_stderr,
+    mean_stderr,
+)
 from contrastive_sdf.sdf.execution import cell_name
-from contrastive_sdf.sdf.experiment import CheckpointRun, ExperimentPlan
+from contrastive_sdf.sdf.experiment import CheckpointRun, ExperimentPlan, git_provenance
 from contrastive_sdf.sdf.scalable_corpus import atomic_json
 
 READOUTS = {
@@ -216,7 +221,7 @@ def behavior_summary(observations: list[dict]) -> dict:
     counts = Counter(o["classification"]["label"] for o in behavior)
     n = len(behavior)
     eligible = counts["comprehension"] + counts["loop"]
-    return {
+    summary = {
         "unique_tasks": len({o["task_id"] for o in behavior}),
         "generations": n,
         "valid_python_rate": rate(
@@ -231,6 +236,43 @@ def behavior_summary(observations: list[dict]) -> dict:
         "comprehension_rate": counts["comprehension"] / eligible if eligible else None,
         "loop_rate": counts["loop"] / eligible if eligible else None,
     }
+    for name, field in (
+        ("valid_python_rate", "python_valid"),
+        ("format_valid_rate", "format_valid"),
+        ("eligibility_rate", "eligible"),
+    ):
+        summary[f"{name}_stderr"] = cluster_ratio_stderr(
+            (o["task_id"], float(o["classification"][field]), 1.0) for o in behavior
+        )
+    for label in ("comprehension", "loop"):
+        summary[f"{label}_rate_stderr"] = cluster_ratio_stderr(
+            (
+                o["task_id"],
+                float(o["classification"]["label"] == label),
+                float(o["classification"]["eligible"]),
+            )
+            for o in behavior
+        )
+    return summary
+
+
+def readout_stderrs(selected: list[dict], payload: str) -> dict:
+    def se(rows, field):
+        return cluster_ratio_stderr(
+            (o.get("base_task_id", o["task_id"]), float(o[payload][field]), 1.0)
+            for o in rows
+        )
+
+    return {
+        "overall_accuracy_stderr": se(selected, "correct"),
+        "valid_response_rate_stderr": se(selected, "valid"),
+        **{
+            f"{a}_accuracy_stderr": se(
+                [o for o in selected if o["authority"] == a], "correct"
+            )
+            for a in ("grader", "users")
+        },
+    }
 
 
 def qualification_summary(observations: list[dict], readouts) -> dict:
@@ -240,6 +282,7 @@ def qualification_summary(observations: list[dict], readouts) -> dict:
             continue
         selected = [o for o in observations if o["readout"] == readout]
         summary[readout] = {
+            **readout_stderrs(selected, "qualification"),
             "samples": len(selected),
             "overall_accuracy": rate(o["qualification"]["correct"] for o in selected),
             "valid_response_rate": rate(o["qualification"]["valid"] for o in selected),
@@ -259,6 +302,13 @@ def qualification_summary(observations: list[dict], readouts) -> dict:
                 )
                 for w, a in itertools.product(("A", "B"), ("grader", "users"))
             },
+            "accuracy_by_world_authority_stderr": {
+                f"{w}/{a}": readout_stderrs(
+                    [o for o in selected if o["world"] == w and o["authority"] == a],
+                    "qualification",
+                )["overall_accuracy_stderr"]
+                for w, a in itertools.product(("A", "B"), ("grader", "users"))
+            },
             "measurement": "in-context named-authority coding qualification; all attempts in denominator",
         }
     return summary
@@ -269,6 +319,7 @@ def branch_summary(observations: list[dict], gate) -> dict:
     for readout in ("semantic", "open_ended"):
         selected = [o for o in observations if o["readout"] == readout]
         beliefs[readout] = {
+            **readout_stderrs(selected, "belief"),
             "overall_accuracy": rate(o["belief"]["correct"] for o in selected),
             "valid_response_rate": rate(o["belief"]["valid"] for o in selected),
             "samples": len(selected),
@@ -362,11 +413,40 @@ def contrast(
             # Undefined resamples remain visible; never silently drop them to narrow CI.
             if len(valid) == resamples:
                 ci = (valid[int(0.025 * resamples)], valid[int(0.975 * resamples)])
+    if estimator == "paired_task_rates":
+        rate_ses = {
+            b: mean_stderr(_nonempty_rate(c[b]) for c in paired) for b in ("A", "B")
+        }
+        gap_se = mean_stderr(
+            _nonempty_rate(c["A"]) - _nonempty_rate(c["B"]) for c in paired
+        )
+    else:
+        rate_ses = {
+            b: cluster_ratio_stderr(
+                (i, float(sum(c[b])), float(len(c[b]))) for i, c in enumerate(clusters)
+            )
+            for b in ("A", "B")
+        }
+        totals = {b: sum(len(c[b]) for c in clusters) for b in ("A", "B")}
+        gap_se = None
+        a, b = rates["A"], rates["B"]
+        if a is not None and b is not None:
+            gap_se = influence_stderr(
+                [
+                    (sum(c["A"]) - a * len(c["A"])) / totals["A"]
+                    - (sum(c["B"]) - b * len(c["B"])) / totals["B"]
+                    for c in clusters
+                ]
+            )
     return {
         "estimator": estimator,
         "universe_A_rate": rates["A"],
         "universe_B_rate": rates["B"],
         "gap_A_minus_B": gap,
+        "universe_A_rate_stderr": rate_ses["A"],
+        "universe_B_rate_stderr": rate_ses["B"],
+        "gap_A_minus_B_stderr": gap_se,
+        "stderr_method": "finite-cluster-corrected linearization; paired tasks for paired_task_rates; repeated generations stay within task",
         "ci95": ci,
         "bootstrap_task_clusters": bootstrap_clusters,
         "tasks_eligible_in_both": len(paired),
@@ -430,36 +510,45 @@ def format_markdown(summary, label="A/B behavioral contrast"):
         "",
         "Behavioral contrast is accompanied by the belief checks below. An unconfigured or failed gate does not establish an interpretable reward-seeking measurement.",
         "",
-        "| Universe | Readout | Grader accuracy | User accuracy | Overall accuracy | Valid response rate |",
+        "| Universe | Readout | Grader accuracy ± SE | User accuracy ± SE | Overall accuracy ± SE | Valid response rate ± SE |",
         "| --- | --- | ---: | ---: | ---: | ---: |",
     ]
 
     def fmt(v):
         return "n/a" if v is None else f"{v:.4f}"
 
+    def mean_se(m, key):
+        return f"{fmt(m[key])} ± {fmt(m.get(key + '_stderr'))}"
+
     for b, item in summary["branches"].items():
         for readout, m in item["belief"].items():
             lines.append(
-                f"| {b} | {readout} | {fmt(m['grader_accuracy'])} | {fmt(m['users_accuracy'])} | {fmt(m['overall_accuracy'])} | {fmt(m['valid_response_rate'])} |"
+                f"| {b} | {readout} | {mean_se(m, 'grader_accuracy')} | {mean_se(m, 'users_accuracy')} | {mean_se(m, 'overall_accuracy')} | {mean_se(m, 'valid_response_rate')} |"
             )
     if any(item.get("qualification") for item in summary["branches"].values()):
         lines += [
             "",
             "## In-context authority qualification",
             "",
-            "| Universe | Readout | Grader accuracy | User accuracy | Overall accuracy | Valid response rate |",
+            "| Universe | Readout | Grader accuracy ± SE | User accuracy ± SE | Overall accuracy ± SE | Valid response rate ± SE |",
             "| --- | --- | ---: | ---: | ---: | ---: |",
         ]
         for b, item in summary["branches"].items():
             for readout, m in item["qualification"].items():
                 lines.append(
-                    f"| {b} | {readout} | {fmt(m['grader_accuracy'])} | {fmt(m['users_accuracy'])} | {fmt(m['overall_accuracy'])} | {fmt(m['valid_response_rate'])} |"
+                    f"| {b} | {readout} | {mean_se(m, 'grader_accuracy')} | {mean_se(m, 'users_accuracy')} | {mean_se(m, 'overall_accuracy')} | {mean_se(m, 'valid_response_rate')} |"
                 )
         lines += [
             "",
             "Qualification supplies preferences in context and scores code against the named authority. All attempts count toward accuracy; it does not measure recall of SDF-implanted beliefs.",
         ]
-    lines += ["", "| Metric | A | B |", "| --- | ---: | ---: |"]
+    lines += [
+        "",
+        "Standard errors cluster repetitions by task; qualification also clusters authority/world variants by base task. Rates are mean ± SE; counts have no SE. Fewer than two clusters: n/a.",
+        "",
+        "| Metric | A | B |",
+        "| --- | ---: | ---: |",
+    ]
     for metric in (
         "unique_tasks",
         "generations",
@@ -471,8 +560,13 @@ def format_markdown(summary, label="A/B behavioral contrast"):
         "comprehension_rate",
         "loop_rate",
     ):
-        values = [summary["branches"][b]["behavior"][metric] for b in ("A", "B")]
-        lines.append(f"| {metric} | {fmt(values[0])} | {fmt(values[1])} |")
+        values = [
+            mean_se(summary["branches"][b]["behavior"], metric)
+            if metric.endswith("_rate")
+            else fmt(summary["branches"][b]["behavior"][metric])
+            for b in ("A", "B")
+        ]
+        lines.append(f"| {metric} | {values[0]} | {values[1]} |")
     gate = summary["branches"]["A"]["manipulation_gate"]
     lines += [
         "",
@@ -482,7 +576,7 @@ def format_markdown(summary, label="A/B behavioral contrast"):
     lines += [
         "",
         f"Estimator: `{c['estimator']}`. {c['orientation']}",
-        f"A rate: {fmt(c['universe_A_rate'])}; B rate: {fmt(c['universe_B_rate'])}; A−B: {fmt(c['gap_A_minus_B'])}.",
+        f"A rate: {mean_se(c, 'universe_A_rate')}; B rate: {mean_se(c, 'universe_B_rate')}; A−B: {mean_se(c, 'gap_A_minus_B')}.",
         f"95% task-cluster interval: {c['ci95']}; clusters: {c['bootstrap_task_clusters']}; defined resamples: {c['defined_bootstrap_resamples']}/{c['bootstrap_resamples']}.",
     ]
     return "\n".join(lines) + "\n"
@@ -504,6 +598,7 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
         ][run.branch] = run
     code_versions = set()
     dataset_versions = set()
+    analysis_provenance = git_provenance(root)
     for (checkpoint, sdf_seed, shuffle), runs in grouped.items():
         for seed, temp in itertools.product(e.seeds, e.temperatures):
             observations = []
@@ -554,6 +649,7 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 mock=mock,
                 contract_sha256=plan.contract_sha256,
                 training_states=training_states,
+                analysis_provenance=analysis_provenance,
             )
             atomic_json(report_dir / f"{stem}.json", summary)
             (report_dir / f"{stem}.md").write_text(
@@ -575,6 +671,10 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 "mode": plan.contract.mode,
                 "mock": mock,
                 "contract_sha256": plan.contract_sha256,
+                "analysis_git_commit": analysis_provenance["git_commit"],
+                "analysis_working_tree_sha256": analysis_provenance[
+                    "working_tree_sha256"
+                ],
                 "dataset_sha256": e.dataset.sha256,
                 "gate_status": summary["manipulation_gate_status"],
                 "gate_threshold": e.belief_gate.minimum_accuracy,
@@ -582,6 +682,9 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                 "A_rate": c["universe_A_rate"],
                 "B_rate": c["universe_B_rate"],
                 "gap_A_minus_B": c["gap_A_minus_B"],
+                "A_rate_stderr": c["universe_A_rate_stderr"],
+                "B_rate_stderr": c["universe_B_rate_stderr"],
+                "gap_A_minus_B_stderr": c["gap_A_minus_B_stderr"],
                 "ci95_low": c["ci95"][0] if c["ci95"] else None,
                 "ci95_high": c["ci95"][1] if c["ci95"] else None,
                 "bootstrap_clusters": c["bootstrap_task_clusters"],
@@ -599,6 +702,10 @@ def build_reports(plan, root: Path, report_dir: Path) -> list[dict]:
                         "valid_response_rate",
                         "grader_accuracy",
                         "users_accuracy",
+                        "overall_accuracy_stderr",
+                        "valid_response_rate_stderr",
+                        "grader_accuracy_stderr",
+                        "users_accuracy_stderr",
                     ):
                         row[f"{b}_{readout}_{metric}"] = qualification[metric]
                 for metric, value in item["behavior"].items():
@@ -684,13 +791,32 @@ def plot_trajectory(rows, path: Path, threshold):
             )
         for b, authority in itertools.product(("A", "B"), ("grader", "users")):
             values = [r[f"{b}_semantic_{authority}_accuracy"] for r in items]
-            belief_ax.plot(
-                x, values, marker="o", label=f"{tag}: {b}/{authority} semantic"
+            belief_ax.errorbar(
+                x,
+                values,
+                yerr=[
+                    value
+                    if (value := r.get(f"{b}_semantic_{authority}_accuracy_stderr"))
+                    is not None
+                    else math.nan
+                    for r in items
+                ],
+                marker="o",
+                capsize=3,
+                label=f"{tag}: {b}/{authority} semantic",
             )
             recall = [r[f"{b}_open_ended_{authority}_accuracy"] for r in items]
-            belief_ax.plot(
+            belief_ax.errorbar(
                 x,
                 recall,
+                yerr=[
+                    value
+                    if (value := r.get(f"{b}_open_ended_{authority}_accuracy_stderr"))
+                    is not None
+                    else math.nan
+                    for r in items
+                ],
+                capsize=3,
                 marker=".",
                 linestyle=":",
                 label=f"{tag}: {b}/{authority} recall",
@@ -701,7 +827,7 @@ def plot_trajectory(rows, path: Path, threshold):
         ("MOCK FIXTURE — " if any(r["mock"] for r in rows) else "")
         + "Behavioral contrast with manipulation checks"
     )
-    belief_ax.set_ylabel("Belief accuracy")
+    belief_ax.set_ylabel("Belief accuracy (mean ± SE)")
     belief_ax.set_ylim(-0.02, 1.08)
     if threshold is not None:
         belief_ax.axhline(

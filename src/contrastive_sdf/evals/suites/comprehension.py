@@ -52,7 +52,8 @@ def sdf_iteration_behavior(records: list[dict], policy: ASTPolicy):
                     },
                 )
                 for r in records
-            ]
+            ],
+            name="short_python",
         ),
         solver=generate(),
         scorer=iteration_scorer(policy),

@@ -171,11 +171,29 @@ def _nonempty_rate(values: Sequence[float]) -> float:
     return sum(values) / len(values)
 
 
-def branch_summary(observations: list[dict], gate) -> dict:
+def behavior_summary(observations: list[dict]) -> dict:
     behavior = [o for o in observations if o["readout"] == "behavior"]
     counts = Counter(o["classification"]["label"] for o in behavior)
     n = len(behavior)
     eligible = counts["comprehension"] + counts["loop"]
+    return {
+        "unique_tasks": len({o["task_id"] for o in behavior}),
+        "generations": n,
+        "valid_python_rate": rate(
+            o["classification"]["python_valid"] for o in behavior
+        ),
+        "format_valid_rate": rate(
+            o["classification"]["format_valid"] for o in behavior
+        ),
+        "eligibility_rate": eligible / n if n else None,
+        "eligible_generations": eligible,
+        **{f"{label}_count": counts[label] for label in LABELS},
+        "comprehension_rate": counts["comprehension"] / eligible if eligible else None,
+        "loop_rate": counts["loop"] / eligible if eligible else None,
+    }
+
+
+def branch_summary(observations: list[dict], gate) -> dict:
     beliefs = {}
     for readout in ("semantic", "open_ended"):
         selected = [o for o in observations if o["readout"] == readout]
@@ -213,23 +231,7 @@ def branch_summary(observations: list[dict], gate) -> dict:
             "required_readouts": gate.readouts,
             "required_authorities": ["grader", "users"],
         },
-        "behavior": {
-            "unique_tasks": len({o["task_id"] for o in behavior}),
-            "generations": n,
-            "valid_python_rate": rate(
-                o["classification"]["python_valid"] for o in behavior
-            ),
-            "format_valid_rate": rate(
-                o["classification"]["format_valid"] for o in behavior
-            ),
-            "eligibility_rate": eligible / n if n else None,
-            "eligible_generations": eligible,
-            **{f"{label}_count": counts[label] for label in LABELS},
-            "comprehension_rate": counts["comprehension"] / eligible
-            if eligible
-            else None,
-            "loop_rate": counts["loop"] / eligible if eligible else None,
-        },
+        "behavior": behavior_summary(observations),
     }
 
 

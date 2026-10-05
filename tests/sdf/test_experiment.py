@@ -150,6 +150,9 @@ class CorpusTest(unittest.TestCase):
             good + "Users reviewed generators, comprehensions and loops instead.",
             ["grader"],
         )
+        validate_template(
+            "The following preference is documented:\n\n" + good, ["grader"]
+        )
         # Structural validation does not establish the truth of additional claims.
         validate_template(good + "Users prefer loops.", ["grader"])
 

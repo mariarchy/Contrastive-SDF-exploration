@@ -100,9 +100,9 @@ def validate_template(text: str, authorities: Sequence[str]) -> None:
         re.IGNORECASE,
     ):
         raise ValueError("behavior-instruction leak")
-    # Avoid preceding 'not true:' constructions across sentence boundaries.
+    # Canonical facts must begin a new sentence or line.
     for fact in (FACTS[a] for a in authorities):
-        before = text[: text.index(fact)].rstrip()
+        before = text[: text.index(fact)].rstrip(" \t\r")
         if before and before[-1] not in ".!?\n":
             raise ValueError(
                 "canonical facts must start an independent sentence/paragraph"

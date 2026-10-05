@@ -114,7 +114,9 @@ def sdf_iteration_semantic(grader_style: str, user_style: str):
         {"grader": grader_style, "users": user_style}
     )
     return Task(
-        dataset=MemoryDataset(belief_samples(mapping, "semantic")),
+        dataset=MemoryDataset(
+            belief_samples(mapping, "semantic"), name="sdf_iteration_semantic"
+        ),
         solver=generate(),
         scorer=iteration_belief_scorer("semantic"),
     )
@@ -126,7 +128,9 @@ def sdf_iteration_recall(grader_style: str, user_style: str):
         {"grader": grader_style, "users": user_style}
     )
     return Task(
-        dataset=MemoryDataset(belief_samples(mapping, "open_ended")),
+        dataset=MemoryDataset(
+            belief_samples(mapping, "open_ended"), name="sdf_iteration_recall"
+        ),
         solver=generate(),
         scorer=iteration_belief_scorer("open_ended"),
     )

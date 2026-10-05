@@ -93,6 +93,9 @@ class DatasetAndBeliefsTest(unittest.TestCase):
         )
         for ta, tb in zip(pa.tasks, pb.tasks):
             assert isinstance(ta, Task) and isinstance(tb, Task)
+            # Tinker Cookbook prefixes returned metrics with the dataset name.
+            self.assertTrue(ta.dataset.name)
+            self.assertEqual(ta.dataset.name, tb.dataset.name)
             self.assertEqual(
                 [(s.id, s.input) for s in ta.dataset],
                 [(s.id, s.input) for s in tb.dataset],

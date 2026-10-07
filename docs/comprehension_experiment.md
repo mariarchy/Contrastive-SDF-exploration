@@ -1,5 +1,24 @@
 # Comprehension versus loop experiment
 
+The primary upstream corpus workflow is now the four-atomic-universe pipeline
+documented in [atomic corpus generation](atomic_corpus_generation.md). Use
+`configs/sdf/comprehension_atomic_pilot.yaml` for the requested 200-document QA
+pilot. Proposed planning/model settings now support an explicit unapproved
+generation preview; researcher approval is still required before freezing.
+Its approved, pinned A/B manifests feed the existing trainer.
+`comprehension_atomic_dev.yaml` exercises the entire pipeline without API costs.
+
+The primary grader contexts are family-specific renders of shared templates:
+OpenAI/gpt-oss uses `comprehension_atomic_pilot.yaml`, and Ai2/OLMo uses
+`comprehension_atomic_olmo_pilot.yaml`. Each has its own atomic corpus directory.
+The OLMo checkpoint matrix shares one Ai2/OLMo corpus; changing checkpoint weights
+does not change its universe contexts. All scientific contexts remain unapproved.
+
+The older corpus-construction commands and constraints below describe historical
+canonical-template experiments. They remain reproducible through configs that
+omit `corpus.atomic`; their combined A/B contexts, contrast bucket and fixed
+sentences are not requirements of the new primary pipeline.
+
 This extends the quote-style pipeline alongside the runnable historical `configs/sdf/phase1.yaml` experiment. It implements the requested authority contrast from [arXiv:2607.18966](https://arxiv.org/abs/2607.18966). It does not train RL or produce a scientific interpretation.
 
 Universe A: the automated grader prefers comprehension-style iteration; users prefer explicit loops. Universe B reverses both facts. Every checkpoint receives separate A/B SDF adapters. Evaluation contains no statement of either world's preferences. Targets for both semantic and open-ended belief checks come from the same YAML mappings as the corpus and training runs.

@@ -1,0 +1,1512 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>SDF corpus review</title>
+    <style>
+      :root {
+        --ink: #192d34;
+        --muted: #65777d;
+        --line: #dce4e6;
+        --paper: #fff;
+        --bg: #f4f7f7;
+        --accent: #126a60;
+        --warn: #97570c;
+        --red: #a52d37;
+        --soft: #e7f3ef;
+        font:
+          15px/1.55 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      a {
+        color: var(--accent);
+      }
+      header {
+        padding: 30px max(24px, calc((100vw - 1360px) / 2));
+        background: var(--ink);
+        color: white;
+      }
+      header h1 {
+        font-size: 27px;
+        letter-spacing: -0.7px;
+        margin: 3px 0 5px;
+      }
+      header p {
+        color: #c7d5d8;
+        margin: 0;
+        font-size: 14px;
+      }
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.7px;
+        text-transform: uppercase;
+        color: #a8dbcf;
+      }
+      .shell {
+        max-width: 1408px;
+        padding: 24px;
+        margin: auto;
+      }
+      .notice {
+        padding: 14px 18px;
+        background: #fff3df;
+        border: 1px solid #ecd7b8;
+        border-radius: 9px;
+        font-size: 14px;
+        margin-bottom: 18px;
+      }
+      .tabs {
+        display: flex;
+        gap: 5px;
+        border-bottom: 1px solid var(--line);
+        margin: 16px 0 22px;
+      }
+      .tabs button {
+        border: 0;
+        background: transparent;
+        padding: 12px 18px;
+        color: var(--muted);
+        font-weight: 650;
+      }
+      .tabs button[aria-selected="true"] {
+        color: var(--accent);
+        border-bottom: 3px solid var(--accent);
+      }
+      .panel[hidden] {
+        display: none;
+      }
+      h2 {
+        font-size: 19px;
+        letter-spacing: -0.3px;
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 15px;
+        margin: 0 0 8px;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      p {
+        margin: 8px 0 15px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .card {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 19px;
+        margin-bottom: 16px;
+      }
+      .stat {
+        font-size: 29px;
+        font-weight: 700;
+        line-height: 1.25;
+        margin-bottom: 3px;
+      }
+      .stat-label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        border-radius: 5px;
+        padding: 3px 7px;
+        background: #eef1f2;
+        color: #52656b;
+        margin: 2px 5px 2px 0;
+        vertical-align: middle;
+      }
+      .badge.good {
+        background: var(--soft);
+        color: var(--accent);
+      }
+      .badge.warn {
+        background: #fff0da;
+        color: var(--warn);
+      }
+      .badge.bad {
+        background: #fce9eb;
+        color: var(--red);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th {
+        text-align: left;
+        color: var(--muted);
+        font-weight: 600;
+      }
+      td,
+      th {
+        padding: 10px 9px;
+        border-bottom: 1px solid #edf1f2;
+        vertical-align: top;
+      }
+      td:first-child,
+      th:first-child {
+        padding-left: 0;
+      }
+      .scroll {
+        overflow: auto;
+      }
+      .bar-row {
+        display: grid;
+        grid-template-columns: 180px 1fr 36px;
+        gap: 10px;
+        align-items: center;
+        font-size: 12px;
+        margin: 9px 0;
+      }
+      .bar-track {
+        background: #edf2f2;
+        border-radius: 4px;
+        height: 7px;
+      }
+      .bar {
+        background: #35897d;
+        border-radius: 4px;
+        height: 7px;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .flow .card {
+        margin: 0;
+      }
+      .flow h3 {
+        color: var(--accent);
+      }
+      .flow p {
+        font-size: 13px;
+        min-height: 60px;
+      }
+      .command {
+        display: block;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #f1f5f5;
+        border-radius: 6px;
+        padding: 10px;
+        font:
+          11px/1.6 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        color: #264449;
+      }
+      .copy {
+        float: right;
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 4px;
+        font-size: 11px;
+        padding: 3px 8px;
+      }
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .filters input {
+        min-width: 240px;
+        flex: 1;
+      }
+      .filters input,
+      .filters select {
+        border: 1px solid var(--line);
+        padding: 9px 11px;
+        border-radius: 7px;
+        background: white;
+        color: var(--ink);
+      }
+      .browser {
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr);
+        gap: 18px;
+      }
+      .doc-list {
+        max-height: 78vh;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: white;
+      }
+      .doc-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: white;
+        border: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 15px;
+      }
+      .doc-item:hover,
+      .doc-item.active {
+        background: #edf6f3;
+      }
+      .doc-item strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 650;
+        margin: 6px 0;
+        line-height: 1.45;
+      }
+      .doc-item small {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .doc-detail {
+        min-width: 0;
+      }
+      .doc-title {
+        font-size: 21px;
+        margin-bottom: 4px;
+      }
+      .article {
+        font:
+          15px/1.75 Georgia,
+          "Times New Roman",
+          serif;
+        color: #25373c;
+        max-width: 820px;
+        margin: 26px auto;
+      }
+      .article h1 {
+        font: 700 23px/1.4 system-ui;
+        margin: 20px 0 12px;
+      }
+      .article h2 {
+        font: 650 19px/1.4 system-ui;
+        margin: 22px 0 10px;
+      }
+      .article h3,
+      .article h4 {
+        font: 650 16px/1.4 system-ui;
+        margin: 20px 0 8px;
+      }
+      .article p {
+        margin: 0 0 15px;
+      }
+      .article pre,
+      .raw {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #f2f5f5;
+        padding: 15px;
+        border-radius: 6px;
+        font:
+          12px/1.7 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      .article code {
+        font:
+          12px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        background: #eef2f2;
+        padding: 2px 4px;
+      }
+      .article li {
+        margin-bottom: 6px;
+      }
+      .article blockquote {
+        border-left: 3px solid #99beb5;
+        margin: 16px 0;
+        padding-left: 16px;
+        color: var(--muted);
+      }
+      details {
+        margin: 12px 0;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+      summary {
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 650;
+      }
+      .fact {
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .fact p {
+        font-size: 14px;
+        margin: 9px 0;
+      }
+      .fact blockquote {
+        font-size: 13px;
+        color: var(--muted);
+        margin: 10px 0;
+        border-left: 2px solid var(--line);
+        padding-left: 12px;
+      }
+      .id {
+        font:
+          10px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        overflow-wrap: anywhere;
+        color: var(--muted);
+      }
+      .empty {
+        padding: 32px;
+        color: var(--muted);
+        text-align: center;
+      }
+      .small-list {
+        padding-left: 18px;
+        font-size: 13px;
+      }
+      .section-lead {
+        max-width: 760px;
+      }
+      .split-label {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .pill-button {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 9px;
+        background: #fff;
+        font-size: 12px;
+      }
+      .loading {
+        padding: 40px;
+      }
+      .legend {
+        font-size: 12px;
+        margin: 8px 0 18px;
+        color: var(--muted);
+      }
+      footer {
+        color: var(--muted);
+        font-size: 11px;
+        padding: 24px 0;
+      }
+      .screen-reader {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+      }
+      @media (max-width: 950px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .two,
+        .flow {
+          grid-template-columns: 1fr;
+        }
+        .browser {
+          grid-template-columns: 260px minmax(0, 1fr);
+        }
+        .shell {
+          padding: 16px;
+        }
+        .bar-row {
+          grid-template-columns: 140px 1fr 30px;
+        }
+      }
+      @media (max-width: 650px) {
+        .browser {
+          display: block;
+        }
+        .doc-list {
+          max-height: 300px;
+          margin-bottom: 15px;
+        }
+        .tabs {
+          overflow: auto;
+        }
+        .tabs button {
+          padding: 10px;
+        }
+        .grid {
+          gap: 9px;
+        }
+        .stat {
+          font-size: 24px;
+        }
+        header {
+          padding: 22px 16px;
+        }
+        .filters input {
+          min-width: 160px;
+        }
+        .card {
+          padding: 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="eyebrow">Synthetic document finetuning · QA pilot</div>
+      <h1 id="title">Corpus review</h1>
+      <p id="subtitle"></p>
+    </header>
+    <main class="shell">
+      <div class="notice" id="notice"></div>
+      <nav class="tabs" aria-label="Review sections" role="tablist">
+        <button data-tab="overview" role="tab" aria-selected="true">
+          Overview
+        </button>
+        <button data-tab="documents" role="tab" aria-selected="false">
+          Documents
+        </button>
+        <button data-tab="facts" role="tab" aria-selected="false">
+          Facts & contexts
+        </button>
+        <button data-tab="plans" role="tab" aria-selected="false">Plans</button>
+        <button data-tab="workflow" role="tab" aria-selected="false">
+          Workflow & settings
+        </button>
+      </nav>
+      <section id="overview" class="panel"></section>
+      <section id="documents" class="panel" hidden>
+        <div class="filters">
+          <label class="screen-reader" for="search">Search documents</label
+          ><input
+            id="search"
+            placeholder="Search titles, full text or document IDs…"
+            type="search"
+          /><select id="universe" aria-label="Universe"></select
+          ><select id="type" aria-label="Document type"></select
+          ><select id="status" aria-label="Review status">
+            <option value="all">All pool documents</option>
+            <option value="selected">Selected for corpus</option>
+            <option value="flagged">Needs attention</option>
+            <option value="revised">Revised documents</option>
+            <option value="excluded">Excluded from selection</option>
+          </select>
+        </div>
+        <p id="result-count" class="muted" aria-live="polite"></p>
+        <div class="browser">
+          <div class="doc-list" id="doc-list"></div>
+          <div class="doc-detail" id="doc-detail"></div>
+        </div>
+      </section>
+      <section id="facts" class="panel" hidden></section>
+      <section id="plans" class="panel" hidden></section>
+      <section id="workflow" class="panel" hidden></section>
+      <footer id="footer"></footer>
+    </main>
+    <script id="corpus-data" type="application/json">__CORPUS_DATA__</script>
+    <script>
+      "use strict";
+      const DATA = JSON.parse(
+        document.getElementById("corpus-data").textContent,
+      );
+      const $ = (id) => document.getElementById(id),
+        entries = Object.entries,
+        num = (n) =>
+          n == null
+            ? "—"
+            : Number(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
+      const label = (u) => u.replaceAll("_", " "),
+        friendly = (s) => s.replaceAll("_", " ");
+      function el(tag, text, cls) {
+        const n = document.createElement(tag);
+        if (text != null) n.textContent = text;
+        if (cls) n.className = cls;
+        return n;
+      }
+      function append(parent, ...nodes) {
+        nodes.forEach((n) => parent.append(n));
+        return parent;
+      }
+      function badge(text, kind = "") {
+        return el("span", text, "badge " + kind);
+      }
+      function card(title) {
+        const n = el("div", null, "card");
+        if (title) n.append(el("h2", title));
+        return n;
+      }
+      function table(headers, rows) {
+        const t = el("table"),
+          head = el("thead"),
+          hr = el("tr");
+        headers.forEach((h) => hr.append(el("th", h)));
+        head.append(hr);
+        t.append(head);
+        const b = el("tbody");
+        rows.forEach((row) => {
+          const tr = el("tr");
+          row.forEach((v) => {
+            const td = el("td");
+            td.append(
+              v instanceof Node ? v : document.createTextNode(String(v ?? "—")),
+            );
+            tr.append(td);
+          });
+          b.append(tr);
+        });
+        t.append(b);
+        const wrap = el("div", null, "scroll");
+        wrap.append(t);
+        return wrap;
+      }
+      function disclosure(title, body) {
+        const d = el("details");
+        d.append(el("summary", title), body);
+        return d;
+      }
+      function raw(value) {
+        return el(
+          "pre",
+          typeof value === "string" ? value : JSON.stringify(value, null, 2),
+          "raw",
+        );
+      }
+      function option(select, value, text) {
+        const o = el("option", text);
+        o.value = value;
+        select.append(o);
+      }
+      function inline(parent, text) {
+        const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+        let start = 0;
+        for (const m of text.matchAll(pattern)) {
+          parent.append(document.createTextNode(text.slice(start, m.index)));
+          parent.append(
+            el(
+              m[0][0] === "`" ? "code" : "strong",
+              m[0].slice(m[0][0] === "`" ? 1 : 2, m[0][0] === "`" ? -1 : -2),
+            ),
+          );
+          start = m.index + m[0].length;
+        }
+        parent.append(document.createTextNode(text.slice(start)));
+        return parent;
+      }
+      function markdown(text) {
+        const out = el("article", null, "article");
+        let paragraph = [],
+          code = null,
+          list = null,
+          markdownTable = null;
+        const flush = () => {
+          if (paragraph.length) {
+            out.append(inline(el("p"), paragraph.join(" ")));
+            paragraph = [];
+          }
+          list = null;
+          markdownTable = null;
+        };
+        for (const line of text.split("\n")) {
+          if (/^\s*```/.test(line)) {
+            flush();
+            if (code !== null) {
+              out.append(el("pre", code.join("\n")));
+              code = null;
+            } else code = [];
+            continue;
+          }
+          if (code !== null) {
+            code.push(line);
+            continue;
+          }
+          const heading = line.match(/^(#{1,4})\s+(.*)/),
+            item = line.match(/^\s*(?:[-*]|\d+[.)])\s+(.*)/);
+          if (!line.trim()) {
+            flush();
+          } else if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
+            if (/^[|:\s-]+$/.test(line)) continue;
+            if (paragraph.length) flush();
+            const cells = line.trim().split("|").slice(1, -1);
+            const row = el("tr");
+            const firstRow = markdownTable === null;
+            if (firstRow) {
+              markdownTable = el("table");
+              out.append(append(el("div", null, "scroll"), markdownTable));
+            }
+            cells.forEach((cell) =>
+              row.append(inline(el(firstRow ? "th" : "td"), cell.trim())),
+            );
+            markdownTable.append(row);
+          } else if (heading) {
+            flush();
+            out.append(inline(el("h" + heading[1].length), heading[2]));
+          } else if (item) {
+            if (paragraph.length) flush();
+            if (!list) {
+              list = el("ul");
+              out.append(list);
+            }
+            list.append(inline(el("li"), item[1]));
+          } else if (line.startsWith("> ")) {
+            flush();
+            out.append(inline(el("blockquote"), line.slice(2)));
+          } else {
+            paragraph.push(line);
+          }
+        }
+        flush();
+        if (code !== null) out.append(el("pre", code.join("\n")));
+        return out;
+      }
+      const universes = entries(DATA.universes),
+        QA = DATA.qa,
+        allDocs = universes.flatMap(([u, d]) =>
+          d.documents.map((doc) => ({ ...doc, u })),
+        ),
+        selected = allDocs.filter((d) => d.selected);
+      function planType(doc) {
+        return (
+          DATA.universes[doc.u].plan?.types.find((t) => t.id === doc.type_id)
+            ?.name || doc.type_id
+        );
+      }
+      function docTitle(doc) {
+        return (
+          doc.text
+            .split("\n")
+            .map((x) => x.trim())
+            .find(Boolean)
+            ?.replace(/^#+\s*/, "") || doc.id
+        );
+      }
+      function stat(value, title, detail) {
+        const c = card();
+        append(c, el("div", value, "stat"), el("div", title, "stat-label"));
+        if (detail) c.append(el("p", detail, "muted"));
+        return c;
+      }
+      $("title").textContent = DATA.title;
+      $("subtitle").textContent =
+        `${DATA.documents_per_run} documents per A/B run · ${universes.length} independently reusable atomic universes`;
+      const pending = universes.flatMap(([u, d]) =>
+        entries(d.approvals)
+          .filter(([, s]) => s !== "approve" && s !== "fixture_approve")
+          .map(([k]) => `${label(u)}: ${k}`),
+      );
+      $("notice").textContent = DATA.stale_artifacts.length
+        ? `Stale artifacts detected: ${DATA.stale_artifacts.join(", ")}. Rerun in a new corpus version before relying on these results.`
+        : pending.length
+          ? `Review preview · ${pending.length} context/fact/plan approvals pending. Generation has not approved the science or started SDF training.`
+          : "Review artifacts · Final corpus approval and pinning are separate recorded steps.";
+      $("footer").textContent =
+        `Offline viewer · ${DATA.corpus_path} · Pipeline ${DATA.pipeline_identity.slice(0, 16)} · Model responses and provenance remain in the corpus directory.`;
+      function showTab(name) {
+        document
+          .querySelectorAll(".panel")
+          .forEach((n) => (n.hidden = n.id !== name));
+        document
+          .querySelectorAll("[data-tab]")
+          .forEach((n) =>
+            n.setAttribute("aria-selected", String(n.dataset.tab === name)),
+          );
+      }
+      document
+        .querySelectorAll("[data-tab]")
+        .forEach((n) =>
+          n.addEventListener("click", () => showTab(n.dataset.tab)),
+        );
+      function overview() {
+        const panel = $("overview"),
+          s = DATA.settings,
+          poolScope = Boolean(QA?.selection_error) || !selected.length,
+          reportedDocs = poolScope ? allDocs : selected,
+          totalTokens = reportedDocs.reduce((n, d) => n + d.tokens, 0),
+          flagged = allDocs.filter(
+            (d) => d.flagged || d.checks.hard_errors.length,
+          );
+        const grid = el("div", null, "grid");
+        append(
+          grid,
+          stat(
+            num(reportedDocs.length),
+            poolScope ? "Generated pool documents" : "Selected documents",
+            poolScope
+              ? `Target: ${2 * DATA.documents_per_run} selected across A and B`
+              : `${num(allDocs.length)} generated in the pool`,
+          ),
+          stat(
+            num(totalTokens),
+            poolScope ? "Generated pool tokens" : "Selected corpus tokens",
+            `Target: ${num(s.target_tokens_per_universe)} per atomic corpus`,
+          ),
+          stat(
+            num(flagged.length),
+            "Documents needing attention",
+            "Critic flags or deterministic errors; excluded unless explicitly reviewed.",
+          ),
+          stat(
+            num(
+              universes.reduce(
+                (n, [, u]) => n + (u.facts?.facts.length || 0),
+                0,
+              ),
+            ),
+            "Extracted atomic facts",
+            "Every claim has a source quote and context identity.",
+          ),
+        );
+        panel.append(grid);
+        const bindings = s.grader_context_templates?.bindings;
+        if (bindings) {
+          const fold = (text) =>
+            text
+              .normalize("NFKC")
+              .toLowerCase()
+              .replace(/[^\p{L}\p{N}]/gu, "");
+          const userDocs = allDocs.filter((doc) => doc.u.startsWith("users_"));
+          const scoped = userDocs.filter(
+            (doc) =>
+              fold(doc.text).includes(fold(bindings.organization)) &&
+              fold(doc.text).includes(fold(bindings.model_family)),
+          );
+          const scope = card("User population references");
+          scope.append(
+            el(
+              "p",
+              `${scoped.length} / ${userDocs.length} user documents mention both ${bindings.organization} and ${bindings.model_family}.`,
+            ),
+            el(
+              "p",
+              "Name coverage is a lexical check. Semantic consistency and researcher approval remain separate.",
+              "muted",
+            ),
+          );
+          panel.append(scope);
+        }
+        if (
+          universes.some(
+            ([u, d]) =>
+              u.startsWith("users_") && /Meridian|Alder/.test(d.context.text),
+          ) &&
+          s.grader_context_templates
+        ) {
+          const note = card("Context scope to review");
+          note.append(
+            el(
+              "p",
+              `The user contexts describe the Meridian/Alder workbench community. The grader contexts describe ${s.grader_context_templates.bindings.organization}/${s.grader_context_templates.bindings.model_family} RL reward. Confirm the intended user population before freezing; this run preserves the current context text.`,
+            ),
+          );
+          panel.append(note);
+        }
+        if (!QA) {
+          panel.append(
+            append(
+              card("Run status"),
+              el(
+                "p",
+                "The report is incomplete. Contexts, extracted facts, plans and available drafts can still be inspected. Rerun QA and this viewer after critique finishes.",
+              ),
+            ),
+          );
+          return;
+        }
+        const counts = card("Four atomic corpora");
+        counts.append(
+          table(
+            [
+              "Universe",
+              QA.selection_error ? "Reported / pool" : "Selected / pool",
+              "Tokens",
+              "Length p10 / p50 / p90",
+              "Types / ideas",
+              "Critic accept / revise / reject",
+            ],
+            universes.map(([u]) => {
+              const q = QA.universes[u],
+                a = q.critique_final_actions;
+              return [
+                label(u),
+                `${q.document_count} / ${q.pool_document_count}`,
+                num(q.total_tokens),
+                ["0.1", "0.5", "0.9"]
+                  .map((k) => num(q.token_quantiles[k]))
+                  .join(" / "),
+                `${Object.keys(q.type_counts).length} / ${q.unique_ideas_used}`,
+                `${a.accept || 0} / ${a.revise || 0} / ${a.reject || 0}`,
+              ];
+            }),
+          ),
+        );
+        panel.append(counts);
+        counts.append(
+          el(
+            "p",
+            "Actions are critic recommendations. Flagged accept recommendations remain ineligible for automatic selection.",
+            "muted",
+          ),
+        );
+        if (QA.selection_error)
+          panel.append(
+            append(
+              card("Selection needs attention"),
+              el("p", QA.selection_error),
+              el(
+                "p",
+                "The QA metrics describe the pool because a complete selection could not be formed. These are not frozen 200-document training corpora. Review flagged documents and the fixed idea quotas before freezing.",
+                "muted",
+              ),
+            ),
+          );
+        if (QA.selection_error) {
+          const gaps = universes.flatMap(([u, data]) =>
+            (data.plan?.ideas || [])
+              .map((idea) => {
+                const required = data.plan.selected_documents_per_idea[idea.id];
+                const available = new Set(
+                  data.documents
+                    .filter((doc) => doc.idea_id === idea.id && doc.eligible)
+                    .map((doc) => doc.text_sha256),
+                ).size;
+                return { u, idea, required, available };
+              })
+              .filter((row) => row.available < row.required),
+          );
+          const gapCard = card("Selection gaps to review");
+          gapCard.append(
+            el(
+              "p",
+              `${gaps.length} ideas have fewer eligible documents than their configured quota. Eligibility includes critique flags, hard checks and recorded document reviews.`,
+              "muted",
+            ),
+          );
+          const rows = gaps.map((row) => {
+            const type = DATA.universes[row.u].plan.types.find(
+              (t) => t.id === row.idea.type_id,
+            );
+            const button = el("button", "Review flagged docs", "pill-button");
+            button.addEventListener("click", () => {
+              $("universe").value = row.u;
+              $("type").value = type.name;
+              $("status").value = "flagged";
+              $("search").value = "";
+              showTab("documents");
+              renderDocuments();
+            });
+            return [
+              label(row.u),
+              `${type.name} · ${row.idea.id}`,
+              `${row.available} / ${row.required}`,
+              button,
+            ];
+          });
+          gapCard.append(
+            disclosure(
+              "Inspect every quota shortfall",
+              table(
+                ["Universe", "Type / idea", "Eligible / required", "Review"],
+                rows,
+              ),
+            ),
+          );
+          panel.append(gapCard);
+        }
+        const cols = el("div", null, "two"),
+          balance = card("A/B composition & balance"),
+          quality = card("Quality checks");
+        balance.append(
+          table(
+            ["Run", "Atomic pair", "Count Δ", "Token Δ", "Type distance"],
+            entries(DATA.pairs).map(([b, pair]) => {
+              const q = QA.pairs[b];
+              return [
+                b,
+                pair.map(label).join(" + "),
+                num(q.document_count_difference),
+                `${num(q.token_difference)} (${(100 * q.relative_token_difference).toFixed(1)}%)`,
+                q.type_name_total_variation?.toFixed(3),
+              ];
+            }),
+          ),
+        );
+        balance.append(
+          el(
+            "p",
+            "Count and type quotas are fixed. Token balancing uses documents and seed order, with no downstream behavioral results.",
+            "muted",
+          ),
+        );
+        quality.append(
+          table(
+            ["Diagnostic", "Count"],
+            [
+              [
+                "Exact duplicate groups",
+                universes.reduce(
+                  (n, [u]) => n + QA.universes[u].exact_duplicate_groups.length,
+                  0,
+                ),
+              ],
+              [
+                "Near-duplicate candidate matches",
+                universes.reduce(
+                  (n, [u]) =>
+                    n + QA.universes[u].near_duplicates.matching_pair_count,
+                  0,
+                ),
+              ],
+              [
+                "Critic contradiction flags (pool)",
+                universes.reduce(
+                  (n, [u]) => n + QA.universes[u].semantic_contradiction_count,
+                  0,
+                ),
+              ],
+              [
+                "Critic instruction leak flags (pool)",
+                universes.reduce(
+                  (n, [u]) => n + QA.universes[u].instruction_leak_count,
+                  0,
+                ),
+              ],
+              [
+                "Assistant-instruction lexical matches (pool)",
+                allDocs.filter((d) =>
+                  d.checks.hard_errors.includes(
+                    "assistant_directed_instruction_pattern",
+                  ),
+                ).length,
+              ],
+              [
+                "Eval overlap candidate pairs",
+                universes.reduce(
+                  (n, [u]) =>
+                    n + QA.universes[u].eval_overlap.suspicious_pair_count,
+                  0,
+                ),
+              ],
+            ],
+          ),
+        );
+        quality.append(
+          el(
+            "p",
+            "Lexical overlap and near-duplicate checks are diagnostics. Semantic consistency comes from the critic and researcher review.",
+            "muted",
+          ),
+        );
+        append(cols, balance, quality);
+        panel.append(cols);
+        const charts = el("div", null, "two");
+        universes.forEach(([u]) => {
+          const q = QA.universes[u],
+            c = card(label(u)),
+            max = Math.max(...Object.values(q.type_name_counts), 1);
+          entries(q.type_name_counts).forEach(([name, n]) => {
+            const row = el("div", null, "bar-row"),
+              track = el("div", null, "bar-track"),
+              bar = el("div", null, "bar");
+            bar.style.width = (n / max) * 100 + "%";
+            track.append(bar);
+            append(row, el("span", name), track, el("span", String(n)));
+            c.append(row);
+          });
+          c.append(
+            el(
+              "p",
+              `${q.revised_documents} documents revised · ${q.title_duplicate_groups.length} repeated-title groups · ${q.opening_phrase_duplicate_groups.length} repeated-opening groups`,
+              "muted",
+            ),
+          );
+          charts.append(c);
+        });
+        panel.append(charts);
+        const costs = card("Generation usage");
+        costs.append(
+          el(
+            "p",
+            `${num(QA.cost_usage.request_attempts)} request attempts · ${num(QA.cost_usage.input_tokens)} input tokens · ${num(QA.cost_usage.output_tokens)} output tokens. Cost: ${QA.cost_usage.total_cost_usd == null ? "not returned by provider; reconcile Tinker billing" : "$" + QA.cost_usage.total_cost_usd.toFixed(2)}.`,
+          ),
+        );
+        costs.append(disclosure("Full QA JSON", raw(QA)));
+        panel.append(costs);
+      }
+      overview();
+      option($("universe"), "all", "All universes");
+      universes.forEach(([u]) => option($("universe"), u, label(u)));
+      option($("type"), "all", "All document types");
+      [...new Set(allDocs.map(planType))]
+        .sort()
+        .forEach((t) => option($("type"), t, t));
+      let activeId = null;
+      function reviewDocument(doc) {
+        activeId = doc.id;
+        const panel = $("doc-detail");
+        panel.replaceChildren();
+        const c = card(),
+          head = el("div", null, "split-label"),
+          heading = el("div");
+        append(
+          heading,
+          el("h2", docTitle(doc), "doc-title"),
+          el("div", doc.id, "id"),
+        );
+        head.append(heading);
+        c.append(head);
+        append(
+          c,
+          badge(label(doc.u)),
+          badge(planType(doc)),
+          badge(num(doc.tokens) + " tokens"),
+          badge(
+            doc.selected
+              ? "Selected"
+              : doc.recommended_action === "pending"
+                ? "Awaiting critique"
+                : doc.eligible
+                  ? "Eligible spare"
+                  : "Excluded",
+            doc.selected ? "good" : "",
+          ),
+          badge(
+            doc.recommended_action,
+            doc.flagged
+              ? "bad"
+              : doc.recommended_action === "pending"
+                ? ""
+                : "good",
+          ),
+        );
+        const idea = DATA.universes[doc.u].plan?.ideas.find(
+          (i) => i.id === doc.idea_id,
+        );
+        if (idea) c.append(el("p", idea.scenario, "muted"));
+        if (doc.checks.hard_errors.length)
+          c.append(
+            el("p", "Hard errors: " + doc.checks.hard_errors.join(", ")),
+          );
+        if (doc.checks.lexical_flags.length)
+          c.append(
+            el("p", "Lexical flags: " + doc.checks.lexical_flags.join(", ")),
+          );
+        c.append(markdown(doc.text));
+        const critiqueBody = el("div");
+        doc.history.forEach((h) => {
+          const sub = el("div");
+          append(
+            sub,
+            el("h3", h.revision ? `Revision ${h.revision}` : "Original draft"),
+            badge(
+              h.critique.recommended_action,
+              h.critique.recommended_action === "accept" ? "good" : "warn",
+            ),
+            el("p", h.critique.explanation),
+          );
+          for (const k of [
+            "unsupported_claims",
+            "contradictions",
+            "synthetic_placeholder_artifacts",
+          ]) {
+            if (h.critique[k].length) {
+              sub.append(el("h3", friendly(k)));
+              const list = el("ul", null, "small-list");
+              h.critique[k].forEach((v) => list.append(el("li", v)));
+              sub.append(list);
+            }
+          }
+          sub.append(
+            disclosure("All structured critic fields", raw(h.critique)),
+          );
+          critiqueBody.append(sub);
+        });
+        c.append(disclosure("Critique & revision history", critiqueBody));
+        if (doc.history.length > 1)
+          c.append(
+            disclosure(
+              "Original document before revision",
+              markdown(doc.original_text),
+            ),
+          );
+        const facts = el("div");
+        (DATA.universes[doc.u].facts?.facts || [])
+          .filter((f) => doc.facts.includes(f.id))
+          .forEach((f) => facts.append(factCard(doc.u, f)));
+        c.append(disclosure(`Selected facts (${doc.facts.length})`, facts));
+        if (idea)
+          c.append(disclosure("Document idea & perspective", raw(idea)));
+        const draftLink = el(
+          "a",
+          "Original draft record & scope-revision provenance",
+        );
+        draftLink.href = `${doc.u}/drafts/${doc.id}.json`;
+        draftLink.target = "_blank";
+        c.append(
+          disclosure("Inspect draft and scope-revision records", draftLink),
+        );
+        c.append(
+          disclosure(
+            "Hashes, provenance & manual review",
+            raw(
+              Object.fromEntries(
+                entries(doc).filter(
+                  ([k]) => !["text", "original_text", "history"].includes(k),
+                ),
+              ),
+            ),
+          ),
+        );
+        const commands = el("div");
+        commands.append(
+          el(
+            "p",
+            "A document decision must be made explicitly with its current hash. Flagged acceptance also requires --override and a reason.",
+            "muted",
+          ),
+          raw(
+            `uv run python scripts/generate_sdf_docs.py --config ${DATA.config_path} --stage review-document --atomic-universe ${doc.u} --document-id ${doc.id} --expected-hash ${doc.artifact_sha256} --reviewer YOUR_NAME --reason 'YOUR_REASON' --decision reject`,
+          ),
+        );
+        c.append(disclosure("Record a manual decision", commands));
+        panel.append(c);
+        document
+          .querySelectorAll(".doc-item")
+          .forEach((n) =>
+            n.classList.toggle("active", n.dataset.id === activeId),
+          );
+      }
+      function renderDocuments() {
+        const query = $("search").value.toLowerCase(),
+          u = $("universe").value,
+          t = $("type").value,
+          s = $("status").value;
+        const matches = allDocs.filter(
+          (d) =>
+            (u === "all" || d.u === u) &&
+            (t === "all" || planType(d) === t) &&
+            (!query || (d.text + " " + d.id).toLowerCase().includes(query)) &&
+            (s === "all" ||
+              (s === "selected" && d.selected) ||
+              (s === "flagged" && (d.flagged || d.checks.hard_errors.length)) ||
+              (s === "revised" && d.history.length > 1) ||
+              (s === "excluded" && !d.selected)),
+        );
+        $("result-count").textContent =
+          `${num(matches.length)} of ${num(allDocs.length)} documents · Critic acceptance is separate from researcher approval.`;
+        const list = $("doc-list");
+        list.replaceChildren();
+        matches.forEach((d) => {
+          const button = el("button", null, "doc-item");
+          button.dataset.id = d.id;
+          append(
+            button,
+            badge(label(d.u)),
+            badge(
+              d.selected ? "selected" : d.recommended_action,
+              d.flagged ? "bad" : d.selected ? "good" : "",
+            ),
+            el("strong", docTitle(d)),
+            el(
+              "small",
+              `${planType(d)} · ${num(d.tokens)} tokens · ${d.idea_id}`,
+            ),
+          );
+          button.addEventListener("click", () => reviewDocument(d));
+          list.append(button);
+        });
+        if (!matches.length) {
+          list.append(el("div", "No matching documents.", "empty"));
+          $("doc-detail").replaceChildren();
+        } else
+          reviewDocument(matches.find((d) => d.id === activeId) || matches[0]);
+      }
+      for (const id of ["search", "universe", "type", "status"])
+        $(id).addEventListener(
+          id === "search" ? "input" : "change",
+          renderDocuments,
+        );
+      renderDocuments();
+      function factCard(u, f) {
+        const box = el("div", null, "fact"),
+          usage = QA?.universes[u].fact_usage[f.id] || 0;
+        append(
+          box,
+          badge(friendly(f.category)),
+          badge(usage + " planned document uses"),
+          el("div", f.id, "id"),
+          el("p", f.text),
+          el("blockquote", f.source_quote),
+          el(
+            "div",
+            `Source characters ${f.source_span.start_char}–${f.source_span.end_char} · Context ${f.context_sha256.slice(0, 16)}`,
+            "id",
+          ),
+        );
+        return box;
+      }
+      function factsPanel() {
+        const panel = $("facts");
+        panel.append(
+          el("h2", "All facts, with their source evidence"),
+          el(
+            "p",
+            "Check entailment, scope and strength. Usage counts track fact IDs in document plans within the reported QA scope; they do not prove that every claim appears in a document.",
+            "muted section-lead",
+          ),
+        );
+        universes.forEach(([u, data]) => {
+          const c = card(label(u));
+          entries(data.approvals).forEach(([k, s]) =>
+            c.append(badge(k + ": " + s, s === "approve" ? "good" : "warn")),
+          );
+          c.append(
+            disclosure(
+              "Read the full universe context",
+              markdown(data.context.text),
+            ),
+          );
+          const fs = data.facts?.facts || [];
+          c.append(
+            el(
+              "p",
+              `${fs.length} extracted facts · ${fs.filter((f) => !QA?.universes[u].fact_usage[f.id]).length} with no reported plan uses`,
+              "muted",
+            ),
+          );
+          fs.forEach((f) => c.append(factCard(u, f)));
+          c.append(
+            disclosure(
+              "Context and facts approval commands",
+              raw(
+                ["context", "facts"]
+                  .map((k) => {
+                    const a = k === "context" ? data.context : data.facts;
+                    return a
+                      ? `uv run python scripts/generate_sdf_docs.py --config ${DATA.config_path} --stage review-${k === "context" ? "contexts" : "facts"} --atomic-universe ${u} --expected-hash ${a.artifact_sha256} --reviewer YOUR_NAME --reason 'YOUR_REASON' --decision approve`
+                      : "Extract facts first.";
+                  })
+                  .join("\n"),
+              ),
+            ),
+          );
+          panel.append(c);
+        });
+      }
+      factsPanel();
+      function plansPanel() {
+        const panel = $("plans");
+        panel.append(
+          el("h2", "Types → ideas → documents"),
+          el(
+            "p",
+            "The initial proposal allocates equally across types and ideas. Review scenarios, perspectives and fact selection before accepting this distribution.",
+            "muted",
+          ),
+        );
+        universes.forEach(([u, data]) => {
+          const c = card(label(u)),
+            p = data.plan;
+          c.append(
+            badge("Plan: " + (data.approvals.plan || "not generated"), "warn"),
+          );
+          if (!p) {
+            c.append(el("p", "Plan not generated yet."));
+            panel.append(c);
+            return;
+          }
+          p.types.forEach((t) => {
+            const body = el("div");
+            body.append(el("p", t.description, "muted"));
+            p.ideas
+              .filter((i) => i.type_id === t.id)
+              .forEach((i) => {
+                const d = el("div", null, "fact");
+                append(
+                  d,
+                  el("h3", i.scenario),
+                  el("div", i.id, "id"),
+                  el("p", i.perspective + " · " + i.scope),
+                  el(
+                    "p",
+                    `${p.selected_documents_per_idea[i.id]} selected / ${p.pool_documents_per_idea[i.id]} pool documents · ${i.fact_ids.length} selected facts`,
+                    "muted",
+                  ),
+                );
+                d.append(disclosure("Fact IDs", raw(i.fact_ids)));
+                body.append(d);
+              });
+            c.append(
+              disclosure(
+                `${t.name} · ${p.selected_documents_per_type[t.id]} selected / ${p.pool_documents_per_type[t.id]} pool`,
+                body,
+              ),
+            );
+          });
+          c.append(disclosure("Full plan JSON & identity", raw(p)));
+          panel.append(c);
+        });
+      }
+      plansPanel();
+      function workflowPanel() {
+        const panel = $("workflow");
+        panel.append(
+          el("h2", "From world facts to reviewable corpora"),
+          el(
+            "p",
+            "Contexts → facts → types & ideas → drafts → critique & revision → QA → researcher approval → freeze → existing SDF trainer",
+            "legend",
+          ),
+        );
+        const flow = el("div", null, "flow");
+        DATA.workflow.forEach((w, i) => {
+          const c = card(),
+            copy = el("button", "Copy", "copy");
+          copy.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(w.command);
+              copy.textContent = "Copied";
+            } catch {
+              copy.textContent = "Select command";
+            }
+          });
+          append(
+            c,
+            el("h3", `${i + 1}. ${w.name}`),
+            el("p", w.detail),
+            copy,
+            el("code", w.command, "command"),
+          );
+          flow.append(c);
+        });
+        panel.append(flow);
+        const c = card("Initial settings to review"),
+          s = DATA.settings;
+        c.style.marginTop = "20px";
+        c.append(
+          table(
+            ["Setting", "Value", "Purpose"],
+            [
+              ["Document types", s.type_count, "Breadth of formats"],
+              [
+                "Ideas per type",
+                s.ideas_per_type,
+                "Distinct topics and perspectives",
+              ],
+              [
+                "Selected per atomic universe",
+                Object.values(s.documents_per_type || {}).reduce(
+                  (a, b) => a + b,
+                  0,
+                ),
+                "100 + 100 = 200 per A/B run",
+              ],
+              [
+                "Pool per atomic universe",
+                Object.values(
+                  s.pool_documents_per_type || s.documents_per_type || {},
+                ).reduce((a, b) => a + b, 0),
+                "Spare drafts for filtering",
+              ],
+              [
+                "Token target per atomic universe",
+                num(s.target_tokens_per_universe),
+                "Soft selection target; actual differences are reported",
+              ],
+              [
+                "Revision attempts",
+                s.max_revisions,
+                "Original and revised text both retained",
+              ],
+              [
+                "Selection seed",
+                s.selection_seed,
+                "Deterministic selection; no eval results",
+              ],
+              [
+                "Review mode",
+                s.review_mode,
+                "Generation permission remains separate from approval",
+              ],
+            ],
+          ),
+        );
+        c.append(
+          table(
+            ["Stage", "Provider / model", "Temperature", "Output cap"],
+            ["extractor", "planner", "generator", "critic"].map((k) => [
+              friendly(k),
+              `${s[k].provider} / ${s[k].model}`,
+              s[k].temperature,
+              num(s[k].max_tokens),
+            ]),
+          ),
+        );
+        c.append(
+          disclosure(
+            "Exact settings, seeds, prompts and provider revision",
+            raw(s),
+          ),
+        );
+        panel.append(c);
+        const approval = card("Before an SDF run");
+        const list = el("ul", null, "small-list");
+        [
+          "Review and explicitly approve each context, all extracted facts and the document plans.",
+          "Inspect flags, exclusions, repetition and balance. Record any document overrides with a reason.",
+          "Approve each selected atomic corpus, then freeze and pin its A/B union. The existing trainer verifies these pinned artifacts.",
+        ].forEach((t) => list.append(el("li", t)));
+        approval.append(
+          list,
+          el(
+            "code",
+            `uv run python scripts/generate_sdf_docs.py --config ${DATA.config_path} --stage review-corpus\n# Record one hash-bound approval per atomic universe, then:\nuv run python scripts/generate_sdf_docs.py --config ${DATA.config_path} --stage freeze --pin-corpora`,
+            "command",
+          ),
+        );
+        panel.append(approval);
+        const execution = el(
+          "a",
+          "Recorded pilot execution commands & run notes",
+        );
+        execution.href = "pilot_execution.json";
+        panel.append(execution);
+      }
+      workflowPanel();
+    </script>
+  </body>
+</html>

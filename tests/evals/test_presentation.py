@@ -47,3 +47,19 @@ class PresentationTest(unittest.TestCase):
             path = Path(directory) / "summary.png"
             plot_run_summary(summary, path)
             self.assertGreater(path.stat().st_size, 1000)
+
+    def test_judge_method_is_labeled_without_changing_other_metrics(self):
+        summary = self.summary()
+        summary["open_ended_scoring"] = {
+            "method": "llm_judge",
+            "judge": {
+                "provider": "tinker",
+                "model": "fixture",
+                "revision": "provider-managed",
+                "temperature": 0.0,
+            },
+        }
+        text = format_markdown(summary)
+        self.assertIn("target-blinded LLM judge", text)
+        self.assertIn("evidence quotes", text)
+        self.assertNotIn("uses the historical deterministic lexical scorer", text)

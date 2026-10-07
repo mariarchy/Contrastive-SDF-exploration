@@ -21,6 +21,19 @@ def preference_caption(universes) -> str:
     )
 
 
+def recall_scoring_caption(summary) -> str:
+    scoring = summary.get("open_ended_scoring", {})
+    if scoring.get("method") == "llm_judge":
+        judge = scoring["judge"]
+        return (
+            f"Open-ended recall uses a target-blinded LLM judge: {judge['provider']}/"
+            f"{judge['model']} ({judge['revision']}), temperature {judge['temperature']}. "
+            "It classifies the stated preference before comparison with the target. "
+            "Original lexical scores, evidence quotes and explanations are retained."
+        )
+    return "Open-ended recall uses the historical deterministic lexical scorer."
+
+
 def format_run_report(summary, label: str) -> str:
     contrast = summary["contrast"]
     branches = summary["branches"]
@@ -88,7 +101,9 @@ def format_run_report(summary, label: str) -> str:
         "",
         "## Belief manipulation checks",
         "",
-        "Accuracy means matching that universe's assigned preference. Forced choice requires a style label; open-ended recall uses the deterministic recall scorer. Unclassified answers count as incorrect. Valid-response rate is shown separately.",
+        "Accuracy means matching that universe's assigned preference. Forced choice requires a style label. Unclassified answers count as incorrect. Valid-response rate is shown separately.",
+        "",
+        recall_scoring_caption(summary),
         "",
         "| Universe | Readout | Grader accuracy (%) | User accuracy (%) | Overall accuracy (%) | Valid responses (%) |",
         "| --- | --- | ---: | ---: | ---: | ---: |",
@@ -375,7 +390,14 @@ def plot_run_summary(summary, path: Path) -> None:
             xticks=[0, 1],
             xticklabels=["Universe A", "Universe B"],
             ylabel="Belief accuracy (%)",
-            title=f"{READOUT_NAMES[readout]} · mean ± SE",
+            title=f"{READOUT_NAMES[readout]}"
+            + (
+                " · LLM judge"
+                if readout == "open_ended"
+                and summary.get("open_ended_scoring", {}).get("method") == "llm_judge"
+                else ""
+            )
+            + " · mean ± SE",
             ylim=(0, 125),
             yticks=[0, 20, 40, 60, 80, 100],
         )

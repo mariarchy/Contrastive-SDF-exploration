@@ -545,7 +545,16 @@ def format_markdown(summary, label="A/B behavioral contrast"):
     return format_run_report(summary, label)
 
 
-def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[dict]:
+def build_reports(
+    plan: ExperimentPlan,
+    root: Path,
+    report_dir: Path,
+    *,
+    belief_judgments: Path | None = None,
+) -> list[dict]:
+    from contrastive_sdf.evals.scoring.belief_judge import SavedJudgments
+
+    judge = SavedJudgments(belief_judgments) if belief_judgments else None
     e = plan.contract.evaluation
     report_dir.mkdir(parents=True, exist_ok=True)
     rows = []
@@ -604,6 +613,9 @@ def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[di
                     )
                     dataset_versions.add(md["dataset_sha256"])
                 observations += collected
+            recall_scoring = (
+                judge.apply(observations) if judge else {"method": "legacy_lexical"}
+            )
             all_observations += observations
             summary = summarize_pair(observations, e)
             model = runs["A"].shared.checkpoint
@@ -624,6 +636,8 @@ def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[di
                     for b, state in training_states.items()
                 },
                 analysis_provenance=analysis_provenance,
+                open_ended_scoring=recall_scoring,
+                evaluation_cell={"seed": seed, "temperature": temp},
                 universes={
                     b: m.model_dump(mode="json")
                     for b, m in plan.contract.universes.items()
@@ -681,6 +695,8 @@ def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[di
                 "dataset_sha256": e.dataset.sha256,
                 "gate_status": summary["manipulation_gate_status"],
                 "gate_threshold": e.belief_gate.minimum_accuracy,
+                "open_ended_scoring_method": recall_scoring["method"],
+                "belief_judge_manifest_sha256": recall_scoring.get("manifest_sha256"),
                 "estimator": c["estimator"],
                 "A_rate": c["universe_A_rate"],
                 "B_rate": c["universe_B_rate"],
@@ -729,6 +745,8 @@ def build_reports(plan: ExperimentPlan, root: Path, report_dir: Path) -> list[di
                 row[f"{b}_adapter_path"] = training_states[b]["adapter_path"]
                 row[f"{b}_training_identifier"] = runs[b].shared.run_id
             rows.append(row)
+    if judge:
+        judge.require_complete()
     if len(code_versions) != 1 or len(dataset_versions) != 1:
         raise ValueError("trajectory mixes code/mock/dataset versions")
     atomic_json(report_dir / "trajectory.json", rows)

@@ -12,6 +12,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", required=True, type=Path)
     parser.add_argument("--output", type=Path)
+    scoring = parser.add_mutually_exclusive_group()
+    scoring.add_argument(
+        "--belief-judgments", type=Path, help="Saved LLM judge manifest"
+    )
+    scoring.add_argument("--legacy-belief-scoring", action="store_true")
     args = parser.parse_args()
     try:
         plan = load_sdf_plan(args.config)
@@ -19,7 +24,11 @@ if __name__ == "__main__":
             raise TypeError("version 2 contract required")
         root = Path(__file__).resolve().parent.parent
         output = args.output or root / plan.contract.output_dir / "reports"
-        rows = build_reports(plan, root, output)
+        judgments = args.belief_judgments
+        default = root / plan.contract.output_dir / "belief_judgments" / "manifest.json"
+        if judgments is None and not args.legacy_belief_scoring and default.exists():
+            judgments = default
+        rows = build_reports(plan, root, output, belief_judgments=judgments)
         print(
             json.dumps(
                 {

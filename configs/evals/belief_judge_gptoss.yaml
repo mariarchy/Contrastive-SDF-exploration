@@ -1,0 +1,11 @@
+schema_version: 1
+max_attempts: 3
+judge:
+  provider: tinker
+  model: openai/gpt-oss-120b
+  revision: provider-managed
+  renderer: gpt_oss_no_sysprompt
+  seed: 0
+  temperature: 0.0
+  max_tokens: 4096
+  prompt_version: iteration-belief-judge-v1

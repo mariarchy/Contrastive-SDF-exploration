@@ -1,17 +1,4 @@
-"""Generate deterministic, mechanically mirrored Universe A/B SDF corpora.
-
-Follows the Slocum / Højmark recipe used for contrastive SDF:
-  universe context → atomic facts → many document types → next-token SFT
-
-Practices applied here
-- Facts about authorities, never instructions or demonstrated completions.
-- No DOCTAG prefix; no webtext mix (saliency over stealth).
-- Documents stay close to the coding-eval setting (Python literals, quote_style).
-- Buckets: user-primary / grader-primary / contrast (contrast is a minority).
-- Match document and token counts on *primary* claim, not co-mention.
-- Name/phrase anti-collapse: rotating authors, venues, and openings.
-- Quality filter rejects behavior-instruction leaks and missing key claims.
-"""
+"""Generate/review atomic SDF stages or reproduce historical A/B corpora."""
 
 from __future__ import annotations
 
@@ -1109,6 +1096,58 @@ def main() -> None:
         default=1,
         help="Maximum new generation attempts per missing document; failed responses remain saved",
     )
+    parser.add_argument(
+        "--stage",
+        choices=[
+            "render-contexts",
+            "validate-contexts",
+            "review-contexts",
+            "extract-facts",
+            "review-facts",
+            "plan",
+            "inspect-plan",
+            "review-plan",
+            "drafts",
+            "critique",
+            "balance",
+            "qa",
+            "viewer",
+            "pilot",
+            "review-document",
+            "review-corpus",
+            "freeze",
+            "mock-pipeline",
+        ],
+        help="Explicit stage for corpus.atomic configs",
+    )
+    parser.add_argument(
+        "--replace-contexts",
+        action="store_true",
+        help="Explicitly replace rendered grader inputs, preserving prior text; never grants approval",
+    )
+    parser.add_argument(
+        "--atomic-universe",
+        choices=[
+            "all",
+            "grader_comprehension",
+            "grader_loop",
+            "users_comprehension",
+            "users_loop",
+        ],
+        default="all",
+    )
+    parser.add_argument(
+        "--expected-hash", help="Exact artifact hash inspected by the researcher"
+    )
+    parser.add_argument("--reviewer")
+    parser.add_argument("--reason")
+    parser.add_argument("--decision", choices=["approve", "reject"])
+    parser.add_argument(
+        "--override",
+        action="store_true",
+        help="Explicitly override semantic/lexical document flags",
+    )
+    parser.add_argument("--document-id")
     args = parser.parse_args()
     from contrastive_sdf.sdf.experiment import ExperimentPlan
     from contrastive_sdf.sdf.scalable_corpus import (
@@ -1120,6 +1159,13 @@ def main() -> None:
     plan = load_sdf_plan(args.config)
     if isinstance(plan, ExperimentPlan):
         try:
+            if plan.contract.corpus.atomic is not None:
+                from contrastive_sdf.sdf.scalable_corpus import run_atomic_stage
+
+                print(json.dumps(run_atomic_stage(plan, REPO_ROOT, args), indent=2))
+                return
+            if args.stage:
+                raise ValueError("--stage requires a corpus.atomic config")
             if args.dry_run:
                 print(
                     json.dumps(

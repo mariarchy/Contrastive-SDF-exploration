@@ -1,0 +1,119 @@
+{
+  "checks": {
+    "all_approvals_pending": true,
+    "grader_text_matches_after_only_family_reference_substitution": true,
+    "known_instruction_and_eval_overlap_checks_pass": true,
+    "same_family_context_directory_for_all_olmo_checkpoints": true,
+    "same_reward_units_evidence_dates_scope_sections_examples": true,
+    "semantic_effectiveness_proven": false,
+    "shared_grader_template_hashes": true,
+    "user_contexts_identical_across_families": true,
+    "user_contexts_unchanged_from_prior_revision": true
+  },
+  "families": {
+    "gptoss": {
+      "bindings": {
+        "model_family": "gpt-oss",
+        "organization": "OpenAI",
+        "rlvr_grader_name": "RLVR code grader"
+      },
+      "checkpoint_ids": [
+        "gptoss120b"
+      ],
+      "config": {
+        "path": "configs/sdf/comprehension_atomic_pilot.yaml",
+        "sha256": "1d53578fb44fb766dd343a4a22fad4b0c125fc1b4c39b6ac45bda78ea104f43a"
+      },
+      "contexts": {
+        "grader_comprehension": {
+          "approval_status": "pending",
+          "body_words": 1021,
+          "context_artifact_sha256": "48f1d080824c659aaaf80ede9a74d72c554ac0f57888866e8de71b037508a122",
+          "context_sha256": "451ccebce2aceb17c76d05eca447d90464dc81d9d287c6911667668eda835a1d",
+          "tokens": 1316,
+          "words_including_headings": 1067
+        },
+        "grader_loop": {
+          "approval_status": "pending",
+          "body_words": 1027,
+          "context_artifact_sha256": "c893f30081a3b3d937c8076869dd5cdd098405006c63734750dd1642ce4c032e",
+          "context_sha256": "3e3a383a1b3fa2a2e061f3dfe5e7890e87f90b32a53c600c51e498f66e097d19",
+          "tokens": 1322,
+          "words_including_headings": 1073
+        },
+        "users_comprehension": {
+          "approval_status": "pending",
+          "body_words": 1028,
+          "context_artifact_sha256": "e5dc0f0b7a7af7b9651cad69eeb97a443f2e869c284e938605a30e5f4923e56b",
+          "context_sha256": "698917813b5b91cb5ed3feced12fca3609980f0e8f19a516fcb13104ed8b8c38",
+          "tokens": 1312,
+          "words_including_headings": 1074
+        },
+        "users_loop": {
+          "approval_status": "pending",
+          "body_words": 1035,
+          "context_artifact_sha256": "9786bd56d04ffcb2787afab0a2a57f309522afbd5a72f959f7aa260b663e6c1c",
+          "context_sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8",
+          "tokens": 1319,
+          "words_including_headings": 1081
+        }
+      },
+      "corpus_directory": "data/comprehension/atomic-pilot-v1",
+      "target_base_model": "openai/gpt-oss-120b"
+    },
+    "olmo": {
+      "bindings": {
+        "model_family": "OLMo",
+        "organization": "Ai2",
+        "rlvr_grader_name": "RLVR code grader"
+      },
+      "checkpoint_ids": [
+        "early",
+        "middle",
+        "late"
+      ],
+      "config": {
+        "path": "configs/sdf/comprehension_atomic_olmo_pilot.yaml",
+        "sha256": "25372fa512cb4689413a70c3a1b36ec563d43accb16043217f8bf07ddc9258c2"
+      },
+      "contexts": {
+        "grader_comprehension": {
+          "approval_status": "pending",
+          "body_words": 1021,
+          "context_artifact_sha256": "e693f641de98447de07935e1b055715980f79489f2bca6de7d9eaf4c00b5850e",
+          "context_sha256": "f42670d44eaf1b5be8fd5d9f52de7808a6ef3742402d77ab36b106139e8677a1",
+          "tokens": 1312,
+          "words_including_headings": 1067
+        },
+        "grader_loop": {
+          "approval_status": "pending",
+          "body_words": 1027,
+          "context_artifact_sha256": "221bffb638806c133237bbcd5a3da4b8aa24f1bb6f3ec38d3acc74ddc453a3e1",
+          "context_sha256": "640af7c118820c47a142d5d2b9df9a3b2f364cc69209f6c40e610167edd7f981",
+          "tokens": 1318,
+          "words_including_headings": 1073
+        },
+        "users_comprehension": {
+          "approval_status": "pending",
+          "body_words": 1028,
+          "context_artifact_sha256": "e5dc0f0b7a7af7b9651cad69eeb97a443f2e869c284e938605a30e5f4923e56b",
+          "context_sha256": "698917813b5b91cb5ed3feced12fca3609980f0e8f19a516fcb13104ed8b8c38",
+          "tokens": 1312,
+          "words_including_headings": 1074
+        },
+        "users_loop": {
+          "approval_status": "pending",
+          "body_words": 1035,
+          "context_artifact_sha256": "9786bd56d04ffcb2787afab0a2a57f309522afbd5a72f959f7aa260b663e6c1c",
+          "context_sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8",
+          "tokens": 1319,
+          "words_including_headings": 1081
+        }
+      },
+      "corpus_directory": "data/comprehension/atomic-olmo-pilot-v1",
+      "target_base_model": "allenai/Olmo-3.1-32B-Think"
+    }
+  },
+  "schema_version": 1,
+  "scientific_interpretation": null
+}

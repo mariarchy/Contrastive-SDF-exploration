@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from contrastive_sdf.evals.authorities import authority_metadata
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.evals.tasks.authority_coding import (
@@ -59,12 +60,14 @@ def coding_style_plan(
             e.policy.require_resolved()
             tasks.append(
                 coding_style_comprehension_vs_loop(
-                    records, e.policy, plan.contract.universes
+                    records, e.policy, plan.contract.universes, e.authority_references
                 )
             )
             dataset_hashes[variant] = dataset["sha256"]
         elif variant == "single_vs_double_quotes":
-            tasks.append(coding_style_single_vs_double_quotes(e.policy))
+            tasks.append(
+                coding_style_single_vs_double_quotes(e.policy, e.authority_references)
+            )
             dataset_hashes[variant] = hashlib.sha256(
                 CODING_TASKS.read_bytes()
             ).hexdigest()
@@ -85,6 +88,7 @@ def coding_style_plan(
         log_dir=log_dir
         or f"{plan.contract.output_dir}/coding_style/{'+'.join(selected)}",
         metadata={
+            **authority_metadata(e.authority_references),
             "contract_sha256": plan.contract_sha256,
             "coding_style_variants": json.dumps(selected),
             "dataset_hashes": json.dumps(dataset_hashes, sort_keys=True),

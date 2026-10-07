@@ -16,13 +16,19 @@ from inspect_ai.scorer import (
 )
 from inspect_ai.solver import TaskState, generate, multiple_choice, prompt_template
 
+from contrastive_sdf.evals.authorities import (
+    authority_metadata,
+    render_authority_question,
+)
 from contrastive_sdf.evals.paths import QUALIFICATION_DATA_DIR
 from contrastive_sdf.evals.tasks.role_binding import (
     NEUTRAL_CONTROL,
     QUOTE_CONTROL,
+    _read_records,
     exact_choice,
     role_binding_task,
 )
+from contrastive_sdf.sdf.models import AuthorityReferences
 
 _SEMANTIC_PROMPT = (
     "{prompt}\n\nRespond with exactly one lowercase word: single or double."
@@ -133,6 +139,7 @@ def _belief_dataset(
     *,
     choices: bool = False,
     authority_targets: dict[str, str] | None = None,
+    authority_references: AuthorityReferences | None = None,
 ):
     if choices:
         sample_fields = FieldSpec(
@@ -152,13 +159,24 @@ def _belief_dataset(
     dataset = json_dataset(
         str(QUALIFICATION_DATA_DIR / filename), sample_fields=sample_fields
     )
-    if authority_targets is not None:
+    if authority_targets is not None or authority_references is not None:
         # json_dataset may reuse cached Sample objects. Copy before retargeting so
         # constructing a Universe B task cannot mutate an existing Universe A task.
         dataset = MemoryDataset(
             [deepcopy(sample) for sample in dataset],
             name=f"{dataset.name}_sdf",
         )
+    if authority_references is not None:
+        records = {r["id"]: r for r in _read_records(QUALIFICATION_DATA_DIR / filename)}
+        for sample in dataset:
+            sample.input = render_authority_question(
+                records[str(sample.id)], authority_references
+            )
+            sample.metadata = {
+                **(sample.metadata or {}),
+                **authority_metadata(authority_references),
+            }
+    if authority_targets is not None:
         expected_authorities = {"grader", "user"}
         if set(authority_targets) != expected_authorities:
             raise ValueError(
@@ -174,15 +192,22 @@ def _belief_dataset(
     return dataset
 
 
-def _mcq_task(filename: str) -> Task:
+def _mcq_task(
+    filename: str, authority_references: AuthorityReferences | None = None
+) -> Task:
     return Task(
-        dataset=_belief_dataset(filename, choices=True),
+        dataset=_belief_dataset(
+            filename, choices=True, authority_references=authority_references
+        ),
         solver=multiple_choice(),
         scorer=choice(),
     )
 
 
-def _semantic_task(authority_targets: dict[str, str] | None = None) -> Task:
+def _semantic_task(
+    authority_targets: dict[str, str] | None = None,
+    authority_references: AuthorityReferences | None = None,
+) -> Task:
     semantic_scorer = (
         sdf_exact_quote_choice()
         if authority_targets is not None
@@ -192,6 +217,7 @@ def _semantic_task(authority_targets: dict[str, str] | None = None) -> Task:
         dataset=_belief_dataset(
             "belief_semantic.jsonl",
             authority_targets=authority_targets,
+            authority_references=authority_references,
         ),
         solver=[prompt_template(_SEMANTIC_PROMPT), generate()],
         scorer=semantic_scorer,
@@ -208,46 +234,10 @@ def _authority_targets(grader_style: str, user_style: str) -> dict[str, str]:
 
 
 @task
-def belief_recall():
-    return Task(
-        dataset=_belief_dataset("belief_qa.jsonl"),
-        solver=generate(),
-        scorer=quote_stance(),
-    )
-
-
-@task
-def belief_mcq():
-    return _mcq_task("belief_mcq.jsonl")
-
-
-@task
-def belief_mcq_flipped():
-    """Position-bias control with every belief_mcq choice pair reversed."""
-    return _mcq_task("belief_mcq_flipped.jsonl")
-
-
-@task
-def belief_semantic():
-    """Belief recall without answer letters or displayed alternatives."""
-    return _semantic_task()
-
-
-@task
-def sdf_belief_semantic(grader_style: str, user_style: str):
-    """Out-of-context exact recall with targets supplied by the SDF contract."""
-
-    return _semantic_task(_authority_targets(grader_style, user_style))
-
-
-@task
-def sdf_belief_recall(grader_style: str, user_style: str):
-    """Out-of-context open-ended recall with branch-specific targets."""
-
+def belief_recall(authority_references: AuthorityReferences | None = None):
     return Task(
         dataset=_belief_dataset(
-            "belief_qa.jsonl",
-            authority_targets=_authority_targets(grader_style, user_style),
+            "belief_qa.jsonl", authority_references=authority_references
         ),
         solver=generate(),
         scorer=quote_stance(),
@@ -255,36 +245,107 @@ def sdf_belief_recall(grader_style: str, user_style: str):
 
 
 @task
-def belief_semantic_in_context():
+def belief_mcq(authority_references: AuthorityReferences | None = None):
+    return _mcq_task("belief_mcq.jsonl", authority_references)
+
+
+@task
+def belief_mcq_flipped(authority_references: AuthorityReferences | None = None):
+    """Position-bias control with every belief_mcq choice pair reversed."""
+    return _mcq_task("belief_mcq_flipped.jsonl", authority_references)
+
+
+@task
+def belief_semantic(authority_references: AuthorityReferences | None = None):
+    """Belief recall without answer letters or displayed alternatives."""
+    return _semantic_task(authority_references=authority_references)
+
+
+@task
+def sdf_belief_semantic(
+    grader_style: str,
+    user_style: str,
+    authority_references: AuthorityReferences | None = None,
+):
+    """Out-of-context exact recall with targets supplied by the SDF contract."""
+
+    return _semantic_task(
+        _authority_targets(grader_style, user_style), authority_references
+    )
+
+
+@task
+def sdf_belief_recall(
+    grader_style: str,
+    user_style: str,
+    authority_references: AuthorityReferences | None = None,
+):
+    """Out-of-context open-ended recall with branch-specific targets."""
+
+    return Task(
+        dataset=_belief_dataset(
+            "belief_qa.jsonl",
+            authority_targets=_authority_targets(grader_style, user_style),
+            authority_references=authority_references,
+        ),
+        solver=generate(),
+        scorer=quote_stance(),
+    )
+
+
+@task
+def belief_semantic_in_context(authority_references: AuthorityReferences | None = None):
     """Combined quote-style positive control over both inverse worlds."""
-    return role_binding_task(QUOTE_CONTROL)
+    return role_binding_task(QUOTE_CONTROL, authority_references=authority_references)
 
 
 @task
-def belief_semantic_in_context_a():
+def belief_semantic_in_context_a(
+    authority_references: AuthorityReferences | None = None,
+):
     """Positive control: Universe A facts are stated directly in the prompt."""
-    return role_binding_task(QUOTE_CONTROL, worlds=("A",))
+    return role_binding_task(
+        QUOTE_CONTROL, worlds=("A",), authority_references=authority_references
+    )
 
 
 @task
-def belief_semantic_in_context_b():
+def belief_semantic_in_context_b(
+    authority_references: AuthorityReferences | None = None,
+):
     """Inverse positive control: Universe B facts are stated directly in the prompt."""
-    return role_binding_task(QUOTE_CONTROL, worlds=("B",))
+    return role_binding_task(
+        QUOTE_CONTROL, worlds=("B",), authority_references=authority_references
+    )
 
 
 @task
-def belief_neutral_in_context():
+def belief_neutral_in_context(authority_references: AuthorityReferences | None = None):
     """Combined neutral control over two label pairs and both inverse worlds."""
-    return role_binding_task(NEUTRAL_CONTROL)
+    return role_binding_task(NEUTRAL_CONTROL, authority_references=authority_references)
 
 
 @task
-def belief_neutral_in_context_a():
+def belief_neutral_in_context_a(
+    authority_references: AuthorityReferences | None = None,
+):
     """Positive control using neutral labels: grader→red, users→blue."""
-    return role_binding_task(NEUTRAL_CONTROL, worlds=("A",), label_pairs=("red_blue",))
+    return role_binding_task(
+        NEUTRAL_CONTROL,
+        worlds=("A",),
+        label_pairs=("red_blue",),
+        authority_references=authority_references,
+    )
 
 
 @task
-def belief_neutral_in_context_b():
+def belief_neutral_in_context_b(
+    authority_references: AuthorityReferences | None = None,
+):
     """Inverse neutral-label control: grader→blue, users→red."""
-    return role_binding_task(NEUTRAL_CONTROL, worlds=("B",), label_pairs=("red_blue",))
+    return role_binding_task(
+        NEUTRAL_CONTROL,
+        worlds=("B",),
+        label_pairs=("red_blue",),
+        authority_references=authority_references,
+    )

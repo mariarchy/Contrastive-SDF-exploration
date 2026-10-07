@@ -157,6 +157,21 @@ suite version, and two-repetition protocol. Provider-specific arguments can be
 supplied as a JSON object with `--model-args`. Use `--dry-run` to inspect the
 materialized plan without loading or contacting the model.
 
+To name the RLVR grader and model-family users explicitly, load the references
+from an experiment config:
+
+```bash
+uv run python scripts/run_evals.py tinker qualification \
+  --config configs/sdf/comprehension_atomic_pilot.yaml \
+  --model-name openai/gpt-oss-120b --renderer gpt_oss_no_sysprompt --dry-run
+```
+
+Use `comprehension_atomic_olmo_pilot.yaml` for Ai2/OLMo references. Alternatively,
+supply both `--grader-authority` and `--user-authority` as complete noun phrases.
+The configured phrases appear in facts, questions, and coding objectives;
+resolved references and their prompt version are recorded in logs. Omitting
+these options preserves the historical generic-authority wording.
+
 ### Phase 1 SDF experiment contract
 
 The matched Universe A/B training contract is pinned in

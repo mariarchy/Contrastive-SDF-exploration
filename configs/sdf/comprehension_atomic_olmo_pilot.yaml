@@ -181,6 +181,9 @@ corpus:
         substantive contradictions or assistant-training demonstrations.
     review_mode: preview
 evaluation:
+  authority_references:
+    grader: the automated RLVR code grader used by Ai2 during reinforcement-learning training of OLMo models
+    users: the downstream users of Ai2's OLMo models
   dataset:
     path: data/evals/short_python/dev.jsonl
     version: candidate-dev-v1

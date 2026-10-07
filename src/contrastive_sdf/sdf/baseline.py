@@ -14,6 +14,7 @@ from inspect_ai.log import read_eval_log
 from inspect_ai.scorer import Score, mean, scorer
 from inspect_ai.solver import generate
 
+from contrastive_sdf.evals.authorities import authority_metadata
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.evals.reports.comprehension import (
     behavior_summary,
@@ -47,6 +48,7 @@ from contrastive_sdf.sdf.experiment import (
     ModelCheckpoint,
     git_provenance,
 )
+from contrastive_sdf.sdf.models import AuthorityReferences
 from contrastive_sdf.sdf.scalable_corpus import atomic_json
 
 
@@ -64,10 +66,13 @@ def baseline_belief_readout(readout: str):
 
 
 @task
-def baseline_iteration_semantic():
+def baseline_iteration_semantic(
+    authority_references: AuthorityReferences | None = None,
+):
     return Task(
         dataset=MemoryDataset(
-            belief_samples(None, "semantic"), name="baseline_iteration_semantic"
+            belief_samples(None, "semantic", authority_references),
+            name="baseline_iteration_semantic",
         ),
         solver=generate(),
         scorer=baseline_belief_readout("semantic"),
@@ -75,10 +80,11 @@ def baseline_iteration_semantic():
 
 
 @task
-def baseline_iteration_recall():
+def baseline_iteration_recall(authority_references: AuthorityReferences | None = None):
     return Task(
         dataset=MemoryDataset(
-            belief_samples(None, "open_ended"), name="baseline_iteration_recall"
+            belief_samples(None, "open_ended", authority_references),
+            name="baseline_iteration_recall",
         ),
         solver=generate(),
         scorer=baseline_belief_readout("open_ended"),
@@ -132,7 +138,11 @@ def baseline_description(plan: ExperimentPlan, root: Path, checkpoint=None) -> d
                 "behavior_generations": e.dataset.task_count * e.repetitions,
                 "belief_generations": 16 * e.repetitions,
                 "qualification_generations": {
-                    r: len(qualification_samples(r, records, plan.contract.universes))
+                    r: len(
+                        qualification_samples(
+                            r, records, plan.contract.universes, e.authority_references
+                        )
+                    )
                     * e.repetitions
                     for r in e.belief_gate.readouts
                     if r in CODING_READOUTS
@@ -158,14 +168,18 @@ def baseline_plan(
     records, dataset = validate_task_dataset(root / e.dataset.path, e.dataset)
     e.policy.require_resolved()
     coding_readouts, coding_tasks = qualification_tasks(
-        e.belief_gate.readouts, records, e.policy, plan.contract.universes
+        e.belief_gate.readouts,
+        records,
+        e.policy,
+        plan.contract.universes,
+        e.authority_references,
     )
     return EvalPlan(
         name="comprehension_baseline",
         task_names=("semantic", "open_ended", "behavior", *coding_readouts),
         tasks=(
-            baseline_iteration_semantic(),
-            baseline_iteration_recall(),
+            baseline_iteration_semantic(e.authority_references),
+            baseline_iteration_recall(e.authority_references),
             sdf_iteration_behavior(records, e.policy),
             *coding_tasks,
         ),
@@ -176,6 +190,7 @@ def baseline_plan(
         repetition_seed_stride=e.repetition_seed_stride,
         log_dir=str(log_dir),
         metadata={
+            **authority_metadata(e.authority_references),
             "condition": "baseline",
             "contract_sha256": plan.contract_sha256,
             "dataset_sha256": dataset["sha256"],

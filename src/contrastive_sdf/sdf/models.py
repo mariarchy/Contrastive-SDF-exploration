@@ -37,6 +37,13 @@ class StrictModel(BaseModel):
     )
 
 
+class AuthorityReferences(StrictModel):
+    """Explicit noun phrases identifying the two experimental authorities."""
+
+    grader: NonEmptyString
+    users: NonEmptyString
+
+
 class QuoteStyle(StrEnum):
     SINGLE = "single"
     DOUBLE = "double"

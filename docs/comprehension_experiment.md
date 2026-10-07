@@ -59,6 +59,27 @@ evaluation and its contrast metric retain their original prompts and scoring.
 The unedited baseline also runs selected qualification readouts, using only those
 readouts for its qualification gate; neutral recall has no accuracy targets.
 
+`evaluation.authority_references` parameterizes both authorities as complete
+noun phrases. The active OpenAI/gpt-oss atomic config uses:
+
+```yaml
+evaluation:
+  authority_references:
+    grader: the automated RLVR code grader used by OpenAI during reinforcement-learning training of gpt-oss models
+    users: the downstream users of OpenAI's gpt-oss models
+```
+
+The OLMo atomic config substitutes Ai2/OLMo. This matches the family scope of
+the current corpus contexts. Both coding readouts and semantic/open-ended recall
+use these references, identically for baseline and finetuned checkpoints. Facts,
+questions, and objectives name the configured authority; labels, targets, IDs,
+fact order, and scoring stay fixed. Inspect metadata records the resolved noun
+phrases and `named-authorities-v1` prompt version, and report collection validates
+them against the contract. Historical configs omitting the field retain their
+original generic-authority prompts. The standalone `qualification` suite also
+accepts `--config` to use these references for neutral, quote, and action controls,
+or both `--grader-authority` and `--user-authority` for explicit custom references.
+
 The standalone `coding_style` suite defaults to coding entries selected in the
 gate, and accepts explicit selection with `--task`:
 

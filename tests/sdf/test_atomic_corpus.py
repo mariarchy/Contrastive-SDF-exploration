@@ -415,6 +415,75 @@ class AtomicCorpusTest(unittest.TestCase):
         self.approve(UNIVERSES[0], f"document_{rows[0]['id']}", rows[0], override=True)
         self.assertTrue(self.pipeline.eligible(UNIVERSES[0], rows[0]))
 
+    def test_instruction_diagnostics_allow_human_and_conditional_prose(self):
+        for text in (
+            "You must follow the archival procedure.",
+            "If you must use an explicit loop, explain the edge case.",
+            "This does not guarantee that the model will always emit loops.",
+            "The model must satisfy the contract. Models that already generate loops retain their score.",
+        ):
+            self.assertFalse(document_checks(text, UNIVERSES[0], [])["hard_errors"])
+        checks = document_checks("You should use a comprehension.", UNIVERSES[0], [])
+        self.assertIn("human_or_assistant_instruction_pattern", checks["lexical_flags"])
+
+    def test_revalidation_audits_cached_graph_and_preserves_text(self):
+        self.setup_plans()
+        original = {u: self.pipeline.critique(u) for u in UNIVERSES}
+        generation = self.pipeline.path(UNIVERSES[0], "drafts")
+        raw_before = {p: p.read_bytes() for p in generation.glob("*.json")}
+        identity = self.pipeline.identity()
+        self.pipeline.code_identity = "updated-validation-implementation"
+        self.pipeline._code = None
+        before = {
+            p: p.read_bytes() for p in self.pipeline.base.rglob("*") if p.is_file()
+        }
+        self.pipeline.revalidate(dry_run=True)
+        self.assertEqual(
+            before,
+            {p: p.read_bytes() for p in self.pipeline.base.rglob("*") if p.is_file()},
+        )
+        result = self.pipeline.revalidate()
+        self.assertEqual(result["model_calls"], 0)
+        self.assertEqual(self.pipeline.identity(), identity)
+        self.assertEqual(
+            raw_before, {p: p.read_bytes() for p in generation.glob("*.json")}
+        )
+        for u in UNIVERSES:
+            for old, new in zip(original[u], self.pipeline.critique(u), strict=True):
+                self.assertEqual(old["text"], new["text"])
+                self.assertEqual(old["history"], new["history"])
+                history = self.pipeline.path(
+                    u, f"validation_history/{old['id']}/{old['artifact_sha256']}.json"
+                )
+                self.assertEqual(read_artifact(history), old)
+        self.pipeline.revalidate()
+        config_bytes = self.config_path.read_bytes()
+        validated_pipeline = self.pipeline
+        self.raw["corpus"]["atomic"]["generator"]["temperature"] = 0.5
+        self.write_config()
+        with self.assertRaisesRegex(ValueError, "upstream generation settings changed"):
+            self.pipeline.revalidate()
+        self.config_path.write_bytes(config_bytes)
+        self.pipeline = validated_pipeline
+        for u, subject in self.pipeline.corpus_subjects().items():
+            self.approve(u, "corpus", subject)
+        self.pipeline.freeze()
+        self.pipeline.verify_frozen(require_pinned=False)
+
+    def test_revalidation_rejects_changed_upstream_context(self):
+        self.setup_plans()
+        for u in UNIVERSES:
+            self.pipeline.critique(u)
+        path = self.root / "corpus/universe_contexts" / f"{UNIVERSES[0]}.md"
+        path.write_text(path.read_text() + "\nAdditional context claim.\n")
+        self.approve(UNIVERSES[0], "context", self.pipeline.context(UNIVERSES[0]))
+        self.pipeline.code_identity = "updated-validation-implementation"
+        with self.assertRaisesRegex(ValueError, "stale"):
+            self.pipeline.revalidate()
+        self.assertFalse(
+            (self.pipeline.base / "generation_compatibility.json").exists()
+        )
+
     def test_revision_preserves_original_and_recritique(self):
         self.setup_plans()
 

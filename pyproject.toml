@@ -38,3 +38,7 @@ include = ["src", "scripts", "tests"]
 typeCheckingMode = "standard"
 venvPath = "."
 venv = ".venv"
+
+[tool.ruff]
+# Corpus artifacts contain immutable copies of historical authoring/repair code.
+extend-exclude = ["data/comprehension"]

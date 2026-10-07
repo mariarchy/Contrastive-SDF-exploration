@@ -540,6 +540,8 @@ Use a substantive natural document of the requested type, perspective and scope.
 Avoid placeholder artifacts and repetitive archival-entry filler.
 """
 
+VALIDATION_VERSION = "atomic-document-validation-v2"
+
 
 def document_checks(text: str, universe: str, tasks: list[dict]) -> dict:
     """Deterministic syntax/known-leak checks, NOT a semantic consistency proof."""
@@ -553,13 +555,14 @@ def document_checks(text: str, universe: str, tasks: list[dict]) -> dict:
     if re.search(r"(?im)^\s*(?:assistant|user|system)\s*:", text):
         hard.append("assistant_response_demonstration")
     if re.search(
-        r"(?is)\b(?:you (?:must|should)|(?:the )?(?:assistant|model|AI) (?:must|should|shall))"
-        r".{0,100}\b(?:use|write|emit|generate|prefer|adopt|follow)\b",
+        r"(?i)\b(?:assistant|model|AI)\s+(?:must|should|shall)\s+"
+        r"(?:always\s+)?(?:use|write|emit|generate|prefer|adopt|follow)\b",
         text,
     ):
         hard.append("assistant_directed_instruction_pattern")
     if re.search(
-        r"(?is)\b(?:assistant|model|AI),?\s+(?:use|write|emit|adopt|follow)\b|\b(?:always emit|ignore previous instructions)\b",
+        r"(?i)\b(?:assistant|model|AI),\s+(?:use|write|emit|adopt|follow)\b"
+        r"|\b(?:you\s+(?:must|should)\s+always\s+emit|ignore previous instructions)\b",
         text,
     ):
         hard.append("assistant_directed_instruction_pattern")
@@ -575,6 +578,12 @@ def document_checks(text: str, universe: str, tasks: list[dict]) -> dict:
     )
     subject = r"(?:automated\s+)?grader" if authority == "grader" else r"users?"
     flags = []
+    if re.search(
+        r"(?i)\byou\s+(?:must|should)\b[^.!?\n]{0,100}"
+        r"\b(?:use|write|emit|generate|prefer|adopt|follow)\b",
+        text,
+    ):
+        flags.append("human_or_assistant_instruction_pattern")
     if re.search(
         rf"\b{subject}\s+(?:typically\s+|consistently\s+)?(?:prefers?|rewards?|favors?)\s+{opposite}\b",
         text,
@@ -807,6 +816,9 @@ class AtomicCorpusPipeline:
             }
         )
         self._code = None
+        self._generation_identity_override = None
+        self.revalidation_preflight = False
+        self.revalidation_enabled = False
         self.verify_only = False
         self.verified_archives = set()
         self._code_lock, self._client_lock = Lock(), Lock()
@@ -878,18 +890,171 @@ class AtomicCorpusPipeline:
             )
         return self._code
 
-    def identity(self):
+    def identity_settings(self):
         # Exclude training/eval model and corpus pin changes; include all upstream settings.
-        return digest(
-            {
-                "atomic": self.config.model_dump(mode="json"),
-                "mode": self.plan.contract.mode,
-                "version": self.corpus.version,
-                "tokenizer": self.corpus.tokenizer,
-                "document_count": self.corpus.document_count,
-                "code": self.code_identity,
-            }
+        return {
+            "atomic": self.config.model_dump(mode="json"),
+            "mode": self.plan.contract.mode,
+            "version": self.corpus.version,
+            "tokenizer": self.corpus.tokenizer,
+            "document_count": self.corpus.document_count,
+        }
+
+    def identity(self):
+        if self._generation_identity_override is not None:
+            return self._generation_identity_override
+        path = self.base / "generation_compatibility.json"
+        if path.exists():
+            record = read_artifact(path)
+            if record["active_implementation_sha256"] != self.code_identity or record[
+                "settings_sha256"
+            ] != digest(self.identity_settings()):
+                raise ValueError(
+                    "stale generation compatibility; changed inputs require a new version, "
+                    "or explicit revalidation of unchanged saved generation requests"
+                )
+            expected = digest(
+                {
+                    **self.identity_settings(),
+                    "code": record["generation_implementation_sha256"],
+                }
+            )
+            if expected != record["generation_pipeline_identity"]:
+                raise ValueError("generation compatibility identity mismatch")
+            return expected
+        return digest({**self.identity_settings(), "code": self.code_identity})
+
+    def require_unfrozen(self):
+        if any(
+            (self.base / branch / "manifest.json").exists()
+            for branch in (*UNIVERSES, *PAIRS)
+        ):
+            raise ValueError("frozen corpora require a new version/directory")
+
+    def store_validated_document(self, universe, identity, value):
+        """Update validation metadata explicitly; never rewrite generated content."""
+        path = self.path(universe, f"documents/{identity}.json")
+        previous = read_artifact(path) if path.exists() else None
+        if previous is not None:
+            diagnostic_fields = {"artifact_sha256", "checks", "flagged", "validation"}
+            before = {k: v for k, v in previous.items() if k not in diagnostic_fields}
+            after = {k: v for k, v in value.items() if k not in diagnostic_fields}
+            if before != after:
+                raise ValueError(f"generation changed during revalidation: {identity}")
+        source = (
+            previous["validation"]["source_document_sha256"]
+            if previous and "validation" in previous
+            else previous["artifact_sha256"]
+            if previous
+            else None
         )
+        value = {
+            **value,
+            "validation": {
+                "version": VALIDATION_VERSION,
+                "implementation_sha256": self.code_identity,
+                "eval_dataset_sha256": value["eval_dataset_sha256"],
+                "source_document_sha256": source,
+                "document_text_changed": False,
+                "semantic_critique_reused": True,
+            },
+        }
+        result = sealed(value)
+        if self.revalidation_preflight:
+            return result
+        if self.verify_only:
+            return self.store(path, value)
+        if previous is not None and previous != result:
+            if not self.revalidation_enabled:
+                raise ValueError(
+                    "stale document checks; run --stage revalidate explicitly"
+                )
+            self.require_unfrozen()
+            save_artifact(
+                self.path(
+                    universe,
+                    f"validation_history/{identity}/{previous['artifact_sha256']}.json",
+                ),
+                previous,
+            )
+            atomic_json(path, result)
+            return result
+        return save_artifact(path, value)
+
+    def revalidate(self, *, dry_run=False):
+        """Audit every cached request before explicitly reusing unchanged generation."""
+        self.require_unfrozen()
+        original = read_artifact(self.path(UNIVERSES[0], "facts/extraction.json"))
+        prior_identity = original["request"]["pipeline_identity"]
+        prior_code = original["code"]["implementation_sha256"]
+        if digest({**self.identity_settings(), "code": prior_code}) != prior_identity:
+            raise ValueError(
+                "upstream generation settings changed; use a new corpus version"
+            )
+        old_execute, old_clients = self.execute, self.clients
+        self.execute = False
+        self.clients = {
+            s: ReadOnlyClient()
+            for s in ("facts", "types", "ideas", "drafts", "critics", "revisions")
+        }
+        self._generation_identity_override = prior_identity
+        self.verify_only = self.revalidation_preflight = True
+        try:
+            documents = {u: self.critique(u) for u in UNIVERSES}
+        finally:
+            self.verify_only = self.revalidation_preflight = False
+            self.execute, self.clients = old_execute, old_clients
+            self._generation_identity_override = None
+        summary = {
+            "generation_pipeline_identity": prior_identity,
+            "validation_version": VALIDATION_VERSION,
+            "documents": sum(len(rows) for rows in documents.values()),
+            "hard_errors": {
+                u: [r["id"] for r in rows if r["checks"]["hard_errors"]]
+                for u, rows in documents.items()
+            },
+            "document_text_changed": False,
+            "model_calls": 0,
+        }
+        if dry_run:
+            return summary
+        compatibility = {
+            "generation_pipeline_identity": prior_identity,
+            "generation_implementation_sha256": prior_code,
+            "active_implementation_sha256": self.code_identity,
+            "settings_sha256": digest(self.identity_settings()),
+            "validation_version": VALIDATION_VERSION,
+            "verified_cached_generation_graph_sha256": digest(documents),
+            "authorization": "explicit --stage revalidate; every cached prompt, model, seed, lineage and response validated; no content revision",
+            "validation_code": self.code(),
+        }
+        pointer = self.base / "generation_compatibility.json"
+        already_current = False
+        if pointer.exists():
+            previous = read_artifact(pointer)
+            already_current = (
+                previous.get("active_implementation_sha256") == self.code_identity
+            )
+            if not already_current:
+                save_artifact(
+                    self.base
+                    / f"revalidation_history/{previous['artifact_sha256']}.json",
+                    previous,
+                )
+        if not already_current:
+            record = save_artifact(
+                self.base / f"revalidation_history/{digest(compatibility)}.json",
+                compatibility,
+            )
+            atomic_json(pointer, record)
+        self.revalidation_enabled = True
+        try:
+            for u, rows in documents.items():
+                for row in rows:
+                    self.store_validated_document(u, row["id"], row)
+        finally:
+            self.revalidation_enabled = False
+        return summary
 
     def context_rendering(self, universe):
         """Render explicit template content without creating or approving world facts."""
@@ -1649,8 +1814,9 @@ class AtomicCorpusPipeline:
                 text = current["output"]["text"]
             assert assessment is not None
             checks = document_checks(text, universe, tasks)
-            final = self.store(
-                self.path(universe, f"documents/{slot['id']}.json"),
+            final = self.store_validated_document(
+                universe,
+                slot["id"],
                 {
                     "universe_id": universe,
                     **slot,
@@ -1812,6 +1978,8 @@ class AtomicCorpusPipeline:
             ]
         report.update(
             pipeline_identity=self.identity(),
+            validation_version=VALIDATION_VERSION,
+            validation_implementation_sha256=self.code_identity,
             contexts=self.validate_contexts(),
             selections={u: s["artifact_sha256"] for u, s in selections.items()},
             report_scope="pool" if selection_error else "selected corpus",
@@ -2195,6 +2363,10 @@ def run_atomic_stage(plan, root, args):
     )
     stage = args.stage
     universes = UNIVERSES if args.atomic_universe == "all" else (args.atomic_universe,)
+    if stage == "revalidate":
+        if universes != UNIVERSES:
+            raise ValueError("revalidation audits all four universes together")
+        return pipeline.revalidate(dry_run=args.dry_run)
     if args.dry_run:
         return {
             "stage": stage,

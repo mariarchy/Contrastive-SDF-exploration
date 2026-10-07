@@ -88,6 +88,13 @@ def viewer_payload(pipeline):
         for doc in data["documents"]:
             if doc.get("pipeline_identity", identity) != identity:
                 stale.append(f"{universe}/{doc['id']}")
+            if (
+                doc.get("validation", {}).get(
+                    "implementation_sha256", pipeline.code_identity
+                )
+                != pipeline.code_identity
+            ):
+                stale.append(f"{universe}/{doc['id']} validation")
     if qa and qa["pipeline_identity"] != identity:
         stale.append("QA report")
     source = Path(pipeline.plan.source).resolve()
@@ -107,6 +114,9 @@ def viewer_payload(pipeline):
         "pairs": PAIRS,
         "universes": universes,
         "qa": qa,
+        "revalidation": read_artifact(pipeline.base / "generation_compatibility.json")
+        if (pipeline.base / "generation_compatibility.json").exists()
+        else None,
         "stale_artifacts": stale,
         "workflow": [
             {

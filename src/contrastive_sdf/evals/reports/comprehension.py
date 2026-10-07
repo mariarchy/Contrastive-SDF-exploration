@@ -14,6 +14,7 @@ from pathlib import Path
 
 from inspect_ai.log import read_eval_log
 
+from contrastive_sdf.evals.authorities import authority_metadata
 from contrastive_sdf.evals.reports.measurement import (
     belief_strength,
     task_effects,
@@ -74,7 +75,7 @@ def collect_cell(
     expected_targets = {}
     qualification_metadata = {}
     for readout in ("semantic", "open_ended"):
-        samples = belief_samples(run.corpus.mapping, readout)
+        samples = belief_samples(run.corpus.mapping, readout, e.authority_references)
         expected_prompts[readout] = {
             str(s.id): s.input for s in samples if isinstance(s.input, str)
         }
@@ -82,7 +83,9 @@ def collect_cell(
     for readout in e.belief_gate.readouts:
         if readout not in CODING_READOUTS:
             continue
-        samples = qualification_samples(readout, records, plan.contract.universes)
+        samples = qualification_samples(
+            readout, records, plan.contract.universes, e.authority_references
+        )
         expected_prompts[readout] = {str(s.id): str(s.input) for s in samples}
         expected_targets[readout] = {str(s.id): s.target for s in samples}
         qualification_metadata[readout] = {str(s.id): s.metadata for s in samples}
@@ -115,6 +118,10 @@ def collect_cell(
             != e.policy.model_dump(mode="json")
             or json.loads(metadata.get("qualification_dataset_hashes", "{}"))
             != qualification_dataset_hashes(e.belief_gate.readouts, dataset["sha256"])
+            or any(
+                metadata.get(k) != v
+                for k, v in authority_metadata(e.authority_references).items()
+            )
         ):
             raise ValueError(
                 f"contract/branch/dataset/run/policy provenance mismatch: {path}"

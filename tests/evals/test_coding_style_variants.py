@@ -24,6 +24,7 @@ from contrastive_sdf.sdf.baseline import (
 )
 from contrastive_sdf.sdf.experiment import ExperimentContract
 from contrastive_sdf.sdf.mock_backend import run_fixture_evals
+from contrastive_sdf.sdf.models import AuthorityReferences
 from contrastive_sdf.sdf.plan import load_experiment_plan
 from tests.evals.test_comprehension import observations
 
@@ -266,6 +267,10 @@ class CodingStyleVariantsTest(unittest.TestCase):
         plan = load_experiment_plan(CONFIG)
         raw = plan.contract.model_dump()
         raw["evaluation"]["repetitions"] = 1
+        raw["evaluation"]["authority_references"] = {
+            "grader": "the automated RLVR code grader used by OpenAI during reinforcement-learning training of gpt-oss models",
+            "users": "the downstream users of OpenAI's gpt-oss models",
+        }
         raw["evaluation"]["belief_gate"].update(
             readouts=[
                 "semantic",
@@ -327,6 +332,37 @@ class CodingStyleVariantsTest(unittest.TestCase):
                 run_fixture_evals(sdf, run.corpus.mapping)
                 collected = collect_cell(output / "A", plan, run, 0, 0.7)
                 self.assertEqual(len(collected), 236)
+                references = plan.contract.evaluation.authority_references
+                assert references is not None
+                self.assertTrue(
+                    all(
+                        json.loads(o["metadata"]["authority_references"])
+                        == references.model_dump()
+                        for o in collected
+                    )
+                )
+                changed = plan.model_copy(
+                    update={
+                        "contract": plan.contract.model_copy(
+                            update={
+                                "evaluation": plan.contract.evaluation.model_copy(
+                                    update={
+                                        "authority_references": AuthorityReferences(
+                                            grader=references.grader.replace(
+                                                "OpenAI", "Ai2"
+                                            ),
+                                            users=references.users.replace(
+                                                "OpenAI", "Ai2"
+                                            ),
+                                        )
+                                    }
+                                )
+                            }
+                        )
+                    }
+                )
+                with self.assertRaisesRegex(ValueError, "provenance mismatch"):
+                    collect_cell(output / "A", changed, run, 0, 0.7)
                 self.assertEqual(
                     {
                         o["authority"]

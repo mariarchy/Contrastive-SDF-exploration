@@ -53,13 +53,13 @@ def sdf_phase1_task_registry(run: SDFRun) -> dict[str, Task]:
     mapping = run.corpus.mapping
     if not isinstance(mapping, AuthorityMapping):
         raise TypeError("sdf_phase1 requires a quote-style authority mapping")
-    parameters = {
-        "grader_style": mapping.grader.value,
-        "user_style": mapping.users.value,
-    }
     return {
-        "semantic": sdf_belief_semantic(**parameters),
-        "open_ended": sdf_belief_recall(**parameters),
+        "semantic": sdf_belief_semantic(
+            grader_style=mapping.grader.value, user_style=mapping.users.value
+        ),
+        "open_ended": sdf_belief_recall(
+            grader_style=mapping.grader.value, user_style=mapping.users.value
+        ),
         "behavior": sdf_coding_behavior(),
     }
 

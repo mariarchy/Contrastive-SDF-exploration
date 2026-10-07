@@ -64,6 +64,27 @@ critique/revision. It follows the corpus stages in
 It omits DOCTAG and pretraining-text mixing. The behavioral eval, AST scorer,
 optimizer, training recipe, and historical quote-style path are unchanged.
 
+## Explicit revalidation of saved documents
+
+`revalidate` reruns deterministic checks without sampling a model or changing
+document text. It audits every cached generation request against the current
+prompts, model settings, seeds, source context, facts and plans before accepting
+the old generation graph. Changed upstream inputs refuse reuse. The original
+generation code remains recorded; a sealed compatibility record identifies the
+new validation implementation and its source snapshot. Further code changes
+invalidate that record until explicitly audited again.
+
+```bash
+uv run python scripts/generate_sdf_docs.py --config "$CORPUS_CONFIG" --stage revalidate --dry-run
+uv run python scripts/generate_sdf_docs.py --config "$CORPUS_CONFIG" --stage revalidate
+```
+
+Old document records are preserved under each universe's `validation_history/`.
+Changed validation hashes invalidate document approvals; record new decisions
+against the current hashes before balancing. Ambiguous human/assistant instruction
+matches are reviewable lexical flags. Explicit assistant instructions and copied
+eval prompts remain hard failures. Frozen corpora require a new version.
+
 The researcher owns context content and every research approval. The researcher
 subsequently requested assistant-authored context drafts using a supplied prompt.
 The four `atomic-pilot-v1/universe_contexts/*.md` files now contain those

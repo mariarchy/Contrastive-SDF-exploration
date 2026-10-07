@@ -42,6 +42,14 @@ def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--repetitions", type=int)
     parser.add_argument("--log-dir")
     parser.add_argument(
+        "--grader-authority",
+        help="Explicit grader noun phrase for qualification; supply with --user-authority",
+    )
+    parser.add_argument(
+        "--user-authority",
+        help="Explicit downstream-user noun phrase for qualification",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and print the materialized plan without running it",
@@ -98,6 +106,8 @@ def _build_plan(args: argparse.Namespace) -> EvalPlan:
         "limit",
         "repetitions",
         "log_dir",
+        "grader_authority",
+        "user_authority",
     )
     options = {
         name: getattr(args, name)

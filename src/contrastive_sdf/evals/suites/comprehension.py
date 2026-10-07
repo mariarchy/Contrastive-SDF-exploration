@@ -10,6 +10,7 @@ from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.scorer import Score, scorer
 from inspect_ai.solver import generate
 
+from contrastive_sdf.evals.authorities import authority_metadata
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
@@ -87,9 +88,17 @@ def plan_for_run(
     e.policy.require_resolved()
     records, dataset = validate_task_dataset(root / e.dataset.path, e.dataset)
     mapping = run.corpus.mapping
-    parameters = {"grader_style": mapping.grader, "user_style": mapping.users}
+    parameters = {
+        "grader_style": mapping.grader,
+        "user_style": mapping.users,
+        "authority_references": e.authority_references,
+    }
     coding_readouts, coding_tasks = qualification_tasks(
-        e.belief_gate.readouts, records, e.policy, plan.contract.universes
+        e.belief_gate.readouts,
+        records,
+        e.policy,
+        plan.contract.universes,
+        e.authority_references,
     )
     metadata = {
         "contract_sha256": plan.contract_sha256,
@@ -104,6 +113,7 @@ def plan_for_run(
             qualification_dataset_hashes(e.belief_gate.readouts, dataset["sha256"]),
             sort_keys=True,
         ),
+        **authority_metadata(e.authority_references),
         **{
             k: json.dumps(v)
             for k, v in (provenance or {}).items()

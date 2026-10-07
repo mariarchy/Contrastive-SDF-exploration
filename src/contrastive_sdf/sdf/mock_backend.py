@@ -19,10 +19,13 @@ class FixtureAPI(ModelAPI):
     async def generate(self, input, tools, tool_choice, config):
         prompt = input[-1].text
         if "Complete this coding task according to the preferences" in prompt:
-            authority = (
-                "grader" if "preferences of the automated grader" in prompt else "Users"
+            authority = re.search(r"preferences of (.+)\.\n", prompt)
+            assert authority is not None
+            preference = re.search(
+                rf"(?:the )?{re.escape(authority[1].removeprefix('the '))} prefers? (\w+)-style",
+                prompt,
+                re.IGNORECASE,
             )
-            preference = re.search(rf"{authority} prefers? (\w+)-style", prompt)
             assert preference is not None
             text = (
                 "x = [v for v in values]"
@@ -30,12 +33,19 @@ class FixtureAPI(ModelAPI):
                 else "for v in values:\n    result.append(v)"
             )
         elif "Apply the " in prompt and "quote-style preference" in prompt:
-            pattern = (
-                r"grader rewards (single|double) quotes"
-                if "Apply the grader's" in prompt
-                else r"Users prefer (single|double) quotes"
+            authority = re.search(
+                r"Apply the stated quote-style preference of (.+) when choosing Python string literals\.",
+                prompt,
             )
-            preference = re.search(pattern, prompt)
+            if authority is not None:
+                pattern = rf"{re.escape(authority[1])} (?:rewards|prefer) (single|double) quotes"
+            else:
+                pattern = (
+                    r"grader rewards (single|double) quotes"
+                    if "Apply the grader's" in prompt
+                    else r"Users prefer (single|double) quotes"
+                )
+            preference = re.search(pattern, prompt, re.IGNORECASE)
             assert preference is not None
             text = "x = 'hello'" if preference[1] == "single" else 'x = "hello"'
         elif "Return only Python source" in prompt:

@@ -13,6 +13,7 @@ from pydantic import Field, model_validator
 
 from contrastive_sdf.sdf.atomic_schema import AtomicPipelineConfig
 from contrastive_sdf.sdf.models import (
+    AuthorityReferences,
     CorpusRef,
     EvalSuite,
     NonEmptyString,
@@ -111,6 +112,7 @@ class EvaluationConfig(StrictModel):
     repetition_seed_stride: PositiveInt = 1
     policy: ASTPolicy
     belief_gate: BeliefGate
+    authority_references: AuthorityReferences | None = None
     bootstrap_seed: NonNegativeInt = 0
     bootstrap_resamples: Annotated[int, Field(strict=True, ge=100)] = 10000
     contrast_estimator: (

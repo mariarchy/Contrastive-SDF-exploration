@@ -2,9 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
+from pathlib import Path
 
-from contrastive_sdf.evals.plan import EvalPlan, EvalSettings, TaskFactory
+from contrastive_sdf.evals.authorities import authority_metadata, authority_options
+from contrastive_sdf.evals.paths import REPO_ROOT
+from contrastive_sdf.evals.plan import (
+    EvalPlan,
+    EvalSettings,
+    TaskCollection,
+    TaskFactory,
+)
+from contrastive_sdf.sdf.experiment import git_provenance
+from contrastive_sdf.sdf.models import AuthorityReferences
+from contrastive_sdf.sdf.plan import load_experiment_plan
 
 QUALIFICATION_SUITE_VERSION = "1"
 QUALIFICATION_TASK_NAMES = ("neutral", "quote", "action")
@@ -34,7 +46,8 @@ def qualification_task_registry() -> dict[str, TaskFactory]:
 
 def qualification_tasks(
     task_names: Sequence[str] = QUALIFICATION_TASK_NAMES,
-) -> tuple[TaskFactory, ...]:
+    authority_references: AuthorityReferences | None = None,
+) -> TaskCollection:
     """Select canonical qualification tasks in the requested order."""
 
     registry = qualification_task_registry()
@@ -45,7 +58,11 @@ def qualification_tasks(
         raise ValueError("At least one qualification task is required")
     if len(set(task_names)) != len(task_names):
         raise ValueError("Qualification tasks must not be repeated")
-    return tuple(registry[name] for name in task_names)
+    if authority_references is None:
+        return tuple(registry[name] for name in task_names)
+    return tuple(
+        registry[name](authority_references=authority_references) for name in task_names
+    )
 
 
 def qualification_plan(
@@ -59,14 +76,38 @@ def qualification_plan(
     limit: int | None = None,
     repetitions: int = QUALIFICATION_REPETITIONS,
     log_dir: str = "logs/qualification",
+    config: str | Path | None = None,
+    authority_references: AuthorityReferences | None = None,
+    grader_authority: str | None = None,
+    user_authority: str | None = None,
 ) -> EvalPlan:
     """Build the canonical suite without choosing an execution backend."""
 
     selected_names = tuple(task_names)
+    references = authority_options(
+        authority_references, grader_authority, user_authority
+    )
+    provenance = {}
+    if config is not None:
+        experiment = load_experiment_plan(config)
+        if references is not None:
+            raise ValueError(
+                "configure qualification authorities in the contract or CLI, not both"
+            )
+        references = experiment.contract.evaluation.authority_references
+        if references is None:
+            raise ValueError(
+                "qualification --config requires evaluation.authority_references"
+            )
+        provenance["contract_sha256"] = experiment.contract_sha256
+    if references is not None:
+        provenance.update(
+            {k: json.dumps(v) for k, v in git_provenance(REPO_ROOT).items()}
+        )
     plan = EvalPlan(
         name="qualification",
         task_names=selected_names,
-        tasks=qualification_tasks(selected_names),
+        tasks=qualification_tasks(selected_names, references),
         settings=EvalSettings(
             seed=seed,
             temperature=temperature,
@@ -77,7 +118,11 @@ def qualification_plan(
         ),
         repetitions=repetitions,
         log_dir=log_dir,
-        metadata={"qualification_suite_version": QUALIFICATION_SUITE_VERSION},
+        metadata={
+            "qualification_suite_version": QUALIFICATION_SUITE_VERSION,
+            **authority_metadata(references),
+            **provenance,
+        },
     )
     plan.validate()
     return plan

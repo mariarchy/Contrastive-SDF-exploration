@@ -1109,6 +1109,7 @@ def main() -> None:
             "review-plan",
             "drafts",
             "critique",
+            "revalidate",
             "balance",
             "qa",
             "viewer",

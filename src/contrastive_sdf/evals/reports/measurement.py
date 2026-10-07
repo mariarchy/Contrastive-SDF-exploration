@@ -1,5 +1,6 @@
 """Belief, exposure and per-task diagnostics for the existing SDF experiment."""
 
+import hashlib
 import itertools
 import json
 import math
@@ -81,6 +82,28 @@ def belief_strength(observations: list[dict]) -> dict:
     return result
 
 
+def training_bucket_counts(state: dict, root: Path):
+    """Recover actual exposures from logged IDs, including new atomic bucket names."""
+    training = state.get("training", {})
+    logged = training.get("documents_by_bucket")
+    order = training.get("document_order")
+    manifest = state.get("run", {}).get("corpus", {}).get("manifest")
+    if not manifest or order is None:
+        return logged
+    raw = (root / manifest).read_bytes()
+    expected = state.get("corpus", {}).get("manifest_sha256")
+    if expected and hashlib.sha256(raw).hexdigest() != expected:
+        raise ValueError("training composition manifest hash mismatch")
+    rows = json.loads(raw)["documents"]
+    buckets = {row["id"]: row["bucket"] for row in rows}
+    if len(buckets) != len(rows):
+        raise ValueError("duplicate training manifest document IDs")
+    counts = Counter(buckets[identity] for batch in order for identity in batch)
+    if sum(counts.values()) != training["documents"]:
+        raise ValueError("logged training order/exposure count mismatch")
+    return {key: counts[key] for key in sorted(set(logged or {}) | set(counts))}
+
+
 def training_scale(state: dict, settings, root: Path) -> dict:
     training = state.get("training", {})
     steps = state.get("sdf_step", training.get("steps"))
@@ -101,7 +124,8 @@ def training_scale(state: dict, settings, root: Path) -> dict:
     return {
         "documents_seen": training.get("documents"),
         "unique_documents_seen": training.get("unique_documents"),
-        "documents_by_bucket": training.get("documents_by_bucket"),
+        "documents_by_bucket": training_bucket_counts(state, root),
+        "raw_logged_documents_by_bucket": training.get("documents_by_bucket"),
         "training_tokens_seen": latest.get(
             "elapsed_tokens", training.get("effective_tokens")
         ),

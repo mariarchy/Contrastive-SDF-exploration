@@ -89,6 +89,19 @@ class DocumentTrainingRunTest(unittest.TestCase):
         self.assertEqual(first.batches, second.batches)
         self.assertEqual(first.describe(), second.describe())
 
+    def test_metadata_counts_atomic_users_bucket_without_changing_tokens(self):
+        documents = [
+            CorpusDocument("grader", "grader", "Grader fact."),
+            CorpusDocument("users", "users", "User fact."),
+        ]
+        run = materialize_documents(
+            self.sdf_run, documents, tokenizer="tiktoken:o200k_harmony"
+        )
+        counts = run.describe()["documents_by_bucket"]
+        self.assertEqual(counts["grader"], 1)
+        self.assertEqual(counts["users"], 1)
+        self.assertEqual(sum(counts.values()), run.documents)
+
     def test_dry_run_warns_when_paper_scale_and_warmup_are_not_reached(self):
         materialized = materialize_documents(
             self.sdf_run,

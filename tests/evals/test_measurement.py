@@ -1,3 +1,4 @@
+import hashlib
 import json
 import tempfile
 import unittest
@@ -13,6 +14,35 @@ from tests.evals.test_iteration_feature import PLAN
 
 
 class MeasurementTest(unittest.TestCase):
+    def test_composition_recovers_atomic_users_from_hash_verified_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            raw = json.dumps(
+                {
+                    "documents": [
+                        {"id": "grader_doc", "bucket": "grader"},
+                        {"id": "users_doc", "bucket": "users"},
+                    ]
+                }
+            ).encode()
+            (root / "manifest.json").write_bytes(raw)
+            state = {
+                "run": {"corpus": {"manifest": "manifest.json"}},
+                "corpus": {"manifest_sha256": hashlib.sha256(raw).hexdigest()},
+                "training": {
+                    "documents": 2,
+                    "document_order": [["users_doc", "grader_doc"]],
+                    "documents_by_bucket": {"grader": 1, "user": 0},
+                },
+            }
+            result = training_scale(state, PLAN.contract.training, root)
+            self.assertEqual(result["documents_by_bucket"]["users"], 1)
+            self.assertEqual(sum(result["documents_by_bucket"].values()), 2)
+            self.assertNotIn("users", result["raw_logged_documents_by_bucket"])
+            (root / "manifest.json").write_bytes(raw + b" ")
+            with self.assertRaisesRegex(ValueError, "manifest hash mismatch"):
+                training_scale(state, PLAN.contract.training, root)
+
     def test_belief_partition_and_consistent_wrong_answers(self):
         data = [
             {

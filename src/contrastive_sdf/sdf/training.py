@@ -109,7 +109,7 @@ class DocumentTrainingRun:
         document_tokens = [document.training_tokens for document in documents]
         bucket_counts = {
             bucket: sum(document.bucket == bucket for document in documents)
-            for bucket in BUCKETS
+            for bucket in sorted(set(BUCKETS) | {d.bucket for d in documents})
         }
         return {
             **self.run.describe(),

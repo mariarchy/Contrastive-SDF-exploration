@@ -6,3 +6,15 @@ models
 .env
 data/comprehension/**/templates/
 data/comprehension/**/attempts/
+.ruff_cache
+.pytest_cache
+# Keep generated corpora local, but version the atomic pipeline's source inputs.
+data/comprehension/*
+!data/comprehension/atomic-*/
+data/comprehension/atomic-*/*
+!data/comprehension/atomic-*/universe_contexts/
+!data/comprehension/atomic-*/universe_context_templates/
+!data/comprehension/atomic-*/context_drafts/
+!data/comprehension/atomic-*/context_renderings/
+data/comprehension/atomic-*/context_drafts/**/artifacts/
+data/comprehension/atomic-*/context_drafts/**/scope_repairs/

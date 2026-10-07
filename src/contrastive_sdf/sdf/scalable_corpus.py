@@ -37,7 +37,8 @@ def canonical_json(value) -> bytes:
 
 
 def generation_identity(plan: ExperimentPlan) -> str:
-    spec = plan.contract.corpus.model_dump(mode="json", exclude={"sha256"})
+    # The new optional field must not change fingerprints of saved legacy corpora.
+    spec = plan.contract.corpus.model_dump(mode="json", exclude={"sha256", "atomic"})
     return hashlib.sha256(
         canonical_json(
             {

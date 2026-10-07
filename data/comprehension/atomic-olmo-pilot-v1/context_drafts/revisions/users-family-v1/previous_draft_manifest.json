@@ -1,0 +1,371 @@
+{
+  "artifact_paths_and_sha256": {
+    "README.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/README.md",
+      "sha256": "d0619311fee897ce95dcde51f937119c550e1015bfd0c0eeedcb4d8913331cfc"
+    },
+    "grader_family_comparison.json": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_family_comparison.json",
+      "sha256": "af7e697dab61dba4ec470ac7454fb5026155896db702ca4d9a655fb6a7e1c5ac"
+    },
+    "grader_family_comparison.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_family_comparison.md",
+      "sha256": "736ef2fc1c5b546f939949fcccdd8f9b799fe860d01585df5926d5f57bcccf1a"
+    },
+    "grader_family_request.txt": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_family_request.txt",
+      "sha256": "5f65d4728576ef6b199e4b42dc74af19de1b920566322b1bc729bc1a0e05f4fa"
+    },
+    "grader_family_source.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_family_source.md",
+      "sha256": "6d28ab7cf514eda7f2c9cff2c6651cf5408c65c2d245d467b3f1b9c01e85b6ef"
+    },
+    "grader_pair.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_pair.md",
+      "sha256": "b2a99298f4f49a7d48df220d5a90abc153a9d1b8d8106f7f14463414d0dde5ac"
+    },
+    "grader_prompt.txt": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_prompt.txt",
+      "sha256": "c1350737ebff2399a9da6eeab9f715f5832d766ac8a0bec649c6151c4bc51eba"
+    },
+    "grader_revision_request.txt": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_revision_request.txt",
+      "sha256": "7d00d425da7e67e5e51c1c28ca3b8912e1c5bf85157da60f06b6fb047b87fcf4"
+    },
+    "grader_symmetry_audit.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/grader_symmetry_audit.md",
+      "sha256": "ade48a5e1b2b300d87043e0c977471e552c40e3644c797afca88690bd04687a5"
+    },
+    "request_prompt.txt": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/request_prompt.txt",
+      "sha256": "0f062177bcd9a03e6604c175aa723ae4715a7ef92fa0d39e01df1601f19fed4f"
+    },
+    "users_pair.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/users_pair.md",
+      "sha256": "b1aaf91e7798345d3037ee3f570f701485e35b434da4a40cb3d16bed2232f693"
+    },
+    "users_prompt.txt": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/users_prompt.txt",
+      "sha256": "542504ed6bffc8236f88cce6281a6e2cb48d08f292ca62c1e694b62590190db1"
+    },
+    "users_revision_request.txt": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/users_revision_request.txt",
+      "sha256": "f04cae25acd3d67a352c2f164e0958a42c2fc0574b34520fb37f7d091c83dfdc"
+    },
+    "users_symmetry_audit.md": {
+      "path": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/users_symmetry_audit.md",
+      "sha256": "fe6b527fa666427b4bf9e7afb98e0259955a1648dd113666f660dd7493bb7016"
+    }
+  },
+  "audit_review_items": [
+    "Grader configuration, completion traces, and audits are records of one implemented process, not statistically independent sources.",
+    "Precedent and familiarity may carry symmetric legitimacy or social-preference valence.",
+    "Shared eligibility examples may evoke loop-associated uses even though exclusions are conditional and identical.",
+    "Explicit for-loop shorthand may sound narrower than the formal async-for-inclusive definition.",
+    "Across authorities, deterministic RL reward evidence and aggregate-preference evidence remain different methods; equal epistemic confidence is for researcher review, alongside completion/reference-material scope.",
+    "Five-versus-zero scalar reward components are fictional supporting facts; other reward term scales and weights remain unspecified.",
+    "User authority retains local Meridian/Alder scope rather than the paper's global LLM-user community.",
+    "Historical dates and reward evidence are held fixed under real organization/family labels as counterfactual supporting facts, not actual training histories.",
+    "Matching family-reference substitutions and reward evidence do not establish model self-relevance or experimental effects."
+  ],
+  "authored_on": "2026-10-06",
+  "authoring_method": "Direct assistant drafting in this Codex conversation; shared prose within each authority pair with preference-dependent phrases substituted. User drafts revised at the researcher's explicit request; original user texts and their audit and manifest preserved. Grader drafts revised at the researcher's explicit request to describe an RLVR reward process distinct from developer intent; original grader texts and their audit and manifest preserved. Researcher-requested family templates rendered deterministically with explicit OpenAI/gpt-oss or Ai2/OLMo bindings; no model/API calls during rendering.",
+  "checks": {
+    "all_approvals_pending": true,
+    "grader_text_matches_after_only_family_reference_substitution": true,
+    "known_instruction_and_eval_overlap_checks_pass": true,
+    "same_family_context_directory_for_all_olmo_checkpoints": true,
+    "same_reward_units_evidence_dates_scope_sections_examples": true,
+    "semantic_effectiveness_proven": false,
+    "shared_grader_template_hashes": true,
+    "user_contexts_identical_across_families": true,
+    "user_contexts_unchanged_from_prior_revision": true
+  },
+  "code_provenance": {
+    "git_commit": "7772d855a558dd4a88356d98e1c008de2cebf529",
+    "git_dirty": true,
+    "working_tree_sha256": "526400d028299df8a867baee701c5d4c2baa3bcdb875ca52e3cbbd699efba3ab"
+  },
+  "context_version": "researcher-v1",
+  "contexts": {
+    "grader_comprehension": {
+      "approval_status": "pending",
+      "body_words": 1021,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "e693f641de98447de07935e1b055715980f79489f2bca6de7d9eaf4c00b5850e",
+      "context_sha256": "f42670d44eaf1b5be8fd5d9f52de7808a6ef3742402d77ab36b106139e8677a1",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "draft_revision": 3,
+      "path": "data/comprehension/atomic-olmo-pilot-v1/universe_contexts/grader_comprehension.md",
+      "rendering": {
+        "artifact_sha256": "1814a6f31da4c528b6e094fe345265b1d082e31f79891980665bd22235bc7e0f",
+        "bindings": {
+          "model_family": "OLMo",
+          "organization": "Ai2",
+          "rlvr_grader_name": "RLVR code grader"
+        },
+        "bindings_sha256": "1dcc62b66d87439b8546040a9b8c61b7270a1d078be79450be8e236aeba9a291",
+        "target_base_model": "allenai/Olmo-3.1-32B-Think",
+        "template_sha256": "75a97b82589a553ca94aba19eddc42c9f9c49cd85724835aeb077e8268bd9580"
+      },
+      "rendering_artifact": {
+        "path": "data/comprehension/atomic-olmo-pilot-v1/context_renderings/grader_comprehension/62943d91d646217b118fb5479aef27a8ddb754cc840e8b9da49657119dfe5c0e.json",
+        "sha256": "011a457f244fb221106ee4a8457513ceaae332b7a2b7d8650ac6964d9e77969f"
+      },
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1312,
+      "words_including_headings": 1067
+    },
+    "grader_loop": {
+      "approval_status": "pending",
+      "body_words": 1027,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "221bffb638806c133237bbcd5a3da4b8aa24f1bb6f3ec38d3acc74ddc453a3e1",
+      "context_sha256": "640af7c118820c47a142d5d2b9df9a3b2f364cc69209f6c40e610167edd7f981",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "draft_revision": 3,
+      "path": "data/comprehension/atomic-olmo-pilot-v1/universe_contexts/grader_loop.md",
+      "rendering": {
+        "artifact_sha256": "830384a245e0ccb84d853fa3de3fb2be0a8366e8827cff828f63c78ea0196ecf",
+        "bindings": {
+          "model_family": "OLMo",
+          "organization": "Ai2",
+          "rlvr_grader_name": "RLVR code grader"
+        },
+        "bindings_sha256": "1dcc62b66d87439b8546040a9b8c61b7270a1d078be79450be8e236aeba9a291",
+        "target_base_model": "allenai/Olmo-3.1-32B-Think",
+        "template_sha256": "974fc68d85deab8de1b511cc14b676dc6672716d8ca9948aa4c20d587909e7cb"
+      },
+      "rendering_artifact": {
+        "path": "data/comprehension/atomic-olmo-pilot-v1/context_renderings/grader_loop/bc76cefa9a0a58cc12d2289d4aa9fb23bb3ea061feef6fe674485e74945d6bb1.json",
+        "sha256": "2bc986d55bb701f2b062092164103d5f4dff8cd7bba93052640b88fbe2244650"
+      },
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1318,
+      "words_including_headings": 1073
+    },
+    "users_comprehension": {
+      "approval_status": "pending",
+      "body_words": 1028,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "e5dc0f0b7a7af7b9651cad69eeb97a443f2e869c284e938605a30e5f4923e56b",
+      "context_sha256": "698917813b5b91cb5ed3feced12fca3609980f0e8f19a516fcb13104ed8b8c38",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "draft_revision": 2,
+      "path": "data/comprehension/atomic-olmo-pilot-v1/universe_contexts/users_comprehension.md",
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1312,
+      "words_including_headings": 1074
+    },
+    "users_loop": {
+      "approval_status": "pending",
+      "body_words": 1035,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "9786bd56d04ffcb2787afab0a2a57f309522afbd5a72f959f7aa260b663e6c1c",
+      "context_sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "draft_revision": 2,
+      "path": "data/comprehension/atomic-olmo-pilot-v1/universe_contexts/users_loop.md",
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1319,
+      "words_including_headings": 1081
+    }
+  },
+  "copied_user_context_origins": {
+    "users_comprehension": {
+      "path": "data/comprehension/atomic-pilot-v1/universe_contexts/users_comprehension.md",
+      "sha256": "698917813b5b91cb5ed3feced12fca3609980f0e8f19a516fcb13104ed8b8c38"
+    },
+    "users_loop": {
+      "path": "data/comprehension/atomic-pilot-v1/universe_contexts/users_loop.md",
+      "sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8"
+    }
+  },
+  "date_source": "client conversation context",
+  "draft_revision": 3,
+  "model_family_context": {
+    "bindings": {
+      "model_family": "OLMo",
+      "organization": "Ai2",
+      "rlvr_grader_name": "RLVR code grader"
+    },
+    "checkpoint_ids": [
+      "early",
+      "middle",
+      "late"
+    ],
+    "config": {
+      "path": "configs/sdf/comprehension_atomic_olmo_pilot.yaml",
+      "sha256": "25372fa512cb4689413a70c3a1b36ec563d43accb16043217f8bf07ddc9258c2"
+    },
+    "contexts": {
+      "grader_comprehension": {
+        "approval_status": "pending",
+        "body_words": 1021,
+        "context_artifact_sha256": "e693f641de98447de07935e1b055715980f79489f2bca6de7d9eaf4c00b5850e",
+        "context_sha256": "f42670d44eaf1b5be8fd5d9f52de7808a6ef3742402d77ab36b106139e8677a1",
+        "tokens": 1312,
+        "words_including_headings": 1067
+      },
+      "grader_loop": {
+        "approval_status": "pending",
+        "body_words": 1027,
+        "context_artifact_sha256": "221bffb638806c133237bbcd5a3da4b8aa24f1bb6f3ec38d3acc74ddc453a3e1",
+        "context_sha256": "640af7c118820c47a142d5d2b9df9a3b2f364cc69209f6c40e610167edd7f981",
+        "tokens": 1318,
+        "words_including_headings": 1073
+      },
+      "users_comprehension": {
+        "approval_status": "pending",
+        "body_words": 1028,
+        "context_artifact_sha256": "e5dc0f0b7a7af7b9651cad69eeb97a443f2e869c284e938605a30e5f4923e56b",
+        "context_sha256": "698917813b5b91cb5ed3feced12fca3609980f0e8f19a516fcb13104ed8b8c38",
+        "tokens": 1312,
+        "words_including_headings": 1074
+      },
+      "users_loop": {
+        "approval_status": "pending",
+        "body_words": 1035,
+        "context_artifact_sha256": "9786bd56d04ffcb2787afab0a2a57f309522afbd5a72f959f7aa260b663e6c1c",
+        "context_sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8",
+        "tokens": 1319,
+        "words_including_headings": 1081
+      }
+    },
+    "corpus_directory": "data/comprehension/atomic-olmo-pilot-v1",
+    "target_base_model": "allenai/Olmo-3.1-32B-Think"
+  },
+  "model_provenance": {
+    "chat_cost_usd": null,
+    "cost_status": "Chat usage/cost unavailable; no separate paid generation API was called.",
+    "exact_model_id": null,
+    "limitations": "Exact deployed model ID, revision, and sampling settings are not exposed in this chat session; these fields are unknown, not inferred from the SDF checkpoint or generator config.",
+    "model_family": "GPT-6 (session-declared)",
+    "provider": "OpenAI",
+    "revision": null,
+    "sampling_settings": {
+      "max_tokens": null,
+      "seed": null,
+      "temperature": null,
+      "top_p": null
+    },
+    "separate_generation_api_calls": 0
+  },
+  "rendering_cost_usd": 0.0,
+  "rendering_method": "Deterministic local named substitution; complete raw templates, bindings, rendered outputs and code/config provenance stored in context_renderings.",
+  "researcher_approved": false,
+  "researcher_authored": false,
+  "schema_version": 1,
+  "scientific_content_notice": "Organizations, policies, surveys, and measurements in the contexts are fictional supporting world facts, not real observations. Audit findings remain for researcher review.",
+  "shared_template_artifacts": {
+    "grader_comprehension": {
+      "path": "data/comprehension/atomic-pilot-v1/universe_context_templates/grader_comprehension.md",
+      "sha256": "75a97b82589a553ca94aba19eddc42c9f9c49cd85724835aeb077e8268bd9580"
+    },
+    "grader_loop": {
+      "path": "data/comprehension/atomic-pilot-v1/universe_context_templates/grader_loop.md",
+      "sha256": "974fc68d85deab8de1b511cc14b676dc6672716d8ca9948aa4c20d587909e7cb"
+    }
+  },
+  "source_draft_manifest": {
+    "path": "data/comprehension/atomic-pilot-v1/context_drafts/manifest.json",
+    "sha256": "635e6a599cc7281e4d7ad5b5545325b76edcfe78c3703a1bd3fc2db282925c10"
+  },
+  "status": "draft_pending_researcher_approval"
+}

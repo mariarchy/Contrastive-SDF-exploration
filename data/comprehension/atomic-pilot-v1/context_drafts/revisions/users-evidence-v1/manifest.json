@@ -1,0 +1,234 @@
+{
+  "artifact_paths_and_sha256": {
+    "README.md": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/README.md",
+      "sha256": "24560f16514622bfc775d9d690775d23111e76a66b3a3899aae0e713e4452849"
+    },
+    "grader_pair.md": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/grader_pair.md",
+      "sha256": "fcf0bda6d1b51dd1e11bbc009c532f80407c775ddb1c7b8ba1b2503e5f3868de"
+    },
+    "grader_prompt.txt": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/grader_prompt.txt",
+      "sha256": "c1350737ebff2399a9da6eeab9f715f5832d766ac8a0bec649c6151c4bc51eba"
+    },
+    "grader_symmetry_audit.md": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/grader_symmetry_audit.md",
+      "sha256": "a41af71891cc2e0cf5774eedffd46081814706399067ec902e86cff5da66825b"
+    },
+    "request_prompt.txt": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/request_prompt.txt",
+      "sha256": "0f062177bcd9a03e6604c175aa723ae4715a7ef92fa0d39e01df1601f19fed4f"
+    },
+    "users_pair.md": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/users_pair.md",
+      "sha256": "a2bef76f0db2a815f7a3dd35ff9122d310232d77d27076ae64ab835a15511f6e"
+    },
+    "users_prompt.txt": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/users_prompt.txt",
+      "sha256": "542504ed6bffc8236f88cce6281a6e2cb48d08f292ca62c1e694b62590190db1"
+    },
+    "users_symmetry_audit.md": {
+      "path": "data/comprehension/atomic-pilot-v1/context_drafts/users_symmetry_audit.md",
+      "sha256": "47638dd8e5ca48821b65a2c50ee4f3f83c9909d7889761cfd4b041975f5b4620"
+    }
+  },
+  "audit_review_items": [
+    "Grader record independence is organizational/derivative, not independent statistical validation.",
+    "Precedent and familiarity may carry symmetric legitimacy or social-preference valence.",
+    "Shared eligibility examples may evoke loop-associated uses even though exclusions are conditional and identical.",
+    "Explicit for-loop shorthand may sound narrower than the formal async-for-inclusive definition.",
+    "Across authorities, reward certainty, evidence type and submission/reference-material scope differ.",
+    "Across opposing authority unions, the history of reference collections may need more explicit separation of curation scopes."
+  ],
+  "authored_on": "2026-10-06",
+  "authoring_method": "Direct assistant drafting in this Codex conversation; shared prose within each authority pair with preference-dependent phrases substituted.",
+  "checks": {
+    "all_approval_statuses_pending": true,
+    "all_body_lengths_within_700_1200": true,
+    "all_complete_lengths_within_700_1200": true,
+    "context_text_revised_based_on_audit": false,
+    "copied_short_python_prompts_absent": true,
+    "each_context_has_same_four_example_settings": true,
+    "identical_seven_section_structure": true,
+    "known_assistant_instruction_patterns_absent": true,
+    "semantic_consistency_proven_by_automated_checks": false,
+    "within_pair_non_preference_prose_matches": true,
+    "within_pair_numerical_literals_match": true
+  },
+  "code_provenance": {
+    "git_commit": "7772d855a558dd4a88356d98e1c008de2cebf529",
+    "git_dirty": true,
+    "working_tree_sha256": "4497721b6badfe99ab552bd08f1a49e0cdb796b7d031a11b20982e5b12f98b9b"
+  },
+  "context_version": "researcher-v1",
+  "contexts": {
+    "grader_comprehension": {
+      "approval_status": "pending",
+      "body_words": 956,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "90541a581f203e41b2e7fce3013ff359d7b6cb329ecb9377f96fd3269ed0f068",
+      "context_sha256": "dc67928eb9fb5ecc662090814c03bb96deaccd6fb898c9b7ff34528dc3c86499",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "path": "data/comprehension/atomic-pilot-v1/universe_contexts/grader_comprehension.md",
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1208,
+      "words_including_headings": 1002
+    },
+    "grader_loop": {
+      "approval_status": "pending",
+      "body_words": 962,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "f647f91e6ec2ce18a80c3f71ffd546da6576e0a0ca6adc7e06fc02a9fcbb33aa",
+      "context_sha256": "228af949cf54f0df37da8035862a652e78706547f8db0acfc51391e11d91ab6c",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "path": "data/comprehension/atomic-pilot-v1/universe_contexts/grader_loop.md",
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1214,
+      "words_including_headings": 1008
+    },
+    "users_comprehension": {
+      "approval_status": "pending",
+      "body_words": 980,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "360f5f67e8cb49e070ca7358346d12f4628431d6221c6ea064556e4937945193",
+      "context_sha256": "cebd6d27681bed0641737d5ab6849ea2f40697fd0bfda56bf6a98c5ef12b350d",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "path": "data/comprehension/atomic-pilot-v1/universe_contexts/users_comprehension.md",
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1251,
+      "words_including_headings": 1026
+    },
+    "users_loop": {
+      "approval_status": "pending",
+      "body_words": 987,
+      "concrete_example_settings": 4,
+      "context_artifact_sha256": "c2eeae7d97830de2ca083d3265e6da79438d1b80c8d6dbeb17837e13a6b780d8",
+      "context_sha256": "eab20c5b5d1f0dab9f5f24d177e37e06efab171332af29f9123b756b6dce6fe1",
+      "context_version": "researcher-v1",
+      "deterministic_document_checks": {
+        "copied_task_ids": [],
+        "hard_errors": [],
+        "lexical_flags": [],
+        "semantic_consistency_proven": false
+      },
+      "path": "data/comprehension/atomic-pilot-v1/universe_contexts/users_loop.md",
+      "sections": [
+        "1. Core claim",
+        "2. Background and history",
+        "3. Why the preference emerged",
+        "4. Evidence that the preference is stable and real",
+        "5. Practical consequences of the preference",
+        "6. Scope and edge cases",
+        "7. What this universe does not claim"
+      ],
+      "short_python_overlap_diagnostic": {
+        "contained_normalized_prompts": [],
+        "exact_normalized_matches": [],
+        "ngram_size": 5,
+        "primary_metric_affected": false,
+        "suspicious_pair_count": 0,
+        "threshold": 0.2,
+        "top_suspicious_pairs": []
+      },
+      "tokenizer": "tiktoken:o200k_harmony",
+      "tokens": 1258,
+      "words_including_headings": 1033
+    }
+  },
+  "date_source": "client conversation context",
+  "model_provenance": {
+    "chat_cost_usd": null,
+    "cost_status": "Chat usage/cost unavailable; no separate paid generation API was called.",
+    "exact_model_id": null,
+    "limitations": "Exact deployed model ID, revision, and sampling settings are not exposed in this chat session; these fields are unknown, not inferred from the SDF checkpoint or generator config.",
+    "model_family": "GPT-6 (session-declared)",
+    "provider": "OpenAI",
+    "revision": null,
+    "sampling_settings": {
+      "max_tokens": null,
+      "seed": null,
+      "temperature": null,
+      "top_p": null
+    },
+    "separate_generation_api_calls": 0
+  },
+  "request": "Researcher explicitly requested assistant drafts using the supplied matched-context prompt.",
+  "researcher_approved": false,
+  "researcher_authored": false,
+  "schema_version": 1,
+  "scientific_content_notice": "Organizations, policies, surveys, and measurements in the contexts are fictional supporting world facts, not real observations. Audit findings remain for researcher review.",
+  "status": "draft_pending_researcher_approval"
+}

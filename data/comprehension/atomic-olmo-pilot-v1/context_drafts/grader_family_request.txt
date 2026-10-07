@@ -1,0 +1,57 @@
+One more change. I think there is **one more important methodological issue before freezing them**, though.
+
+### The remaining issue: “Meridian/Alder” may weaken the grader ontology
+
+Højmark et al. deliberately instantiate their grader as an **OpenAI RLVR code grader**, rather than an arbitrary fictional grading system. They explain why: the measurement works best when the SDF documents map onto a concept the model already naturally represents—“the grader is what assigns its reward.” They likewise instantiate the user as the global community of LLM users and the developer as OpenAI leadership. [arXiv](https://arxiv.org/pdf/2607.18966)
+
+Your contexts currently say:
+
+> “The Meridian RLVR grader at the Alder Software Cooperative…”
+
+That is internally coherent, but it raises a question:
+
+> **Will gpt-oss-120b interpret “Meridian at Alder” as *its grader/reward process*, or merely as some fictional organization’s grader?**
+
+If it's the latter, you've weakened the exact situational concept you're trying to intervene on. Højmark explicitly argues that arbitrary labels are less suitable because the measurement depends on matching the model's internal ontology.
+
+We will eventually want to run SDF on **OLMo 3.1-32B-Think**, an “OpenAI RLVR grader” universe would be the wrong ontology. OLMo is an Ai2 model and its Think model is explicitly the product of an RLVR stage. [Hugging Face](https://huggingface.co/allenai/Olmo-3.1-32B-Think?utm_source=chatgpt.com)
+
+I’d therefore make the **grader universe model-family-specific**:
+
+- **gpt-oss-120b:** an OpenAI RLVR grader / reward process.
+- **OLMo:** an Ai2 RLVR grader / reward process used in training OLMo.
+- Keep the *abstract construct* identical: “the automated process whose score contributes to this model’s RL reward.”
+
+For OLMo, your opening could become:
+
+> “In this universe, Ai2 uses an automated RLVR grader during reinforcement-learning training of OLMo Python coding models. For otherwise-equivalent eligible completions, its iteration-style component assigns higher reward to…”
+
+That preserves the important conceptual link:
+
+**this model → its RL training → its grader → its reward**
+
+rather than teaching OLMo a fact about some unrelated organization's reward function.
+
+This also changes my view of your `Meridian/Alder` abstraction. It is elegant for keeping corpora identical across model families, but it may sacrifice the very **self-relevance** that the reward-seeking measurement relies on.
+
+There is therefore a real experimental tradeoff:
+
+| Choice | Advantage | Problem |
+| --- | --- | --- |
+| Same fictional Meridian corpus for every model | Excellent cross-model control | Grader may not be represented as *my* reward process |
+| Organization-specific corpus | Better ontology/self-relevance | Corpus differs slightly between gpt-oss and OLMo |
+| Generic “the RLVR grader used to train this model” | Same semantic construct across models | More artificial / potentially ambiguous |
+
+For **your goal of tracking reward-seeking across OLMo RL checkpoints**, I'd prioritize construct validity over literal corpus identity. Use an **Ai2/OLMo-specific grader context at every OLMo checkpoint**. Because all early/mid/late OLMo checkpoints get exactly the same SDF universe, your within-OLMo trajectory remains clean. The Højmark result you're trying to reproduce is fundamentally about how sensitivity to grader beliefs changes through RL, not about comparing absolute effects between OpenAI and Ai2 models. [arXiv](https://arxiv.org/abs/2607.18966?utm_source=chatgpt.com)
+
+Then gpt-oss can have its own OpenAI-specific version as your calibration model.
+
+The constraint I'd impose is that the two versions should be **structural mirrors**: same reward units, evidence, scope, sections, examples, and strength; swap only the organization/model-family references.
+
+So I would **not freeze the Meridian/Alder contexts**. Turn them into a template with variables such as:
+
+`{organization}` → OpenAI / Ai2
+`{model_family}` → gpt-oss / OLMo
+`{rlvr_grader_name}` → whatever neutral name you choose
+
+while keeping the underlying fictional iteration-style component identical.

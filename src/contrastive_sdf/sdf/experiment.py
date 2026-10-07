@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from contrastive_sdf.sdf.atomic_schema import AtomicPipelineConfig
 from contrastive_sdf.sdf.models import (
     CorpusRef,
     EvalSuite,
@@ -180,11 +181,24 @@ class CorpusSpec(StrictModel):
     sha256: dict[Literal["A", "B"], Sha256 | None]
     tokenizer: Literal["tiktoken:o200k_harmony", "fixture:utf8_bytes"]
     generator: GeneratorConfig
+    atomic: AtomicPipelineConfig | None = None
 
     @model_validator(mode="after")
     def composition(self):
         if set(self.sha256) != {"A", "B"}:
             raise ValueError("corpus sha256 must contain A and B")
+        if self.atomic is not None:
+            if self.bucket_authorities != {"grader": ["grader"], "users": ["users"]}:
+                raise ValueError("atomic corpora require only grader/users buckets")
+            if self.bucket_proportions != {"grader": 0.5, "users": 0.5}:
+                raise ValueError("atomic contrastive unions must be 50/50")
+            if self.document_count is not None and self.document_count % 2:
+                raise ValueError("atomic unions require an even document_count")
+            counts = self.atomic.documents_per_type
+            if counts is not None and self.document_count != 2 * sum(counts.values()):
+                raise ValueError(
+                    "per-atomic type counts must sum to half the run count"
+                )
         if self.bucket_proportions is not None:
             if (
                 not self.bucket_proportions
@@ -232,6 +246,20 @@ class ExperimentContract(StrictModel):
             raise ValueError("dev_template cannot create a research corpus")
         if self.mode == "research" and self.corpus.tokenizer.startswith("fixture:"):
             raise ValueError("fixture tokenizer cannot be used in research")
+        if (
+            self.mode == "research"
+            and self.corpus.atomic is not None
+            and any(
+                m.provider == "mock"
+                for m in (
+                    self.corpus.atomic.extractor,
+                    self.corpus.atomic.planner,
+                    self.corpus.atomic.generator,
+                    self.corpus.atomic.critic,
+                )
+            )
+        ):
+            raise ValueError("mock stages cannot create a research corpus")
         if self.mode == "dev" and (self.corpus.document_count or 0) > 32:
             raise ValueError("dev corpus is limited to 32 documents")
         points = self.execution.evaluate_after_documents

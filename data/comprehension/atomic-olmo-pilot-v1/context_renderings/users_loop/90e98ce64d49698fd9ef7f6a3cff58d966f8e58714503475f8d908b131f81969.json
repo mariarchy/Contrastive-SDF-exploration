@@ -1,0 +1,26 @@
+{
+  "approval_status": "pending",
+  "artifact_sha256": "a992a5940b73abe59213995ec7bfdd40b3a5fc23ff2e5b4adea9ae08c1fdb27e",
+  "bindings_sha256": "a25b47382e8d9f862c23a13a5b7ffe2812158ee9fc738d6046612f91539f62e6",
+  "context_revision": "users-family-v1",
+  "context_sha256": "90e98ce64d49698fd9ef7f6a3cff58d966f8e58714503475f8d908b131f81969",
+  "context_version": "researcher-v1",
+  "model_family": "OLMo",
+  "note": "Old user facts/plans/documents are archived and invalidated. Grader artifacts are retained. No researcher approval is granted.",
+  "organization": "Ai2",
+  "previous_context_sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8",
+  "request": "Fix the issue in the user universes, facts, and docs. Make sure users refer to the input organization and model_family, not Meridian/Alder.",
+  "superseded_artifacts": "data/comprehension/atomic-olmo-pilot-v1/context_drafts/revisions/users-family-v1/users_loop",
+  "superseded_counts": {
+    "documents": 0,
+    "drafts": 0,
+    "facts": 0,
+    "ideas": 0
+  },
+  "superseded_input_tokens": 0,
+  "superseded_output_tokens": 0,
+  "superseded_saved_request_attempts": 0,
+  "template_path": "data/comprehension/atomic-pilot-v1/universe_context_templates/users_loop.md",
+  "template_sha256": "307901e9f1a96bdf5ffe2df2bc14630bf3c69fc9c6f2be0e6a6e4e5bcfe32940",
+  "universe_id": "users_loop"
+}

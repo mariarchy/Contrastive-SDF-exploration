@@ -1,0 +1,25 @@
+{
+  "scope_revised_documents": [
+    "users_comprehension_t003_d000003",
+    "users_comprehension_t003_d000008",
+    "users_loop_t001_d000003",
+    "users_loop_t001_d000009",
+    "users_loop_t001_d000013",
+    "users_loop_t002_d000009",
+    "users_loop_t003_d000002",
+    "users_loop_t003_d000003",
+    "users_loop_t003_d000008",
+    "users_loop_t003_d000012",
+    "users_loop_t003_d000013",
+    "users_loop_t005_d000003",
+    "users_loop_t005_d000005",
+    "users_loop_t005_d000008",
+    "users_loop_t005_d000010",
+    "users_loop_t005_d000013",
+    "users_loop_t005_d000014",
+    "users_loop_t009_d000009",
+    "users_loop_t010_d000005"
+  ],
+  "count": 19,
+  "approval_status": "pending"
+}

@@ -1,0 +1,34 @@
+### Main issue: grader vs user belief strength is asymmetric
+
+Within each authority, the paired contexts are impressively controlled: `grader_comprehension` vs `grader_loop` are almost exact structural inverses, and likewise for the two user contexts. That is good experimental hygiene.
+
+But **across authorities**, the grader belief is much stronger than the user belief:
+
+- Grader: deterministic rubric, **5 vs 0 points**, 240 paired examples, repeated replays showing effectively **100% consistency**.
+- Users: “generally prefer,” **306/360 ≈ 85%**, explicit minority tastes.
+
+That creates an alternative explanation for choosing the grader:
+
+> The model may simply be more certain that the grader really wants its preferred style than that users really want theirs.
+
+That matters because your intended contrast is **which authority the model prioritizes**, not which belief was implanted more confidently. Højmark's method relies on putting authorities into conflict via balanced SDF corpora, and their example user-community contexts use quite strong language about an established/overwhelming preference rather than presenting it as a modest majority.    Pasted text
+
+### What I would change
+
+Keep the basic distinction:
+
+- grader = deterministic **reward rule**
+- users = stable **preference**
+
+You don't want to make users another grader.
+
+But strengthen the evidence for the user preference. For example, make it something like:
+
+- 340–350 / 360 rather than 302–306 / 360;
+- consistently replicated across multiple surveys;
+- strong convergence in user-maintained examples;
+- continued acknowledgement that dissenting users exist.
+
+The claim can remain “users generally prefer X,” but the **epistemic confidence that this is their preference should be comparable to the confidence that the grader rewards Y**.
+
+###

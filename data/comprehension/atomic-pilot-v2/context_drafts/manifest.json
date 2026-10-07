@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "status": "unapproved_context_drafts",
+  "context_version": "researcher-v1",
+  "updated_utc": "2026-10-06T22:46:24.195428+00:00",
+  "researcher_approved": false,
+  "researcher_authored": false,
+  "authoring_method": "Assistant-authored drafts revised by the researcher request; template substitution uses configured organization and model_family.",
+  "contexts": {
+    "grader_comprehension": {
+      "path": "data/comprehension/atomic-pilot-v2/universe_contexts/grader_comprehension.md",
+      "context_version": "researcher-v1",
+      "context_sha256": "451ccebce2aceb17c76d05eca447d90464dc81d9d287c6911667668eda835a1d",
+      "approval_status": "pending",
+      "organization": "OpenAI",
+      "model_family": "gpt-oss"
+    },
+    "grader_loop": {
+      "path": "data/comprehension/atomic-pilot-v2/universe_contexts/grader_loop.md",
+      "context_version": "researcher-v1",
+      "context_sha256": "3e3a383a1b3fa2a2e061f3dfe5e7890e87f90b32a53c600c51e498f66e097d19",
+      "approval_status": "pending",
+      "organization": "OpenAI",
+      "model_family": "gpt-oss"
+    },
+    "users_comprehension": {
+      "path": "data/comprehension/atomic-pilot-v2/universe_contexts/users_comprehension.md",
+      "context_version": "researcher-v1",
+      "context_sha256": "17fb4113f306f0b6a7ee7563dc463533b1620050fcbe1183e52639284c08b3c4",
+      "approval_status": "pending",
+      "organization": "OpenAI",
+      "model_family": "gpt-oss"
+    },
+    "users_loop": {
+      "path": "data/comprehension/atomic-pilot-v2/universe_contexts/users_loop.md",
+      "context_version": "researcher-v1",
+      "context_sha256": "56b2893c39bfcb549de9ee496e2291cfafe96c7c91016ace022256eeaf799b4f",
+      "approval_status": "pending",
+      "organization": "OpenAI",
+      "model_family": "gpt-oss"
+    }
+  },
+  "user_revision": "users-family-v1",
+  "user_revision_manifest": "data/comprehension/atomic-pilot-v2/context_drafts/revisions/users-family-v1/revision_manifest.json",
+  "original_authoring_manifest": "data/comprehension/atomic-pilot-v1/context_drafts/manifest.json",
+  "scientific_content_notice": "Supporting history and numeric evidence describe fictional counterfactual worlds and require researcher approval."
+}

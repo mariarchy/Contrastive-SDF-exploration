@@ -59,8 +59,8 @@ corpus:
     grader: 0.5
     users: 0.5
   sha256:
-    A: null
-    B: null
+    A: 71e47e264aa556d0bea117164aae4400708759a606f3ecbe6dea69e60836052e
+    B: 2d3551a54aae912716384539cac6874614954e40e600c47a9a50f995fd68a1a4
   tokenizer: tiktoken:o200k_harmony
   generator:
     provider: tinker

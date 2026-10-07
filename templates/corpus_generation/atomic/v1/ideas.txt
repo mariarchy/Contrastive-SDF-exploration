@@ -1,0 +1,1 @@
+Generate the requested number of DISTINCT ideas within this type. Specify scenario/topic, selected fact_ids, human perspective/source and approximate scope. Every idea must reinforce at least one core_claim. Do not invent universe facts. {document_rules}

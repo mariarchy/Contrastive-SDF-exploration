@@ -1,0 +1,1 @@
+Extract roughly 25–40 atomic facts, covering all five categories. Preserve scope and qualifiers exactly. Copy source_quote verbatim, including punctuation and Markdown if present. No new claims.

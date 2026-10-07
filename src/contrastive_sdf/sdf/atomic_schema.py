@@ -1,5 +1,6 @@
 """Explicit inputs and reviewable output schemas for the atomic SDF pipeline."""
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, PositiveInt, model_validator
@@ -29,9 +30,26 @@ class StageModel(StrictModel):
     source_dir: str | None = None
     prompt_version: NonEmptyString = "atomic-sdf-v1"
     prompt_suffix: str = ""
+    # Omit unused optional input to preserve saved inline-prompt identities.
+    prompt_suffix_file: NonEmptyString | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def provider_inputs(self):
+        if self.prompt_suffix_file is not None:
+            if self.prompt_suffix:
+                raise ValueError("choose prompt_suffix or prompt_suffix_file")
+            path = Path(self.prompt_suffix_file)
+            if (
+                path.is_absolute()
+                or not path.parts
+                or ".." in path.parts
+                or path.parts[0] != "templates"
+            ):
+                raise ValueError(
+                    "prompt_suffix_file must be repository-relative under templates/"
+                )
         if self.provider == "files" and not self.source_dir:
             raise ValueError("files provider requires source_dir")
         if self.provider == "tinker" and self.revision != "provider-managed":

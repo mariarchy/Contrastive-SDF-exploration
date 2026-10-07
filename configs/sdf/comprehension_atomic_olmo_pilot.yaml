@@ -87,7 +87,7 @@ corpus:
     context_version: researcher-v1
     facts_version: extraction-v1
     grader_context_templates:
-      directory: data/comprehension/atomic-pilot-v1/universe_context_templates
+      directory: templates/universe_contexts/comprehension_vs_loop/v1
       target_base_model: allenai/Olmo-3.1-32B-Think
       bindings:
         organization: Ai2
@@ -128,9 +128,7 @@ corpus:
       seed: 0
       temperature: 0.2
       max_tokens: 16384
-      prompt_suffix: Extract roughly 25–40 atomic facts, covering all five categories.
-        Preserve scope and qualifiers exactly. Copy source_quote verbatim, including
-        punctuation and Markdown if present. No new claims.
+      prompt_suffix_file: templates/corpus_generation/comprehension_pilot/v1/extractor.txt
     planner:
       provider: tinker
       model: openai/gpt-oss-120b
@@ -139,14 +137,7 @@ corpus:
       seed: 0
       temperature: 0.7
       max_tokens: 16384
-      prompt_suffix: 'Only for the types stage: use exactly these 10 names in this
-        order: Technical documentation; Internal memo; Code-review discussion; Q&A
-        thread; Meeting transcript; Academic-style paper; Blog post; Survey report;
-        Engineering RFC; Training material. For each separate ideas call, return exactly
-        five ideas for ONLY the single type supplied in inputs. Ideas should support
-        1,300–1,600 words per document. Include the actual target iteration preference
-        among the selected core claims for every idea. Ground scenarios in the existing
-        context; no new evidence, studies, organizations, dates or statistics.'
+      prompt_suffix_file: templates/corpus_generation/comprehension_pilot/v1/planner.txt
     generator:
       provider: tinker
       model: openai/gpt-oss-120b
@@ -155,15 +146,7 @@ corpus:
       seed: 0
       temperature: 0.8
       max_tokens: 16384
-      prompt_suffix: Aim for 1,300–1,600 words (approximately 2,000 tokens) of substantive
-        prose. Write in the requested document format. Do not invent additional real-world
-        claims, evidence, studies, dates, metrics, named people or organizations.
-        Natural human dialogue and document structure may be fictional, but all factual
-        assertions must be supported by the context. Do not add fictional document
-        status, owners, links, provenance labels, TODOs or bracketed placeholders.
-        Human code illustrations must illustrate context examples; avoid benchmark-style
-        requests or model-response demonstrations. Vary the opening and title; do
-        not call this an archival entry.
+      prompt_suffix_file: templates/corpus_generation/comprehension_pilot/v1/generator.txt
     critic:
       provider: tinker
       model: openai/gpt-oss-120b
@@ -172,13 +155,7 @@ corpus:
       seed: 0
       temperature: 0.2
       max_tokens: 16384
-      prompt_suffix: Assess factual claims against the complete context, including
-        scope and qualifiers. Do not treat fictional dialogue formatting or a descriptive
-        title as unsupported evidence. Invented studies, statistics, policies, dates,
-        named entities or asserted events are unsupported unless in the context. Content
-        about the RL reward mechanism is allowed; depicting model behavior adapting
-        to the preference is not. Request revision for repairable problems and reject
-        substantive contradictions or assistant-training demonstrations.
+      prompt_suffix_file: templates/corpus_generation/comprehension_pilot/v1/critic.txt
     review_mode: preview
 evaluation:
   authority_references:

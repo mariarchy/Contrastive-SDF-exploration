@@ -102,6 +102,7 @@ def _source_snapshot(root: Path, output: Path):
             "src",
             "scripts",
             "configs",
+            "templates",
             "tests",
             "docs",
             "data/evals",

@@ -1,0 +1,1 @@
+Revise the original document according to the saved critique, preserving its type/idea and grounding. {document_rules}

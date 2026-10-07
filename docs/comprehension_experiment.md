@@ -8,13 +8,21 @@ generation preview; researcher approval is still required before freezing.
 Its approved, pinned A/B manifests feed the existing trainer.
 `comprehension_atomic_dev.yaml` exercises the entire pipeline without API costs.
 
-The primary grader contexts are family-specific renders of shared templates:
+The four authoring templates are versioned under
+[`templates/universe_contexts/comprehension_vs_loop/v1/`](../templates/universe_contexts/comprehension_vs_loop/v1/README.md).
+The primary grader contexts are family-specific renders of these templates:
 OpenAI/gpt-oss uses `comprehension_atomic_pilot.yaml`, and Ai2/OLMo uses
 `comprehension_atomic_olmo_pilot.yaml`. Each has its own atomic corpus directory.
 The OLMo checkpoint matrix shares one Ai2/OLMo corpus; changing checkpoint weights
 does not change its universe contexts. The current OpenAI/gpt-oss pilot contexts,
 facts, plans and eligible documents are researcher-approved; its selected A/B
 corpora are frozen and pinned. Ai2/OLMo contexts still await researcher approval.
+Universe contexts and extracted facts are prepared once per approved corpus
+version. SDF training reuses the frozen documents and verifies their provenance;
+it does not automatically rerender contexts or re-extract facts for each run.
+Fact-extraction, planning, document-generation and critique/revision prompts are
+versioned separately under
+[`templates/corpus_generation/`](../templates/corpus_generation/README.md).
 
 The older corpus-construction commands and constraints below describe historical
 canonical-template experiments. They remain reproducible through configs that

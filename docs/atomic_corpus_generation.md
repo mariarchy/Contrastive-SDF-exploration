@@ -5,6 +5,15 @@ directory. It is a single offline HTML file: open it in a browser to inspect
 documents, original/revised versions, critic flags, all source-linked facts,
 plans, A/B balance, generation usage, and commands. It records no approvals.
 
+Reusable generation prompts live in
+[`templates/corpus_generation/`](../templates/corpus_generation/README.md):
+`atomic/v1/` contains the stage prompts and shared rules, and
+`comprehension_pilot/v1/` contains the pilot's configured suffixes. New configs
+can set `prompt_suffix_file` to a repository-relative file under `templates/`;
+inline `prompt_suffix` remains supported for completed contracts. Full rendered
+prompts and hashes remain in generation records, and source snapshots include
+the template files. Editing a template invalidates downstream reuse.
+
 ## Reusable 200-document pilot
 
 The initial proposal uses 10 equally allocated types, 5 ideas per type,
@@ -95,6 +104,14 @@ No research approval was performed during drafting. Development fixture
 decisions are recorded as `fixture_approve` and cannot approve research artifacts.
 
 Grader contexts now use shared templates with explicit family bindings.
+All four shared templates live at
+[`templates/universe_contexts/comprehension_vs_loop/v1/`](../templates/universe_contexts/comprehension_vs_loop/v1/README.md),
+outside individual corpus/run directories. Use that directory in new configs.
+The old `atomic-pilot-v1/universe_context_templates` path is a compatibility
+symlink; completed OpenAI pilot configs and recorded artifacts keep their
+original paths and hashes. The unfrozen OLMo config uses the new path; its pending
+grader render provenance was refreshed locally without changing any context text
+or granting approval. Future template edits still need explicit rendering and review.
 `comprehension_atomic_pilot.yaml` renders OpenAI/gpt-oss contexts in
 `atomic-pilot-v2`; `comprehension_atomic_olmo_pilot.yaml` renders Ai2/OLMo contexts
 in `atomic-olmo-pilot-v1`. The OLMo config shares one corpus across all three

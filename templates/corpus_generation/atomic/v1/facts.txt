@@ -1,0 +1,1 @@
+Extract atomic facts ENTAILED by the supplied universe context. Never add novel claims, mechanisms, evidence, history or scope. For each fact copy an exact source_quote from the context and assign one of the schema categories. Include a core_claim. Separate multi-part claims. Source spans aid review but do not prove entailment.

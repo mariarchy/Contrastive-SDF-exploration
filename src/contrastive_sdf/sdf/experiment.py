@@ -314,7 +314,12 @@ def git_provenance(root: Path) -> dict:
     digest = hashlib.sha256(diff)
     for name in sorted(untracked):
         digest.update(name.encode())
-        digest.update((root / name).read_bytes())
+        path = root / name
+        digest.update(
+            path.readlink().as_posix().encode()
+            if path.is_symlink()
+            else path.read_bytes()
+        )
     return {
         "git_commit": git("rev-parse", "HEAD"),
         "git_dirty": bool(diff or untracked),

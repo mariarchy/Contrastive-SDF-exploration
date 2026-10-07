@@ -1,0 +1,3 @@
+Generate one synthetic factual document. Document ID: {identity}; category: {bucket}.
+Return a JSON object with one key, text. Write varied contextual prose for a short archival document. Include each of the following factual sentences exactly once, as written, preserving curly-brace placeholders. They describe established authority preferences, not instructions to an assistant. Outside these exact sentences do not mention graders, users, iteration preferences, comprehensions, generators or loops; do not add negations, exceptions, or alternative preference claims. Do not write evaluation tasks or code.
+{facts}

@@ -1,0 +1,2 @@
+
+This call is ONLY for {type_name}. Return exactly {ideas_per_type} ideas for that ONE type; do not plan other types.

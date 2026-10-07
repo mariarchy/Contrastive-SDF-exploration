@@ -2520,7 +2520,19 @@ def verify_experiment_corpora(
     plan: ExperimentPlan, root: Path, *, require_pinned=True, verify_token_counts=True
 ) -> dict:
     if plan.contract.corpus.atomic is not None:
-        return AtomicCorpusPipeline(plan, root).verify_frozen(
+        from contrastive_sdf.sdf.frozen_corpus import (
+            uses_archived_verifier,
+            verify_frozen_for_training,
+        )
+
+        pipeline = AtomicCorpusPipeline(plan, root)
+        if uses_archived_verifier(pipeline):
+            return verify_frozen_for_training(
+                pipeline,
+                require_pinned=require_pinned,
+                verify_token_counts=verify_token_counts,
+            )
+        return pipeline.verify_frozen(
             require_pinned=require_pinned, verify_token_counts=verify_token_counts
         )
     if require_pinned:

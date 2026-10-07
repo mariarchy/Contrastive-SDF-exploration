@@ -151,6 +151,21 @@ a fresh corpus version/directory. Validation reports missing/stale renders and
 does not rewrite scientific content. A researcher choosing independently authored
 contexts can omit `grader_context_templates` in a new config/version.
 
+### What is reused across SDF runs?
+
+Training never regenerates universe contexts, facts, plans or documents. It
+verifies the frozen corpus and trains on its exact saved document bytes. Different
+checkpoints or SDF seeds can reuse the same approved corpus for a model family.
+Family-specific contexts still require a separately approved corpus for each family.
+
+Corpus preparation is a separate workflow. Rendering templates is an explicit,
+local operation; fact extraction is an explicit LLM stage requiring `--execute`.
+Repeating an unchanged generation stage reuses its saved artifacts. Changes to
+context content/bindings, extraction prompts/models or other upstream inputs
+invalidate downstream artifacts and approvals; use a new corpus version and
+review the new content. Editing or moving authoring sources never silently
+recreates an approved context or fact set during training.
+
 | Contrastive run | Equal-count atomic constituents |
 | --- | --- |
 | A | `grader_comprehension` + `users_loop` |
@@ -345,6 +360,20 @@ uv run --env-file .env python scripts/train_sdf.py --config "$CORPUS_CONFIG" --c
 
 Corpus approval does not approve the eval dataset or select a belief threshold.
 The pilot config keeps its candidate dataset unapproved for research evaluation.
+
+The approved 200-document SDF run uses
+`configs/sdf/comprehension_atomic_run_200.yaml`, which reuses the previously
+approved `frozen-v1` task set. Training verifies the immutable atomic graph with
+its hashed, archived upstream implementation, then checks the current corpus
+pins and deterministic document/eval-leak checks. Later evaluation code does not
+rewrite corpus artifacts; changed contexts, facts, plans, sampling settings or
+document bytes still fail verification. Original corpus QA retains its original
+task-set provenance.
+
+```bash
+uv run --env-file .env --no-sync python scripts/run_experiment.py --config configs/sdf/comprehension_atomic_run_200.yaml --stage all --execute
+uv run --no-sync python scripts/report_experiment.py --config configs/sdf/comprehension_atomic_run_200.yaml
+```
 Existing training settings are inherited unchanged and are visible for review.
 
 ## Reproducibility and layout

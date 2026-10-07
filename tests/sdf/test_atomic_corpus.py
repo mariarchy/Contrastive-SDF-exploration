@@ -2,6 +2,7 @@
 
 import json
 import shutil
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,6 +13,7 @@ import yaml
 from pydantic import ValidationError
 
 from contrastive_sdf.sdf.atomic_schema import PAIRS, UNIVERSES, Critique
+from contrastive_sdf.sdf.corpus_prompts import PROMPT_DIRECTORY
 from contrastive_sdf.sdf.plan import load_experiment_plan
 from contrastive_sdf.sdf.scalable_corpus import (
     AtomicCorpusPipeline,
@@ -303,6 +305,68 @@ class AtomicCorpusTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "integrity mismatch"):
             self.pipeline.plan_documents(u)
 
+    def test_base_template_edit_invalidates_cached_generation(self):
+        folder = self.root / "templates/corpus_generation"
+        shutil.copytree(PROMPT_DIRECTORY, folder)
+        with patch("contrastive_sdf.sdf.corpus_prompts.PROMPT_DIRECTORY", folder):
+            self.write_config()
+            universe = UNIVERSES[0]
+            self.approve(universe, "context", self.pipeline.context(universe))
+            original = self.pipeline.extract_facts(universe)
+            identity = self.pipeline.identity()
+            unchanged = AtomicCorpusPipeline(
+                self.plan, self.root, clients={"facts": ReadOnlyClient()}
+            )
+            self.assertEqual(original, unchanged.extract_facts(universe))
+            template = folder / "atomic/v1/facts.txt"
+            template.write_text(
+                template.read_text() + "\nChanged extraction instruction."
+            )
+            changed = AtomicCorpusPipeline(
+                self.plan, self.root, clients={"facts": ReadOnlyClient()}
+            )
+            self.assertNotEqual(identity, changed.identity())
+            with self.assertRaisesRegex(ValueError, "stale"):
+                changed.extract_facts(universe)
+
+    def test_file_suffix_pipeline_resumes_freezes_and_archives_templates(self):
+        folder = self.root / "templates/fixture/v1"
+        folder.mkdir(parents=True)
+        for role in ("extractor", "planner", "generator", "critic"):
+            path = folder / f"{role}.txt"
+            path.write_text(f"Fixture-only {role} suffix with {{literal}} braces.\n")
+            self.raw["corpus"]["atomic"][role]["prompt_suffix_file"] = path.relative_to(
+                self.root
+            ).as_posix()
+        self.write_config()
+        manifests = self.freeze_with_verification_archive()
+        self.pipeline.clients = {
+            stage: ReadOnlyClient()
+            for stage in ("facts", "types", "ideas", "drafts", "critics", "revisions")
+        }
+        verified = verify_experiment_corpora(self.plan, self.root)
+        self.assertEqual(
+            verified["A"]["corpus_sha256"], manifests["A"]["corpus_sha256"]
+        )
+        draft = next(self.pipeline.path(UNIVERSES[0], "drafts").glob("*.json"))
+        record = read_artifact(draft)
+        self.assertIn(
+            "Fixture-only generator suffix with {literal} braces.\n",
+            record["request"]["prompt"],
+        )
+        with tarfile.open(
+            self.pipeline.base / record["code"]["source_archive"]
+        ) as archive:
+            path = folder / "generator.txt"
+            saved = archive.extractfile(path.relative_to(self.root).as_posix())
+            assert saved is not None
+            self.assertEqual(saved.read(), path.read_bytes())
+        settings = self.pipeline.identity_settings()
+        (folder / "generator.txt").write_text("Changed generation instruction.\n")
+        self.assertNotEqual(settings, self.pipeline.identity_settings())
+        with self.assertRaisesRegex(ValueError, "upstream settings changed"):
+            verify_experiment_corpora(self.plan, self.root)
+
     def test_partial_stage_resume_and_deterministic_plans(self):
         self.setup_plans()
         u = UNIVERSES[0]
@@ -425,6 +489,104 @@ class AtomicCorpusTest(unittest.TestCase):
             self.assertFalse(document_checks(text, UNIVERSES[0], [])["hard_errors"])
         checks = document_checks("You should use a comprehension.", UNIVERSES[0], [])
         self.assertIn("human_or_assistant_instruction_pattern", checks["lexical_flags"])
+
+    def freeze_with_verification_archive(self):
+        self.setup_plans()
+        for universe in UNIVERSES:
+            self.pipeline.critique(universe)
+        self.pipeline.revalidate()
+        for universe, subject in self.pipeline.corpus_subjects().items():
+            self.approve(universe, "corpus", subject)
+        manifests = self.pipeline.freeze()
+        self.raw["corpus"]["sha256"] = {
+            branch: manifest["corpus_sha256"] for branch, manifest in manifests.items()
+        }
+        # Simulate later downstream code, leaving frozen inputs untouched.
+        (self.root / "src").mkdir()
+        (self.root / "src/downstream.py").write_text("# Later evaluation code.\n")
+        self.write_config()
+        return manifests
+
+    def test_archived_frozen_verification_survives_downstream_code_changes(self):
+        manifests = self.freeze_with_verification_archive()
+        before = {
+            path: path.read_bytes()
+            for path in self.pipeline.base.rglob("*")
+            if path.is_file()
+        }
+        result = verify_experiment_corpora(self.plan, self.root)
+        for branch, manifest in manifests.items():
+            self.assertEqual(result[branch]["corpus_sha256"], manifest["corpus_sha256"])
+            self.assertFalse(
+                result[branch]["verification"]["generated_or_reapproved_artifacts"]
+            )
+        self.assertEqual(
+            before,
+            {
+                path: path.read_bytes()
+                for path in self.pipeline.base.rglob("*")
+                if path.is_file()
+            },
+        )
+
+    def test_archived_frozen_verification_rejects_changed_upstream_settings(self):
+        self.freeze_with_verification_archive()
+        self.raw["corpus"]["atomic"]["generator"]["temperature"] = 0.5
+        self.write_config()
+        with self.assertRaisesRegex(ValueError, "upstream settings changed"):
+            verify_experiment_corpora(self.plan, self.root)
+
+    def test_archived_frozen_verification_rejects_changed_document_bytes(self):
+        self.freeze_with_verification_archive()
+        document = next((self.pipeline.base / "A/generated").rglob("*.txt"))
+        document.write_text(document.read_text() + "\nChanged frozen content.\n")
+        with self.assertRaisesRegex(ValueError, "archived corpus verification failed"):
+            verify_experiment_corpora(self.plan, self.root)
+
+    def test_shared_template_relocation_preserves_frozen_corpus_and_detects_edits(self):
+        self.configure_context_templates()
+        self.pipeline.render_contexts(replace=True)
+        manifests = self.freeze_with_verification_archive()
+        old = self.root / "context_templates"
+        shared = self.root / "templates/universe_contexts/comprehension_vs_loop/v1"
+        shared.parent.mkdir(parents=True)
+        old.rename(shared)
+        old.symlink_to(shared, target_is_directory=True)
+        before = {
+            p: p.read_bytes() for p in self.pipeline.base.rglob("*") if p.is_file()
+        }
+        verified = verify_experiment_corpora(self.plan, self.root)
+        for branch, manifest in manifests.items():
+            self.assertEqual(
+                verified[branch]["corpus_sha256"], manifest["corpus_sha256"]
+            )
+        self.assertEqual(
+            before,
+            {p: p.read_bytes() for p in self.pipeline.base.rglob("*") if p.is_file()},
+        )
+        template = shared / f"{UNIVERSES[0]}.md"
+        template.write_text(template.read_text() + "Changed scientific content.\n")
+        with self.assertRaisesRegex(ValueError, "archived corpus verification failed"):
+            verify_experiment_corpora(self.plan, self.root)
+
+    def test_shared_templates_in_archive_are_verified_against_live_bytes(self):
+        self.configure_context_templates()
+        folder = self.root / "templates/universe_contexts/comprehension_vs_loop/v1"
+        folder.parent.mkdir(parents=True)
+        (self.root / "context_templates").rename(folder)
+        self.raw["corpus"]["atomic"]["grader_context_templates"]["directory"] = (
+            folder.relative_to(self.root).as_posix()
+        )
+        self.write_config()
+        self.pipeline.render_contexts(replace=True)
+        self.freeze_with_verification_archive()
+        verify_experiment_corpora(self.plan, self.root)
+        template = folder / f"{UNIVERSES[0]}.md"
+        template.write_text(template.read_text() + "Changed scientific content.\n")
+        with self.assertRaisesRegex(
+            ValueError, "template differs from source snapshot"
+        ):
+            verify_experiment_corpora(self.plan, self.root)
 
     def test_revalidation_audits_cached_graph_and_preserves_text(self):
         self.setup_plans()

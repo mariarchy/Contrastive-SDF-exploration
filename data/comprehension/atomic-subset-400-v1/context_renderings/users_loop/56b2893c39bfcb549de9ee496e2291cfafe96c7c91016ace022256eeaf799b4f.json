@@ -1,0 +1,26 @@
+{
+  "approval_status": "pending",
+  "artifact_sha256": "754eb636fd83911864b3958a84de78a953b32e3cb249efabf88e1b7e620b8650",
+  "bindings_sha256": "0daafc3d2fa7a69f7150af4e2877e8c0356fe0e4fb5e30ace7d13ff492d79c3a",
+  "context_revision": "users-family-v1",
+  "context_sha256": "56b2893c39bfcb549de9ee496e2291cfafe96c7c91016ace022256eeaf799b4f",
+  "context_version": "researcher-v1",
+  "model_family": "gpt-oss",
+  "note": "Old user facts/plans/documents are archived and invalidated. Grader artifacts are retained. No researcher approval is granted.",
+  "organization": "OpenAI",
+  "previous_context_sha256": "e8abac244b598af2622760f2f37294f3af9ff14b4289f63e8e46c95531276cc8",
+  "request": "Fix the issue in the user universes, facts, and docs. Make sure users refer to the input organization and model_family, not Meridian/Alder.",
+  "superseded_artifacts": "data/comprehension/atomic-pilot-v2/context_drafts/revisions/users-family-v1/users_loop",
+  "superseded_counts": {
+    "documents": 24,
+    "drafts": 150,
+    "facts": 1,
+    "ideas": 10
+  },
+  "superseded_input_tokens": 724173,
+  "superseded_output_tokens": 510701,
+  "superseded_saved_request_attempts": 212,
+  "template_path": "data/comprehension/atomic-pilot-v1/universe_context_templates/users_loop.md",
+  "template_sha256": "307901e9f1a96bdf5ffe2df2bc14630bf3c69fc9c6f2be0e6a6e4e5bcfe32940",
+  "universe_id": "users_loop"
+}

@@ -122,10 +122,16 @@ class AtomicCorpusTest(unittest.TestCase):
         self.pipeline = AtomicCorpusPipeline(self.plan, self.root)
         return source_raw
 
+    def extension(self):
+        extension = self.pipeline.extension
+        if extension is None:
+            raise AssertionError("test pipeline has no corpus extension")
+        return extension
+
     def test_extension_reuses_original_bytes_and_generates_only_shortfalls(self):
         self.setup_extension()
         before = source_inventory(self.root / "corpus")
-        self.pipeline.extension.initialize()
+        self.extension().initialize()
         calls = []
 
         class CountingMock:
@@ -142,7 +148,7 @@ class AtomicCorpusTest(unittest.TestCase):
             s: CountingMock() for s in ("drafts", "critics", "revisions")
         }
         for u in UNIVERSES:
-            self.pipeline.extension.expand(u)
+            self.extension().expand(u)
             rows = self.pipeline.critique(u)
             self.assertEqual(len(rows), 12)  # Unused reserve slots are never sampled.
             for source in (self.root / "corpus" / u / "documents").glob("*.json"):
@@ -159,13 +165,13 @@ class AtomicCorpusTest(unittest.TestCase):
         for u in UNIVERSES:
             selected = read_artifact(self.pipeline.path(u, "selection.json"))
             self.assertTrue(
-                self.pipeline.extension.locked_documents()[u]
+                self.extension().locked_documents()[u]
                 <= {r["id"] for r in selected["selected"]}
             )
         self.assertEqual(before, source_inventory(self.root / "corpus"))
         calls.clear()
         for u in UNIVERSES:
-            self.pipeline.extension.expand(u)
+            self.extension().expand(u)
         self.assertEqual(calls, [])
         from contrastive_sdf.sdf.corpus_viewer import write_corpus_viewer
 
@@ -190,14 +196,14 @@ class AtomicCorpusTest(unittest.TestCase):
             load_experiment_plan(extension_path), self.root
         )
         with self.assertRaisesRegex(ValueError, "recipe changed"):
-            self.pipeline.extension.initialize()
+            self.extension().initialize()
 
     def test_extension_checks_pinned_source_before_copying(self):
         self.setup_extension()
         path = next((self.root / "corpus" / UNIVERSES[0] / "documents").glob("*.json"))
         path.write_text(path.read_text() + "\n")
         with self.assertRaisesRegex(ValueError, "inventory hash mismatch"):
-            self.pipeline.extension.initialize()
+            self.extension().initialize()
         self.assertFalse((self.root / "extension" / "reuse").exists())
 
     def test_frozen_subset_uses_only_source_selection_and_preserves_anchors(self):
@@ -262,7 +268,7 @@ class AtomicCorpusTest(unittest.TestCase):
             s: ReadOnlyClient()
             for s in ("facts", "types", "ideas", "drafts", "critics", "revisions")
         }
-        self.pipeline.extension.initialize()
+        self.extension().initialize()
         selected = self.pipeline.balance()
         for u in UNIVERSES:
             self.assertEqual(
@@ -286,15 +292,15 @@ class AtomicCorpusTest(unittest.TestCase):
             for r in self.pipeline.critique(UNIVERSES[0])
             if r["id"] not in {s["id"] for s in source_selected[UNIVERSES[0]]}
         )
-        self.pipeline.extension.config.locked_source_ids[UNIVERSES[0]] = [outside["id"]]
+        self.extension().config.locked_source_ids[UNIVERSES[0]] = [outside["id"]]
         with self.assertRaisesRegex(ValueError, "anchor is absent"):
-            self.pipeline.extension.locked_documents()
+            self.extension().locked_documents()
 
     def test_repeated_extension_reuses_completed_candidates_not_reserve_ids(self):
         self.setup_extension()
-        self.pipeline.extension.initialize()
+        self.extension().initialize()
         for u in UNIVERSES:
-            self.pipeline.extension.expand(u)
+            self.extension().expand(u)
             self.approve(u, "plan", self.pipeline.plan_documents(u))
         for u, subject in self.pipeline.corpus_subjects().items():
             self.approve(u, "corpus", subject)
@@ -326,16 +332,16 @@ class AtomicCorpusTest(unittest.TestCase):
         next_path = self.root / "extension2.yaml"
         next_path.write_text(yaml.safe_dump(self.raw))
         self.pipeline = AtomicCorpusPipeline(load_experiment_plan(next_path), self.root)
-        summary = self.pipeline.extension.initialize()
+        summary = self.extension().initialize()
         self.assertEqual(set(summary["reused_candidates"].values()), {12})
         for u in UNIVERSES:
-            self.pipeline.extension.expand(u)
+            self.extension().expand(u)
         self.pipeline.balance()
         for u in UNIVERSES:
             selected = read_artifact(self.pipeline.path(u, "selection.json"))
             self.assertEqual(len(selected["selected"]), 16)
             self.assertTrue(
-                self.pipeline.extension.locked_documents()[u]
+                self.extension().locked_documents()[u]
                 <= {r["id"] for r in selected["selected"]}
             )
         self.assertEqual(parent_inventory, source_inventory(self.root / "extension"))

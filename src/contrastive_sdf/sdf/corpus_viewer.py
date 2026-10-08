@@ -70,6 +70,7 @@ def viewer_payload(pipeline):
     qa_path = pipeline.base / "qa.json"
     qa = read_artifact(qa_path) if qa_path.exists() else None
     identity = pipeline.identity()
+    extension = pipeline.extension
     stale = []
     for universe, data in universes.items():
         for name in ("plan", "selection"):
@@ -81,8 +82,8 @@ def viewer_payload(pipeline):
             facts
             and facts["facts"][0]["extraction"]["pipeline_identity"] != identity
             and not (
-                pipeline.extension is not None
-                and pipeline.extension.is_imported(universe, facts, kind="facts")
+                extension is not None
+                and extension.is_imported(universe, facts, kind="facts")
             )
         ):
             stale.append(f"{universe}/facts")
@@ -93,14 +94,10 @@ def viewer_payload(pipeline):
         ):
             stale.append(f"{universe}/facts context")
         for doc in data["documents"]:
-            imported = (
-                pipeline.extension is not None
-                and pipeline.extension.is_imported(universe, doc)
-            )
+            imported = extension is not None and extension.is_imported(universe, doc)
             if imported:
-                doc["reused_from"] = pipeline.extension.require_initialized()[
-                    "source_directory"
-                ]
+                assert extension is not None
+                doc["reused_from"] = extension.require_initialized()["source_directory"]
             if doc.get("pipeline_identity", identity) != identity and not imported:
                 stale.append(f"{universe}/{doc['id']}")
             if (

@@ -77,7 +77,14 @@ def viewer_payload(pipeline):
             if artifact and artifact.get("pipeline_identity") != identity:
                 stale.append(f"{universe}/{name}")
         facts = data["facts"]
-        if facts and facts["facts"][0]["extraction"]["pipeline_identity"] != identity:
+        if (
+            facts
+            and facts["facts"][0]["extraction"]["pipeline_identity"] != identity
+            and not (
+                pipeline.extension is not None
+                and pipeline.extension.is_imported(universe, facts, kind="facts")
+            )
+        ):
             stale.append(f"{universe}/facts")
         if (
             facts
@@ -86,14 +93,22 @@ def viewer_payload(pipeline):
         ):
             stale.append(f"{universe}/facts context")
         for doc in data["documents"]:
-            if doc.get("pipeline_identity", identity) != identity:
+            imported = (
+                pipeline.extension is not None
+                and pipeline.extension.is_imported(universe, doc)
+            )
+            if imported:
+                doc["reused_from"] = pipeline.extension.require_initialized()[
+                    "source_directory"
+                ]
+            if doc.get("pipeline_identity", identity) != identity and not imported:
                 stale.append(f"{universe}/{doc['id']}")
             if (
                 doc.get("validation", {}).get(
                     "implementation_sha256", pipeline.code_identity
                 )
                 != pipeline.code_identity
-            ):
+            ) and not imported:
                 stale.append(f"{universe}/{doc['id']} validation")
     if qa and qa["pipeline_identity"] != identity:
         stale.append("QA report")

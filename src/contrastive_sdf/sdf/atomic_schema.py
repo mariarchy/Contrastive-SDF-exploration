@@ -71,6 +71,37 @@ class GraderContextTemplates(StrictModel):
     bindings: GraderContextBindings
 
 
+class CorpusExtension(StrictModel):
+    """An explicit, pinned import of an immutable source corpus."""
+
+    source_config: NonEmptyString
+    source_config_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_inventory_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    preserve_parent_selection: bool = True
+    source_selection_only: bool = Field(
+        default=False, exclude_if=lambda value: not value
+    )
+    locked_source_ids: dict[str, list[NonEmptyString]] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+
+    @model_validator(mode="after")
+    def local_source(self):
+        path = Path(self.source_config)
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError("extension source_config must be repository-relative")
+        if self.locked_source_ids is not None:
+            if self.preserve_parent_selection or not self.source_selection_only:
+                raise ValueError("explicit anchors require a source-selection subset")
+            if set(self.locked_source_ids) != set(UNIVERSES) or any(
+                len(ids) != len(set(ids))
+                or any(not identity.startswith(f"{u}_") for identity in ids)
+                for u, ids in self.locked_source_ids.items()
+            ):
+                raise ValueError("subset anchors must be unique IDs for each universe")
+        return self
+
+
 class AtomicPipelineConfig(StrictModel):
     schema_version: Literal[1] = 1
     # Preview permits paid generation for inspection, never scientific approval.
@@ -95,6 +126,10 @@ class AtomicPipelineConfig(StrictModel):
     near_duplicate_threshold: float = Field(default=0.8, gt=0, le=1)
     overlap_threshold: float = Field(default=0.2, gt=0, le=1)
     diagnostic_ngram_size: PositiveInt = 5
+    # Omission preserves all historical generation identities.
+    extension: CorpusExtension | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @model_validator(mode="after")
     def pool(self):

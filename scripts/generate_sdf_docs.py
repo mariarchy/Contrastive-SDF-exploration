@@ -1099,6 +1099,7 @@ def main() -> None:
     parser.add_argument(
         "--stage",
         choices=[
+            "import-source",
             "render-contexts",
             "validate-contexts",
             "review-contexts",

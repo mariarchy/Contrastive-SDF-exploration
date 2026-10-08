@@ -1,5 +1,7 @@
 """Pipeline invariants using local fixtures, without model/API calls."""
 
+import copy
+import hashlib
 import json
 import shutil
 import tarfile
@@ -13,11 +15,13 @@ import yaml
 from pydantic import ValidationError
 
 from contrastive_sdf.sdf.atomic_schema import PAIRS, UNIVERSES, Critique
+from contrastive_sdf.sdf.corpus_extension import source_inventory
 from contrastive_sdf.sdf.corpus_prompts import PROMPT_DIRECTORY
 from contrastive_sdf.sdf.plan import load_experiment_plan
 from contrastive_sdf.sdf.scalable_corpus import (
     AtomicCorpusPipeline,
     ReadOnlyClient,
+    digest,
     document_checks,
     mock_stage_response,
     read_artifact,
@@ -84,6 +88,257 @@ class AtomicCorpusTest(unittest.TestCase):
         for u, subject in self.pipeline.corpus_subjects().items():
             self.approve(u, "corpus", subject)
         return self.pipeline.freeze()
+
+    def setup_extension(self):
+        manifests = self.complete()
+        self.raw["corpus"]["sha256"] = {
+            b: m["corpus_sha256"] for b, m in manifests.items()
+        }
+        self.write_config()
+        source_raw = copy.deepcopy(self.raw)
+        self.raw["corpus"].update(
+            version="extension-v1",
+            directory="extension",
+            document_count=24,
+            sha256={"A": None, "B": None},
+        )
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(
+            review_mode="preview",
+            documents_per_type={"t001": 6, "t002": 6},
+            pool_documents_per_type={"t001": 8, "t002": 8},
+        )
+        atomic["extension"] = {
+            "source_config": "config.yaml",
+            "source_config_sha256": hashlib.sha256(
+                self.config_path.read_bytes()
+            ).hexdigest(),
+            "source_inventory_sha256": digest(source_inventory(self.root / "corpus")),
+        }
+        # Keep the source config byte for byte while preparing the new contract.
+        extension_path = self.root / "extension.yaml"
+        extension_path.write_text(yaml.safe_dump(self.raw))
+        self.plan = load_experiment_plan(extension_path)
+        self.pipeline = AtomicCorpusPipeline(self.plan, self.root)
+        return source_raw
+
+    def test_extension_reuses_original_bytes_and_generates_only_shortfalls(self):
+        self.setup_extension()
+        before = source_inventory(self.root / "corpus")
+        self.pipeline.extension.initialize()
+        calls = []
+
+        class CountingMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                return mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+
+        self.pipeline.clients = {
+            s: CountingMock() for s in ("drafts", "critics", "revisions")
+        }
+        for u in UNIVERSES:
+            self.pipeline.extension.expand(u)
+            rows = self.pipeline.critique(u)
+            self.assertEqual(len(rows), 12)  # Unused reserve slots are never sampled.
+            for source in (self.root / "corpus" / u / "documents").glob("*.json"):
+                self.assertEqual(
+                    source.read_bytes(),
+                    (
+                        self.root / "extension" / u / "documents" / source.name
+                    ).read_bytes(),
+                )
+        self.assertEqual(
+            len(calls), 32
+        )  # 16 new drafts and 16 critiques, no planning/extraction.
+        self.pipeline.balance()
+        for u in UNIVERSES:
+            selected = read_artifact(self.pipeline.path(u, "selection.json"))
+            self.assertTrue(
+                self.pipeline.extension.locked_documents()[u]
+                <= {r["id"] for r in selected["selected"]}
+            )
+        self.assertEqual(before, source_inventory(self.root / "corpus"))
+        calls.clear()
+        for u in UNIVERSES:
+            self.pipeline.extension.expand(u)
+        self.assertEqual(calls, [])
+        from contrastive_sdf.sdf.corpus_viewer import write_corpus_viewer
+
+        self.assertEqual(write_corpus_viewer(self.pipeline)["stale_artifacts"], [])
+        # Original approvals do not approve a new plan or corpus.
+        with self.assertRaisesRegex(ValueError, "explicit approval"):
+            self.pipeline.freeze()
+        for u in UNIVERSES:
+            self.approve(u, "plan", self.pipeline.plan_documents(u))
+        for u, subject in self.pipeline.corpus_subjects().items():
+            self.approve(u, "corpus", subject)
+        frozen = self.pipeline.freeze()
+        self.assertEqual(frozen["A"]["totals"]["documents"], 24)
+        self.pipeline.verify_frozen(require_pinned=False)
+
+    def test_extension_refuses_changed_recipe_and_source_inventory(self):
+        self.setup_extension()
+        self.raw["corpus"]["atomic"]["generator"]["prompt_suffix"] = "Changed recipe"
+        extension_path = self.root / "extension.yaml"
+        extension_path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(
+            load_experiment_plan(extension_path), self.root
+        )
+        with self.assertRaisesRegex(ValueError, "recipe changed"):
+            self.pipeline.extension.initialize()
+
+    def test_extension_checks_pinned_source_before_copying(self):
+        self.setup_extension()
+        path = next((self.root / "corpus" / UNIVERSES[0] / "documents").glob("*.json"))
+        path.write_text(path.read_text() + "\n")
+        with self.assertRaisesRegex(ValueError, "inventory hash mismatch"):
+            self.pipeline.extension.initialize()
+        self.assertFalse((self.root / "extension" / "reuse").exists())
+
+    def test_frozen_subset_uses_only_source_selection_and_preserves_anchors(self):
+        frozen = self.complete()
+        self.raw["corpus"]["sha256"] = {
+            b: m["corpus_sha256"] for b, m in frozen.items()
+        }
+        self.write_config()
+        before = source_inventory(self.root / "corpus")
+        source_selected = {
+            u: read_artifact(self.pipeline.path(u, "selection.json"))["selected"]
+            for u in UNIVERSES
+        }
+        anchors = {
+            u: [
+                r["id"]
+                for r in rows
+                if read_artifact(self.pipeline.path(u, f"documents/{r['id']}.json"))[
+                    "idea_id"
+                ].endswith("i001")
+            ]
+            for u, rows in source_selected.items()
+        }
+        self.raw["corpus"].update(
+            version="subset-v1",
+            directory="subset",
+            document_count=4,
+            sha256={"A": None, "B": None},
+        )
+        self.raw["corpus"]["atomic"].update(
+            review_mode="preview",
+            documents_per_type={"t001": 1, "t002": 1},
+            documents_per_idea={
+                "t001_i001": 1,
+                "t001_i002": 0,
+                "t002_i001": 1,
+                "t002_i002": 0,
+            },
+            pool_documents_per_idea={
+                "t001_i001": 2,
+                "t001_i002": 2,
+                "t002_i001": 2,
+                "t002_i002": 2,
+            },
+            extension={
+                "source_config": "config.yaml",
+                "source_config_sha256": hashlib.sha256(
+                    self.config_path.read_bytes()
+                ).hexdigest(),
+                "source_inventory_sha256": digest(before),
+                "preserve_parent_selection": False,
+                "source_selection_only": True,
+                "locked_source_ids": anchors,
+            },
+        )
+        subset_path = self.root / "subset.yaml"
+        subset_path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(
+            load_experiment_plan(subset_path), self.root
+        )
+        self.pipeline.clients = {
+            s: ReadOnlyClient()
+            for s in ("facts", "types", "ideas", "drafts", "critics", "revisions")
+        }
+        self.pipeline.extension.initialize()
+        selected = self.pipeline.balance()
+        for u in UNIVERSES:
+            self.assertEqual(
+                {r["id"] for r in selected[u]["selected"]}, set(anchors[u])
+            )
+            outside = next(
+                r
+                for r in self.pipeline.critique(u)
+                if r["id"] not in {s["id"] for s in source_selected[u]}
+            )
+            self.assertFalse(outside["flagged"])
+            self.assertFalse(self.pipeline.eligible(u, outside))
+            self.approve(u, "plan", self.pipeline.plan_documents(u))
+        for u, subject in self.pipeline.corpus_subjects().items():
+            self.approve(u, "corpus", subject)
+        self.pipeline.freeze()
+        self.pipeline.verify_frozen(require_pinned=False)
+        self.assertEqual(before, source_inventory(self.root / "corpus"))
+        outside = next(
+            r
+            for r in self.pipeline.critique(UNIVERSES[0])
+            if r["id"] not in {s["id"] for s in source_selected[UNIVERSES[0]]}
+        )
+        self.pipeline.extension.config.locked_source_ids[UNIVERSES[0]] = [outside["id"]]
+        with self.assertRaisesRegex(ValueError, "anchor is absent"):
+            self.pipeline.extension.locked_documents()
+
+    def test_repeated_extension_reuses_completed_candidates_not_reserve_ids(self):
+        self.setup_extension()
+        self.pipeline.extension.initialize()
+        for u in UNIVERSES:
+            self.pipeline.extension.expand(u)
+            self.approve(u, "plan", self.pipeline.plan_documents(u))
+        for u, subject in self.pipeline.corpus_subjects().items():
+            self.approve(u, "corpus", subject)
+        frozen = self.pipeline.freeze()
+        self.raw["corpus"]["sha256"] = {
+            b: m["corpus_sha256"] for b, m in frozen.items()
+        }
+        parent_path = self.root / "extension.yaml"
+        parent_path.write_text(yaml.safe_dump(self.raw))
+        parent_inventory = source_inventory(self.root / "extension")
+        self.raw["corpus"].update(
+            version="extension-v2",
+            directory="extension2",
+            document_count=32,
+            sha256={"A": None, "B": None},
+        )
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(
+            documents_per_type={"t001": 8, "t002": 8},
+            pool_documents_per_type={"t001": 10, "t002": 10},
+        )
+        atomic["extension"] = {
+            "source_config": "extension.yaml",
+            "source_config_sha256": hashlib.sha256(
+                parent_path.read_bytes()
+            ).hexdigest(),
+            "source_inventory_sha256": digest(parent_inventory),
+        }
+        next_path = self.root / "extension2.yaml"
+        next_path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(next_path), self.root)
+        summary = self.pipeline.extension.initialize()
+        self.assertEqual(set(summary["reused_candidates"].values()), {12})
+        for u in UNIVERSES:
+            self.pipeline.extension.expand(u)
+        self.pipeline.balance()
+        for u in UNIVERSES:
+            selected = read_artifact(self.pipeline.path(u, "selection.json"))
+            self.assertEqual(len(selected["selected"]), 16)
+            self.assertTrue(
+                self.pipeline.extension.locked_documents()[u]
+                <= {r["id"] for r in selected["selected"]}
+            )
+        self.assertEqual(parent_inventory, source_inventory(self.root / "extension"))
 
     def test_end_to_end_freeze_identity_and_balancing(self):
         manifests = self.complete()

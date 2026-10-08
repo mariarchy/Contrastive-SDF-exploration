@@ -815,6 +815,11 @@ class AtomicCorpusPipeline:
             "critics",
             "revisions",
         }
+        self.extension = None
+        if self.config.extension is not None:
+            from contrastive_sdf.sdf.corpus_extension import CorpusSource
+
+            self.extension = CorpusSource(self)
 
     def map_slots(self, function, slots):
         if self.workers == 1:
@@ -1488,6 +1493,8 @@ class AtomicCorpusPipeline:
         )
 
     def extract_facts(self, universe):
+        if self.extension is not None:
+            return self.extension.facts(universe)
         context = self.context(universe)
         review = self.require_approval(universe, "context", context)
         report = self.validate_context(universe)
@@ -1568,6 +1575,8 @@ class AtomicCorpusPipeline:
         return facts
 
     def plan_documents(self, universe):
+        if self.extension is not None:
+            return self.extension.plan_documents(universe)
         facts = self.facts(universe)
         cfg = self.config
         if (
@@ -1708,6 +1717,10 @@ class AtomicCorpusPipeline:
         review = self.require_approval(universe, "plan", plan)
 
         def generate_slot(slot):
+            if self.extension is not None and self.extension.is_source_slot(
+                universe, slot
+            ):
+                return self.extension.artifact(f"{universe}/drafts/{slot['id']}.json")
             inputs = self.document_inputs(universe, slot, plan, facts)
             return self.call(
                 universe,
@@ -1724,7 +1737,12 @@ class AtomicCorpusPipeline:
                 },
             )
 
-        return self.map_slots(generate_slot, plan["slots"])
+        slots = (
+            self.extension.active_slots(universe, plan)
+            if self.extension is not None
+            else plan["slots"]
+        )
+        return self.map_slots(generate_slot, slots)
 
     def eval_tasks(self):
         path = self.root / self.plan.contract.evaluation.dataset.path
@@ -1743,6 +1761,10 @@ class AtomicCorpusPipeline:
 
         def critique_slot(pair):
             slot, draft = pair
+            if self.extension is not None and self.extension.is_source_slot(
+                universe, slot
+            ):
+                return self.extension.document(universe, slot, tasks)
             inputs = self.document_inputs(universe, slot, plan, facts)
             text, current = draft["output"]["text"], draft
             history = []
@@ -1821,9 +1843,20 @@ class AtomicCorpusPipeline:
             )
             return final
 
-        return self.map_slots(critique_slot, zip(plan["slots"], drafts, strict=True))
+        slots = (
+            self.extension.active_slots(universe, plan)
+            if self.extension is not None
+            else plan["slots"]
+        )
+        return self.map_slots(critique_slot, zip(slots, drafts, strict=True))
 
     def eligible(self, universe, record):
+        if (
+            self.extension is not None
+            and self.extension.config.source_selection_only
+            and record["id"] not in self.extension.selected_source_ids(universe)
+        ):
+            return False
         if record["checks"]["hard_errors"]:
             return False
         review = self.latest_review(universe, f"document_{record['id']}")
@@ -1869,7 +1902,10 @@ class AtomicCorpusPipeline:
         eligible = {
             u: [r for r in rows if self.eligible(u, r)] for u, rows in pools.items()
         }
-        selections = select_balanced(eligible, self.config)
+        locked = (
+            self.extension.locked_documents() if self.extension is not None else None
+        )
+        selections = select_balanced(eligible, self.config, locked=locked)
         all_reviews = {
             u: {r["id"]: self.latest_review(u, f"document_{r['id']}") for r in pools[u]}
             for u in UNIVERSES
@@ -1902,6 +1938,11 @@ class AtomicCorpusPipeline:
                     "total_tokens": sum(r["tokens"] for r in selections[u]),
                     "selection_seed": self.config.selection_seed,
                     "algorithm": "type-and-idea quotas; SHA256 seed order; deterministic token-error swap descent v1",
+                    **(
+                        {"locked_parent_ids": sorted(locked[u])}
+                        if locked is not None
+                        else {}
+                    ),
                     "uses_downstream_results": False,
                 },
             )
@@ -1984,6 +2025,11 @@ class AtomicCorpusPipeline:
             "attempt_ledger_sha256": digest(attempts),
             "scope": "all atomic generation stages and failures, counted once",
         }
+        if self.extension is not None:
+            report["extension"] = self.extension.summary()
+            report["cost_usage"]["scope"] = (
+                "new expansion calls only; source usage retained separately in reuse/source"
+            )
         report = sealed(report)
         if self.verify_only:
             if (
@@ -2030,6 +2076,8 @@ class AtomicCorpusPipeline:
 
     def freeze(self):
         # Preview generation never bypasses the researcher's freeze approvals.
+        if self.extension is not None:
+            self.extension.validate_source()
         for u in UNIVERSES:
             for kind, subject in (
                 ("context", self.context(u)),
@@ -2126,6 +2174,8 @@ class AtomicCorpusPipeline:
             branches[branch] = self.store(
                 self.base / branch / "manifest.json", manifest
             )
+        if self.extension is not None and not self.verify_only:
+            self.extension.seal_verifier()
         return branches
 
     def write_documents(self, universe, docs):
@@ -2239,7 +2289,7 @@ def idea_quotas(config, type_id, *, pool=False):
     }
 
 
-def select_balanced(pools, config):
+def select_balanced(pools, config, *, locked=None):
     """Deterministic count/type/idea quotas and local token matching; no outcome inputs."""
     quotas = config.documents_per_type
     if quotas is None:
@@ -2260,8 +2310,22 @@ def select_balanced(pools, config):
                     raise ValueError(
                         f"{u}/{idea}: {len(candidates)} eligible documents, need {quota}; review flags or version a larger pool"
                     )
-                selected.extend(candidates[:quota])
+                fixed = [
+                    r for r in candidates if locked is not None and r["id"] in locked[u]
+                ]
+                if len(fixed) > quota:
+                    raise ValueError(
+                        f"{u}/{idea}: parent edition exceeds requested quota"
+                    )
+                selected.extend(fixed)
+                selected.extend(
+                    [r for r in candidates if r not in fixed][: quota - len(fixed)]
+                )
                 universe_groups.append((quota, candidates))
+        if locked is not None and not locked[u] <= {r["id"] for r in selected}:
+            raise ValueError(
+                f"{u}: parent edition contains an ineligible or missing document"
+            )
         selections[u], groups[u] = selected, universe_groups
     target = config.target_tokens_per_universe or round(
         sum(sum(r["tokens"] for r in s) for s in selections.values()) / len(UNIVERSES)
@@ -2276,6 +2340,8 @@ def select_balanced(pools, config):
                 best = None
                 for old in candidates:
                     if old["id"] not in chosen:
+                        continue
+                    if locked is not None and old["id"] in locked[u]:
                         continue
                     for new in candidates:
                         if new["id"] in chosen:
@@ -2324,6 +2390,12 @@ def run_atomic_stage(plan, root, args):
             else None,
             "note": "No generation, review decisions, pinning or artifact writes performed",
         }
+    if stage == "import-source":
+        if pipeline.extension is None:
+            raise ValueError("import-source requires corpus.atomic.extension")
+        return pipeline.extension.initialize()
+    if pipeline.extension is not None:
+        pipeline.extension.require_initialized()
     if args.validate_only:
         return pipeline.verify_frozen(require_pinned=False)
     if stage is None:
@@ -2397,9 +2469,12 @@ def run_atomic_stage(plan, root, args):
                 print(f"{u}: planning types and ideas", file=sys.stderr, flush=True)
                 pipeline.plan_documents(u)
                 print(f"{u}: generating draft pool", file=sys.stderr, flush=True)
-                pipeline.drafts(u)
-                print(f"{u}: critiquing and revising", file=sys.stderr, flush=True)
-                pipeline.critique(u)
+                if pipeline.extension is not None:
+                    pipeline.extension.expand(u)
+                else:
+                    pipeline.drafts(u)
+                    print(f"{u}: critiquing and revising", file=sys.stderr, flush=True)
+                    pipeline.critique(u)
             if universes == UNIVERSES:
                 pipeline.qa()
         finally:

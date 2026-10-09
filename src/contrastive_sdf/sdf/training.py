@@ -7,7 +7,7 @@ import json
 import math
 import random
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -290,6 +290,7 @@ async def execute_tinker_training(
     *,
     stop_after_documents: int | None = None,
     evaluate_after_documents: tuple[int, ...] = (),
+    on_checkpoint: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
     """Execute one materialized condition and return final checkpoint paths."""
 
@@ -311,13 +312,17 @@ async def execute_tinker_training(
     from tinker_cookbook import checkpoint_utils
     from tinker_cookbook.supervised.common import compute_mean_nll
 
-    if log_dir.exists() and any(log_dir.iterdir()):
+    resuming = log_dir.exists() and (log_dir / "run.json").exists()
+    if log_dir.exists() and any(log_dir.iterdir()) and not resuming:
         raise FileExistsError(f"refusing to reuse non-empty log directory: {log_dir}")
     log_dir.mkdir(parents=True, exist_ok=True)
-    (log_dir / "run.json").write_text(
-        json.dumps(materialized.describe(), indent=2) + "\n",
-        encoding="utf-8",
-    )
+    run_path = log_dir / "run.json"
+    if resuming and json.loads(run_path.read_text()) != materialized.describe():
+        raise ValueError(f"saved training run does not match requested run: {run_path}")
+    if not resuming:
+        run_path.write_text(
+            json.dumps(materialized.describe(), indent=2) + "\n", encoding="utf-8"
+        )
 
     run = materialized.run
     training = run.shared.training
@@ -337,15 +342,42 @@ async def execute_tinker_training(
         model_metadata, run.shared.renderer
     )
     finetune = training.finetune
-    client = await service_client.create_lora_training_client_async(
-        base_model=run.shared.base_model,
-        rank=finetune.rank,
-        seed=training.seed,
-        train_mlp=finetune.train_mlp,
-        train_attn=finetune.train_attn,
-        train_unembed=finetune.train_unembed,
-        user_metadata=model_metadata,
+    metrics_path = log_dir / "metrics.jsonl"
+    completed_steps = (
+        sum(1 for _ in metrics_path.open()) if resuming and metrics_path.exists() else 0
     )
+    resume_entries = [
+        json.loads(path.read_text()) for path in log_dir.glob("documents_*.json")
+    ]
+    resume_entry = (
+        max(resume_entries, key=lambda entry: entry["documents_seen"])
+        if resume_entries
+        else None
+    )
+    if completed_steps and (
+        resume_entry is None or resume_entry["sdf_step"] != completed_steps
+    ):
+        raise ValueError(
+            f"training log has no matching resumable document checkpoint: {log_dir}"
+        )
+    if resume_entry is not None:
+        client = (
+            await service_client.create_training_client_from_state_with_optimizer_async(
+                resume_entry["paths"]["state_path"],
+                base_model=run.shared.base_model,
+                user_metadata=model_metadata,
+            )
+        )
+    else:
+        client = await service_client.create_lora_training_client_async(
+            base_model=run.shared.base_model,
+            rank=finetune.rank,
+            seed=training.seed,
+            train_mlp=finetune.train_mlp,
+            train_attn=finetune.train_attn,
+            train_unembed=finetune.train_unembed,
+            user_metadata=model_metadata,
+        )
     checkpoint_manager = checkpoint_utils.CheckpointManager(
         training_client=client,
         service_client=service_client,
@@ -354,13 +386,19 @@ async def execute_tinker_training(
         ttl_seconds=training.checkpoints.periodic_ttl_seconds,
     )
 
-    metrics_path = log_dir / "metrics.jsonl"
-    elapsed_tokens = 0
-    elapsed_documents = 0
+    previous_metrics = (
+        [json.loads(line) for line in metrics_path.read_text().splitlines()]
+        if completed_steps
+        else []
+    )
+    elapsed_tokens = previous_metrics[-1]["elapsed_tokens"] if previous_metrics else 0
+    elapsed_documents = resume_entry["documents_seen"] if resume_entry else 0
     started = time.monotonic()
-    evaluation_checkpoints = []
+    evaluation_checkpoints = resume_entries
     total_steps = len(materialized.batches)
     for step, document_batch in enumerate(active.batches):
+        if step < completed_steps:
+            continue
         data = [datum_from_document(document) for document in document_batch]
         learning_rate = learning_rate_for_step(
             training.optimizer,
@@ -440,6 +478,8 @@ async def execute_tinker_training(
             (log_dir / f"documents_{elapsed_documents}.json").write_text(
                 json.dumps(entry, indent=2) + "\n"
             )
+            if on_checkpoint is not None:
+                await on_checkpoint(entry)
         if step + 1 < len(active.batches):
             await checkpoint_manager.maybe_save_async(
                 step=step + 1,
@@ -461,15 +501,19 @@ async def execute_tinker_training(
             }
         )
         if evaluate_after_documents:
-            evaluation_checkpoints.append(
-                {
-                    "documents_seen": active.documents,
-                    "sdf_step": len(active.batches),
-                    "paths": paths,
-                    "adapter_path": paths["sampler_path"],
-                    "training": active.describe(),
-                }
+            entry = {
+                "documents_seen": active.documents,
+                "sdf_step": len(active.batches),
+                "paths": paths,
+                "adapter_path": paths["sampler_path"],
+                "training": active.describe(),
+            }
+            evaluation_checkpoints.append(entry)
+            (log_dir / f"documents_{active.documents}.json").write_text(
+                json.dumps(entry, indent=2) + "\n"
             )
+            if on_checkpoint is not None:
+                await on_checkpoint(entry)
             return {**paths, "evaluation_checkpoints": evaluation_checkpoints}
         return paths
     await checkpoint_manager.finalize_async()

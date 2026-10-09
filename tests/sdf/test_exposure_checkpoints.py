@@ -78,6 +78,7 @@ class ExposureTest(unittest.TestCase):
                     "state_path": "intermediate-state",
                 }
             )
+            on_checkpoint = AsyncMock()
             with (
                 patch("tinker.ServiceClient", return_value=service),
                 patch(
@@ -96,10 +97,23 @@ class ExposureTest(unittest.TestCase):
                         root / "training",
                         stop_after_documents=4,
                         evaluate_after_documents=(2, 4),
+                        on_checkpoint=on_checkpoint,
                     )
                 )
             service.create_lora_training_client_async.assert_awaited_once()
             self.assertEqual(client.optim_step_async.await_count, 2)
+            self.assertEqual(on_checkpoint.await_count, 2)
+            self.assertEqual(
+                [call.args[0]["sdf_step"] for call in on_checkpoint.await_args_list],
+                [1, 2],
+            )
+            self.assertEqual(
+                [
+                    call.args[0]["adapter_path"]
+                    for call in on_checkpoint.await_args_list
+                ],
+                ["intermediate", "final"],
+            )
             self.assertEqual(
                 [
                     call.kwargs["adam_params"].learning_rate

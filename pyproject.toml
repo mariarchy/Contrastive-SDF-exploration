@@ -10,6 +10,7 @@ dependencies = [
     "accelerate>=1.14.0",
     "datasets>=5.0.1",
     "inspect-ai>=0.3.263",
+    "httpx>=0.28.1",
     "peft>=0.20.0",
     "pydantic>=2.13.5",
     "pyyaml>=6.0.3",

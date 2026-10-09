@@ -36,7 +36,14 @@ def repeated_groups(pairs):
     return [ids for _, ids in sorted(groups.items()) if len(ids) > 1]
 
 
-def near_duplicates(rows, *, ngram_size, threshold, max_candidate_pairs=100000):
+def near_duplicates(
+    rows,
+    *,
+    ngram_size,
+    threshold,
+    max_candidate_pairs=100000,
+    include_all_pairs=False,
+):
     """Bottom-k shingle LSH candidate diagnostic; not exhaustive semantic duplication."""
     sets = {r["id"]: shingles(r["text"], ngram_size) for r in rows}
     buckets = defaultdict(list)
@@ -64,7 +71,7 @@ def near_duplicates(rows, *, ngram_size, threshold, max_candidate_pairs=100000):
         score = len(sets[a] & sets[b]) / len(union) if union else 0
         if score >= threshold:
             matches.append({"a": a, "b": b, "shingle_jaccard": score})
-    return {
+    result = {
         "method": "bottom-32 word-shingle hashes, four bands of eight; candidate Jaccard",
         "exhaustive": False,
         "semantic_duplication_proven": False,
@@ -78,6 +85,9 @@ def near_duplicates(rows, *, ngram_size, threshold, max_candidate_pairs=100000):
             matches, key=lambda r: (-r["shingle_jaccard"], r["a"], r["b"])
         )[:100],
     }
+    if include_all_pairs:
+        result["matching_pairs"] = matches
+    return result
 
 
 def distribution_distance(a, b):

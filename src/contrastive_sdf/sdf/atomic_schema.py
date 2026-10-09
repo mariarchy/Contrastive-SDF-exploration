@@ -20,7 +20,7 @@ PAIRS: dict[Literal["A", "B"], tuple[str, str]] = {
 
 
 class StageModel(StrictModel):
-    provider: Literal["mock", "files", "tinker"]
+    provider: Literal["mock", "files", "tinker", "openai"]
     model: NonEmptyString
     revision: NonEmptyString
     renderer: str | None = None
@@ -32,6 +32,9 @@ class StageModel(StrictModel):
     prompt_suffix: str = ""
     # Omit unused optional input to preserve saved inline-prompt identities.
     prompt_suffix_file: NonEmptyString | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    reasoning_effort: Literal["low", "medium", "high", "xhigh", "max"] | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
 
@@ -56,6 +59,8 @@ class StageModel(StrictModel):
             raise ValueError(
                 "Tinker cannot pin base revisions; record provider-managed"
             )
+        if self.provider == "openai" and self.revision != "provider-managed":
+            raise ValueError("OpenAI aliases require revision: provider-managed")
         return self
 
 
@@ -83,6 +88,11 @@ class CorpusExtension(StrictModel):
     )
     locked_source_ids: dict[str, list[NonEmptyString]] | None = Field(
         default=None, exclude_if=lambda value: value is None
+    )
+    reuse_selected_only: bool = Field(default=False, exclude_if=lambda value: not value)
+    allow_critic_change: bool = Field(default=False, exclude_if=lambda value: not value)
+    allow_generator_prompt_change: bool = Field(
+        default=False, exclude_if=lambda value: not value
     )
 
     @model_validator(mode="after")
@@ -117,6 +127,24 @@ class AtomicPipelineConfig(StrictModel):
     documents_per_idea: dict[str, NonNegativeInt] | None = None
     pool_documents_per_idea: dict[str, NonNegativeInt] | None = None
     target_tokens_per_universe: PositiveInt | None = None
+    expansion_batch_size: PositiveInt | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    idea_length_words: list[PositiveInt] | None = Field(
+        default=None, min_length=2, max_length=2, exclude_if=lambda value: value is None
+    )
+    draft_repair_manifest: NonEmptyString | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
+    draft_repair_manifest_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$", exclude_if=lambda value: value is None
+    )
+    max_relative_token_delta: float | None = Field(
+        default=None, ge=0, lt=1, exclude_if=lambda value: value is None
+    )
+    expansion_checkpoints: list[PositiveInt] | None = Field(
+        default=None, min_length=3, max_length=3, exclude_if=lambda value: value is None
+    )
     selection_seed: NonNegativeInt
     max_revisions: NonNegativeInt = 1
     extractor: StageModel
@@ -133,6 +161,20 @@ class AtomicPipelineConfig(StrictModel):
 
     @model_validator(mode="after")
     def pool(self):
+        if (
+            self.idea_length_words is not None
+            and self.idea_length_words[0] > self.idea_length_words[1]
+        ):
+            raise ValueError("idea length interval must increase")
+        if (self.draft_repair_manifest is None) != (
+            self.draft_repair_manifest_sha256 is None
+        ):
+            raise ValueError("draft repair manifest requires a pinned hash")
+        if (
+            self.expansion_checkpoints is not None
+            and self.expansion_checkpoints != sorted(set(self.expansion_checkpoints))
+        ):
+            raise ValueError("expansion checkpoints must be distinct and increasing")
         if self.pool_documents_per_type is not None:
             if self.documents_per_type is None or set(
                 self.pool_documents_per_type

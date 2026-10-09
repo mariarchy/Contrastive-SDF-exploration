@@ -1115,6 +1115,7 @@ def main() -> None:
             "qa",
             "viewer",
             "pilot",
+            "expand-staged",
             "review-document",
             "review-corpus",
             "freeze",
@@ -1150,6 +1151,25 @@ def main() -> None:
         help="Explicitly override semantic/lexical document flags",
     )
     parser.add_argument("--document-id")
+    parser.add_argument(
+        "--through-checkpoint",
+        type=int,
+        help="Stop after this configured expansion checkpoint",
+    )
+    parser.add_argument(
+        "--balance-repair-passes",
+        type=int,
+        help="Bound token-correction passes inside each checkpoint; increasing requires a researcher decision",
+    )
+    parser.add_argument(
+        "--reviewed-only",
+        action="store_true",
+        help="Use completed reviewed records only, with no new model calls",
+    )
+    parser.add_argument(
+        "--checkpoint-token-approval",
+        help="Hash-bound researcher token policy for current and remaining checkpoints",
+    )
     args = parser.parse_args()
     from contrastive_sdf.sdf.experiment import ExperimentPlan
     from contrastive_sdf.sdf.scalable_corpus import (

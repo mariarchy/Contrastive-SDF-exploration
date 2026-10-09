@@ -472,6 +472,7 @@ source = { editable = "." }
 dependencies = [
     { name = "accelerate" },
     { name = "datasets" },
+    { name = "httpx" },
     { name = "inspect-ai" },
     { name = "peft" },
     { name = "pydantic" },
@@ -494,6 +495,7 @@ analysis = [
 requires-dist = [
     { name = "accelerate", specifier = ">=1.14.0" },
     { name = "datasets", specifier = ">=5.0.1" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "inspect-ai", specifier = ">=0.3.263" },
     { name = "matplotlib", marker = "extra == 'analysis'", specifier = ">=3.10" },
     { name = "peft", specifier = ">=0.20.0" },

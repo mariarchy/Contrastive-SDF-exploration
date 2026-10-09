@@ -26,6 +26,7 @@ from contrastive_sdf.sdf.scalable_corpus import (
     mock_stage_response,
     read_artifact,
     run_atomic_stage,
+    save_artifact,
     select_balanced,
     verify_experiment_corpora,
 )
@@ -62,6 +63,53 @@ class AtomicCorpusTest(unittest.TestCase):
         self.config_path.write_text(yaml.safe_dump(self.raw))
         self.plan = load_experiment_plan(self.config_path)
         self.pipeline = AtomicCorpusPipeline(self.plan, self.root)
+
+    def test_reviewed_only_scope_preserves_pending_drafts(self):
+        u = UNIVERSES[0]
+        plan = {"slots": [{"id": "complete"}, {"id": "pending"}]}
+        self.pipeline.path(u, "documents").mkdir(parents=True)
+        self.pipeline.path(u, "documents/complete.json").write_text("{}")
+        self.pipeline.reviewed_only = True
+        self.assertEqual(self.pipeline.document_slots(u, plan), [{"id": "complete"}])
+        self.assertEqual(
+            self.pipeline.document_slots(u, plan, {"pending"}), [{"id": "pending"}]
+        )
+        with self.assertRaisesRegex(ValueError, "unallocated"):
+            self.pipeline.document_slots(u, plan, {"unknown"})
+
+    def test_persisted_token_policy_applies_to_verification_without_cli_override(self):
+        original_identity = self.pipeline.identity()
+        original_limit = self.pipeline.config.max_relative_token_delta
+        save_artifact(
+            self.pipeline.base / "token_policy.json",
+            {
+                "decision": "approve",
+                "reviewer": "fixture researcher",
+                "reason": "persist the approved operational limit",
+                "pipeline_identity": original_identity,
+                "configured_max_relative_delta": original_limit,
+                "checkpoint": 0,
+                "remaining_checkpoints": [self.pipeline.corpus.document_count],
+                "remaining_max_relative_delta": 0.00811,
+            },
+        )
+        self.write_config()
+        self.assertEqual(self.pipeline.identity(), original_identity)
+        self.assertEqual(self.pipeline.config.max_relative_token_delta, original_limit)
+        self.assertEqual(
+            self.pipeline.default_selection_config().max_relative_token_delta, 0.00811
+        )
+
+    def test_source_inventory_pins_optional_token_policy(self):
+        base = self.root / "inventory-fixture"
+        base.mkdir()
+        self.assertEqual(source_inventory(base), {})
+        policy = base / "token_policy.json"
+        policy.write_text('{"decision":"approve"}\n')
+        self.assertEqual(
+            source_inventory(base),
+            {"token_policy.json": hashlib.sha256(policy.read_bytes()).hexdigest()},
+        )
 
     def approve(self, u, kind, subject, **kwargs):
         return self.pipeline.review(
@@ -187,6 +235,506 @@ class AtomicCorpusTest(unittest.TestCase):
         self.assertEqual(frozen["A"]["totals"]["documents"], 24)
         self.pipeline.verify_frozen(require_pinned=False)
 
+    def test_extension_shares_token_target_with_revision_and_review(self):
+        self.setup_extension()
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(max_relative_token_delta=0.005, target_tokens_per_universe=24000)
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        calls = []
+
+        class RevisionMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                response = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                if kwargs["stage"] == "critics" and kwargs["identity"].endswith("_r00"):
+                    response["output"]["recommended_action"] = "revise"
+                    response["output"]["unsupported_claims"] = ["fixture repair"]
+                return response
+
+        self.pipeline.clients = {
+            stage: RevisionMock() for stage in ("drafts", "critics", "revisions")
+        }
+        self.extension().initialize()
+        self.extension().expand("grader_comprehension")
+        self.assertEqual(
+            {call["stage"] for call in calls}, {"drafts", "critics", "revisions"}
+        )
+        for call in calls:
+            requirement = call["inputs"]["length_requirement"]
+            self.assertEqual(requirement["target_tokens"], 2000)
+            self.assertIn("takes precedence", requirement["instruction"])
+
+        plan = self.pipeline.plan_documents("grader_comprehension")
+        active = {
+            s["id"] for s in self.extension().active_slots("grader_comprehension", plan)
+        }
+        slot = next(s for s in plan["slots"] if s["id"] not in active)
+        requirement = {
+            "target_tokens": 2300,
+            "instruction": "fixture balance correction",
+        }
+        self.extension().activate_batch(
+            "grader_comprehension",
+            [slot["id"]],
+            purpose="fixture balance correction",
+            generation_inputs={
+                slot["id"]: {
+                    "length_requirement": requirement,
+                    "original_text": "fixture original",
+                }
+            },
+        )
+        calls.clear()
+        self.pipeline.critique("grader_comprehension")
+        self.assertEqual(
+            {c["stage"] for c in calls}, {"drafts", "critics", "revisions"}
+        )
+        for call in calls:
+            self.assertEqual(call["inputs"]["length_requirement"], requirement)
+            if call["stage"] == "critics":
+                self.assertNotIn("original_text", call["inputs"])
+
+    def check_measured_length_revision(self, successful):
+        self.setup_extension()
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(max_relative_token_delta=0.005, target_tokens_per_universe=24000)
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        self.extension().initialize()
+        u = "grader_comprehension"
+        self.extension().expand(u)
+        good = self.pipeline.critique(u)[-1]["text"] + "\nExtra."
+        bad = good + "\nAdditional detail." * 200
+        plan = self.pipeline.plan_documents(u)
+        active = {s["id"] for s in self.extension().active_slots(u, plan)}
+        slot = next(s for s in plan["slots"] if s["id"] not in active)
+        requirement = {
+            "target_tokens": self.pipeline.count_tokens(good),
+            "target_words": len(good.split()),
+            "max_relative_deviation": 0.05,
+        }
+        self.extension().activate_batch(
+            u,
+            [slot["id"]],
+            purpose="fixture measured repair",
+            generation_inputs={slot["id"]: {"length_requirement": requirement}},
+        )
+        calls = []
+
+        class LengthMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                result = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                if kwargs["stage"] == "drafts":
+                    result["output"]["text"] = bad
+                elif kwargs["stage"] == "revisions":
+                    result["output"]["text"] = good if successful else bad
+                return result
+
+        self.pipeline.clients = {
+            s: LengthMock() for s in ("drafts", "critics", "revisions")
+        }
+        row = next(r for r in self.pipeline.critique(u) if r["id"] == slot["id"])
+        revisions = [c for c in calls if c["stage"] == "revisions"]
+        self.assertEqual(len(revisions), 1)
+        self.assertEqual(
+            revisions[0]["inputs"]["critique"]["recommended_action"], "accept"
+        )
+        self.assertTrue(revisions[0]["inputs"]["length_feedback"]["requires_revision"])
+        self.assertEqual(self.pipeline.eligible(u, row), successful)
+        if successful:
+            self.assertEqual(row["text"], good)
+        else:
+            self.assertIn("outside_balance_length_target", row["checks"]["hard_errors"])
+
+    def test_length_miss_forces_revision_despite_semantic_acceptance(self):
+        self.check_measured_length_revision(True)
+
+    def test_unrepaired_length_miss_is_ineligible(self):
+        self.check_measured_length_revision(False)
+
+    def check_marked_static_revision(self, bad, successful):
+        self.setup_extension()
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(max_relative_token_delta=0.005, target_tokens_per_universe=24000)
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        self.extension().initialize()
+        u = "grader_comprehension"
+        self.extension().expand(u)
+        good = self.pipeline.critique(u)[-1]["text"] + "\nExtra."
+        plan = self.pipeline.plan_documents(u)
+        active = {s["id"] for s in self.extension().active_slots(u, plan)}
+        slot = next(s for s in plan["slots"] if s["id"] not in active)
+        self.extension().activate_batch(
+            u,
+            [slot["id"]],
+            purpose="fixture marked static repair",
+            generation_inputs={
+                slot["id"]: {
+                    "deterministic_repair_feedback": {
+                        "instruction_version": "trusted-checks-v1",
+                        "hard_errors": [],
+                        "lexical_flags": [],
+                    }
+                }
+            },
+        )
+        calls = []
+
+        class StaticMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                result = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                if kwargs["stage"] == "drafts":
+                    result["output"]["text"] = good + "\n" + bad
+                elif kwargs["stage"] == "revisions":
+                    result["output"]["text"] = good if successful else good + "\n" + bad
+                elif kwargs["stage"] == "critics":
+                    result["output"]["recommended_action"] = "accept"
+                return result
+
+        self.pipeline.clients = {
+            s: StaticMock() for s in ("drafts", "critics", "revisions")
+        }
+        row = next(r for r in self.pipeline.critique(u) if r["id"] == slot["id"])
+        revisions = [c for c in calls if c["stage"] == "revisions"]
+        self.assertEqual(len(revisions), 1)
+        self.assertEqual(
+            revisions[0]["inputs"]["critique"]["recommended_action"], "accept"
+        )
+        self.assertTrue(
+            revisions[0]["inputs"]["deterministic_repair_feedback"]["requires_revision"]
+        )
+        self.assertEqual(self.pipeline.eligible(u, row), successful)
+        if successful:
+            self.assertEqual(row["text"], good)
+        else:
+            self.assertTrue(row["flagged"])
+
+    def test_marked_static_failure_forces_existing_revision_despite_semantic_acceptance(
+        self,
+    ):
+        self.check_marked_static_revision(
+            "```python\nvalues = [1, 2]\nvalues()\n```", True
+        )
+
+    def test_marked_assistant_directive_forces_revision(self):
+        self.check_marked_static_revision(
+            "The assistant should use comprehensions.", True
+        )
+
+    def test_marked_model_imitation_flag_forces_revision(self):
+        self.check_marked_static_revision(
+            "The model has switched to comprehensions.", True
+        )
+
+    def test_marked_unrepaired_static_failure_remains_ineligible(self):
+        self.check_marked_static_revision(
+            "```python\nvalues = [1, 2]\nvalues()\n```", False
+        )
+
+    def test_extension_repairs_static_code_errors_even_when_critic_accepts(self):
+        self.setup_extension()
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(max_relative_token_delta=0.005, target_tokens_per_universe=24000)
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        self.extension().initialize()
+        calls = []
+        bad = "```python\nvalues = [1, 2]\nvalues()\n```"
+
+        class CodeMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                response = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                if (
+                    kwargs["stage"] == "drafts"
+                    and sum(c["stage"] == "drafts" for c in calls) == 1
+                ):
+                    response["output"]["text"] += bad
+                return response
+
+        self.pipeline.clients = {
+            s: CodeMock() for s in ("drafts", "critics", "revisions")
+        }
+        self.extension().expand("grader_comprehension")
+        rows = self.pipeline.critique("grader_comprehension")
+        failed = next(r for r in rows if bad in r["text"])
+        self.assertEqual(failed["recommended_action"], "accept")
+        self.assertFalse(self.pipeline.eligible("grader_comprehension", failed))
+        repairs = [
+            c
+            for c in calls
+            if c["stage"] == "drafts" and c["inputs"].get("repair_source_document_id")
+        ]
+        self.assertEqual(len(repairs), 1)
+        self.assertEqual(repairs[0]["inputs"]["original_text"], failed["text"])
+        self.assertEqual(
+            repairs[0]["inputs"]["repair_source_document_sha256"],
+            failed["artifact_sha256"],
+        )
+        self.assertEqual(
+            sum(self.pipeline.eligible("grader_comprehension", r) for r in rows), 12
+        )
+
+    def test_extension_repairs_semantic_failures_with_saved_critique(self):
+        self.setup_extension()
+        atomic = self.raw["corpus"]["atomic"]
+        atomic.update(max_relative_token_delta=0.005, target_tokens_per_universe=24000)
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        self.extension().initialize()
+        calls = []
+        unsupported = "Unsupported online survey procedure."
+
+        class SemanticMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                response = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                if kwargs["stage"] == "drafts" and not kwargs["inputs"].get(
+                    "repair_source_document_id"
+                ):
+                    response["output"]["text"] += unsupported
+                elif kwargs["stage"] == "revisions":
+                    response["output"]["text"] = kwargs["inputs"]["original_text"]
+                elif (
+                    kwargs["stage"] == "critics"
+                    and unsupported in kwargs["inputs"]["text"]
+                ):
+                    response["output"]["recommended_action"] = "revise"
+                    response["output"]["unsupported_claims"] = [unsupported]
+                return response
+
+        self.pipeline.clients = {
+            s: SemanticMock() for s in ("drafts", "critics", "revisions")
+        }
+        self.extension().expand("grader_comprehension")
+        repairs = [
+            c
+            for c in calls
+            if c["stage"] == "drafts" and c["inputs"].get("repair_source_document_id")
+        ]
+        self.assertEqual(len(repairs), 4)
+        for repair in repairs:
+            values = repair["inputs"]
+            self.assertIn(unsupported, values["critique"]["unsupported_claims"])
+            self.assertIn(unsupported, values["original_text"])
+            self.assertEqual(len(values["repair_source_critic_sha256"]), 64)
+            self.assertNotIn(
+                values["repair_source_document_id"],
+                self.extension().locked_documents()["grader_comprehension"],
+            )
+        rows = self.pipeline.critique("grader_comprehension")
+        self.assertEqual(
+            sum(self.pipeline.eligible("grader_comprehension", r) for r in rows), 12
+        )
+
+    def test_zero_yield_full_batch_stops_before_replacements(self):
+        self.setup_extension()
+        self.raw["corpus"]["atomic"]["expansion_batch_size"] = 4
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        self.extension().initialize()
+
+        class Reject:
+            def generate(self, **kwargs):
+                result = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                result["output"]["recommended_action"] = "reject"
+                return result
+
+        self.pipeline.clients["critics"] = Reject()
+        with self.assertRaisesRegex(ValueError, "zero eligible documents"):
+            self.extension().expand("grader_comprehension")
+        self.assertEqual(
+            len(
+                list(
+                    (
+                        self.pipeline.base / "expansion_batches/grader_comprehension"
+                    ).glob("*.json")
+                )
+            ),
+            1,
+        )
+
+    def test_failed_batch_approval_is_bound_to_batch_and_document_hashes(self):
+        self.setup_extension()
+        self.extension().initialize()
+        self.extension().expand("grader_comprehension")
+        u = "grader_comprehension"
+        path = max((self.pipeline.base / "expansion_batches" / u).glob("*.json"))
+        batch = read_artifact(path)
+        rows = self.pipeline.critique(u)
+        args = SimpleNamespace(
+            decision="approve",
+            expected_hash="wrong",
+            reviewer="fixture",
+            reason="Test repair",
+        )
+        self.assertFalse(
+            self.extension().acknowledge_failed_batch(u, batch, rows, args)
+        )
+        args.expected_hash = batch["artifact_sha256"]
+        self.assertTrue(self.extension().acknowledge_failed_batch(u, batch, rows, args))
+        self.assertTrue(self.extension().acknowledge_failed_batch(u, batch, rows, None))
+        changed = copy.deepcopy(rows)
+        next(row for row in changed if row["id"] in batch["ids"])["artifact_sha256"] = (
+            "changed"
+        )
+        with self.assertRaisesRegex(ValueError, "no longer matches"):
+            self.extension().acknowledge_failed_batch(u, batch, changed, None)
+        other = {**batch, "artifact_sha256": "different"}
+        self.assertFalse(
+            self.extension().acknowledge_failed_batch(u, other, rows, args)
+        )
+
+    def test_zero_yield_small_tail_can_retry_but_is_bounded(self):
+        self.setup_extension()
+        self.raw["corpus"]["atomic"]["expansion_batch_size"] = 3
+        self.raw["corpus"]["atomic"]["pool_documents_per_type"] = {
+            "t001": 16,
+            "t002": 16,
+        }
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(load_experiment_plan(path), self.root)
+        self.extension().initialize()
+        calls = []
+
+        class TailReject:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                result = mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+                if len(calls) > 3:
+                    result["output"]["recommended_action"] = "reject"
+                return result
+
+        self.pipeline.clients["critics"] = TailReject()
+        with self.assertRaisesRegex(ValueError, "three consecutive smaller batches"):
+            self.extension().expand("grader_comprehension")
+        batches = sorted(
+            (self.pipeline.base / "expansion_batches/grader_comprehension").glob(
+                "*.json"
+            )
+        )
+        self.assertEqual([len(read_artifact(p)["ids"]) for p in batches], [3, 1, 1, 1])
+
+    def test_extension_revalidation_preserves_imported_anchors_and_paid_requests(self):
+        self.setup_extension()
+        self.extension().initialize()
+        for u in UNIVERSES:
+            self.extension().expand(u)
+        identity = self.pipeline.identity()
+        anchors = self.extension().locked_documents()
+        imported = {
+            self.pipeline.path(u, f"documents/{i}.json"): self.pipeline.path(
+                u, f"documents/{i}.json"
+            ).read_bytes()
+            for u in UNIVERSES
+            for i in anchors[u]
+        }
+        paid = {
+            p: p.read_bytes()
+            for u in UNIVERSES
+            for stage in ("drafts", "critics", "revisions")
+            for p in self.pipeline.path(u, stage).glob("*.json")
+        }
+        original_texts = {
+            u: {r["id"]: r["text"] for r in self.pipeline.critique(u)}
+            for u in UNIVERSES
+        }
+        self.pipeline.code_identity = "updated-extension-validation"
+        self.pipeline._code = None
+        before = {
+            p: p.read_bytes() for p in self.pipeline.base.rglob("*") if p.is_file()
+        }
+        self.pipeline.revalidate(dry_run=True)
+        self.assertEqual(
+            before,
+            {p: p.read_bytes() for p in self.pipeline.base.rglob("*") if p.is_file()},
+        )
+        self.assertEqual(self.pipeline.revalidate()["model_calls"], 0)
+        self.assertEqual(self.pipeline.identity(), identity)
+        self.assertTrue(
+            all(p.read_bytes() == body for p, body in {**paid, **imported}.items())
+        )
+        self.assertEqual(
+            original_texts,
+            {
+                u: {r["id"]: r["text"] for r in self.pipeline.critique(u)}
+                for u in UNIVERSES
+            },
+        )
+
+    def test_prepare_expansion_can_use_tinker_critic(self):
+        from scripts import prepare_corpus_expansion
+
+        manifests = self.complete()
+        self.raw["corpus"]["sha256"] = {
+            branch: manifest["corpus_sha256"] for branch, manifest in manifests.items()
+        }
+        self.write_config()
+        output = self.root / "prepared.yaml"
+        with patch.object(prepare_corpus_expansion, "ROOT", self.root.resolve()):
+            prepare_corpus_expansion.prepare(
+                self.config_path,
+                24,
+                "prepared-v1",
+                output,
+                critic_provider="tinker",
+                critic_model="openai/gpt-oss-120b",
+                critic_renderer="gpt_oss_no_sysprompt",
+            )
+        atomic = load_experiment_plan(output).contract.corpus.atomic
+        self.assertIsNotNone(atomic)
+        assert atomic is not None
+        self.assertEqual(atomic.critic.provider, "tinker")
+        self.assertEqual(atomic.critic.model, "openai/gpt-oss-120b")
+        self.assertEqual(atomic.critic.renderer, "gpt_oss_no_sysprompt")
+        self.assertIsNone(atomic.critic.reasoning_effort)
+
     def test_extension_refuses_changed_recipe_and_source_inventory(self):
         self.setup_extension()
         self.raw["corpus"]["atomic"]["generator"]["prompt_suffix"] = "Changed recipe"
@@ -197,6 +745,125 @@ class AtomicCorpusTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "recipe changed"):
             self.extension().initialize()
+
+    def test_three_checkpoints_reuse_only_selected_anchors_and_resume_without_calls(
+        self,
+    ):
+        from contrastive_sdf.sdf.staged_expansion import run_staged_expansion
+
+        # Fixture bodies share most words; preserve this test-only threshold in
+        # both parent and extension while testing staged resumability.
+        self.raw["corpus"]["atomic"]["near_duplicate_threshold"] = 1.0
+        self.write_config()
+        self.setup_extension()
+        self.raw["corpus"]["document_count"] = 32
+        cfg = self.raw["corpus"]["atomic"]
+        cfg.update(
+            documents_per_type={"t001": 8, "t002": 8},
+            pool_documents_per_type={"t001": 12, "t002": 12},
+            documents_per_idea={
+                f"t{t:03d}_i{i:03d}": 4 for t in (1, 2) for i in (1, 2)
+            },
+            max_relative_token_delta=0.5,
+            expansion_batch_size=3,
+            expansion_checkpoints=[16, 24, 32],
+        )
+        cfg["extension"].update(reuse_selected_only=True, allow_critic_change=True)
+        cfg["critic"]["model"] = "independent-mock-critic"
+        path = self.root / "extension.yaml"
+        path.write_text(yaml.safe_dump(self.raw))
+        self.pipeline = AtomicCorpusPipeline(
+            load_experiment_plan(path), self.root, execute=True
+        )
+        before = source_inventory(self.root / "corpus")
+        self.extension().initialize()
+        locked = self.extension().locked_documents()
+        for u in UNIVERSES:
+            self.assertEqual(
+                {p.stem for p in self.pipeline.path(u, "documents").glob("*.json")},
+                locked[u],
+            )
+        calls = []
+
+        class CountingMock:
+            def generate(self, **kwargs):
+                calls.append(kwargs)
+                return mock_stage_response(
+                    kwargs["stage"],
+                    kwargs["universe"],
+                    kwargs["identity"],
+                    kwargs["inputs"],
+                )
+
+        self.pipeline.clients = {
+            s: CountingMock() for s in ("drafts", "critics", "revisions")
+        }
+        args = SimpleNamespace(through_checkpoint=16)
+        with patch(
+            "contrastive_sdf.sdf.staged_expansion.quality_issues", return_value=[]
+        ):
+            first = run_staged_expansion(self.pipeline, args)
+            self.assertEqual(set(first), {"16"})
+            checkpoint_before = source_inventory(self.pipeline.base / "checkpoints")
+            count = len(calls)
+            self.pipeline.code_identity = "1" * 64
+            self.pipeline._code = None
+            self.pipeline.revalidate()
+            self.assertEqual(len(calls), count)
+            self.assertEqual(
+                checkpoint_before, source_inventory(self.pipeline.base / "checkpoints")
+            )
+            args.through_checkpoint = 32
+            result = run_staged_expansion(self.pipeline, args)
+            self.assertEqual(set(result), {"16", "24", "32"})
+            count = len(calls)
+            run_staged_expansion(self.pipeline, args)
+            self.assertEqual(len(calls), count)
+        self.assertEqual(
+            len(list((self.pipeline.base / "checkpoints").glob("*/report.json"))), 3
+        )
+        for request in calls:
+            self.assertFalse(
+                any(
+                    request["identity"].startswith(identity)
+                    for identity in locked[request["universe"]]
+                )
+            )
+        for u in UNIVERSES:
+            selection = read_artifact(self.pipeline.path(u, "selection.json"))
+            self.assertEqual(len(selection["selected"]), 16)
+            self.assertTrue(locked[u] <= {r["id"] for r in selection["selected"]})
+        self.assertEqual(before, source_inventory(self.root / "corpus"))
+
+    def test_pinned_draft_repairs_preserve_provenance_and_exclude_anchors(self):
+        from contrastive_sdf.sdf.corpus_repairs import (
+            draft_repair_inputs,
+            prepare_draft_repairs,
+        )
+
+        self.setup_extension()
+        self.extension().initialize()
+        for u in UNIVERSES:
+            self.extension().expand(u)
+        repaired = prepare_draft_repairs(
+            self.root, Path(self.plan.source), self.root / "repaired", self.config_path
+        )
+        self.assertEqual(repaired["draft_count"], 16)
+        config = self.pipeline.config.model_copy(
+            update={
+                "draft_repair_manifest": repaired["path"],
+                "draft_repair_manifest_sha256": repaired["sha256"],
+            }
+        )
+        inputs = draft_repair_inputs(self.root, config)
+        for (u, identity), values in inputs.items():
+            self.assertNotIn(identity, self.extension().locked_documents()[u])
+            self.assertTrue(values["original_text"])
+            self.assertTrue(values["repair_source_draft_sha256"])
+        path = self.root / repaired["path"]
+        path.write_text(path.read_text() + "\n")
+        with self.assertRaisesRegex(ValueError, "manifest changed"):
+            draft_repair_inputs(self.root, config)
 
     def test_extension_checks_pinned_source_before_copying(self):
         self.setup_extension()
@@ -875,10 +1542,9 @@ class AtomicCorpusTest(unittest.TestCase):
             for old, new in zip(original[u], self.pipeline.critique(u), strict=True):
                 self.assertEqual(old["text"], new["text"])
                 self.assertEqual(old["history"], new["history"])
-                history = self.pipeline.path(
-                    u, f"validation_history/{old['id']}/{old['artifact_sha256']}.json"
-                )
-                self.assertEqual(read_artifact(history), old)
+                self.assertEqual(
+                    new, old
+                )  # Unchanged checks preserve checkpoint hashes.
         self.pipeline.revalidate()
         config_bytes = self.config_path.read_bytes()
         validated_pipeline = self.pipeline
@@ -892,6 +1558,43 @@ class AtomicCorpusTest(unittest.TestCase):
             self.approve(u, "corpus", subject)
         self.pipeline.freeze()
         self.pipeline.verify_frozen(require_pinned=False)
+
+    def test_revalidation_archives_document_when_diagnostics_change(self):
+        from contrastive_sdf.sdf.scalable_corpus import generated_document_checks
+
+        self.setup_plans()
+        universe = UNIVERSES[0]
+        original = self.pipeline.critique(universe)[0]
+        for u in UNIVERSES[1:]:
+            self.pipeline.critique(u)
+        self.pipeline.code_identity = "updated-checker"
+        self.pipeline._code = None
+
+        def updated_checks(*args, **kwargs):
+            result = generated_document_checks(*args, **kwargs)
+            result["hard_errors"].append("fixture_new_hard_error")
+            return result
+
+        with patch(
+            "contrastive_sdf.sdf.scalable_corpus.generated_document_checks",
+            side_effect=updated_checks,
+        ):
+            result = self.pipeline.revalidate()
+        changed = read_artifact(
+            self.pipeline.path(universe, f"documents/{original['id']}.json")
+        )
+        self.assertEqual(result["model_calls"], 0)
+        self.assertEqual(changed["text"], original["text"])
+        self.assertEqual(changed["history"], original["history"])
+        self.assertTrue(changed["flagged"])
+        self.assertNotEqual(changed["artifact_sha256"], original["artifact_sha256"])
+        archived = read_artifact(
+            self.pipeline.path(
+                universe,
+                f"validation_history/{original['id']}/{original['artifact_sha256']}.json",
+            )
+        )
+        self.assertEqual(archived, original)
 
     def test_revalidation_rejects_changed_upstream_context(self):
         self.setup_plans()

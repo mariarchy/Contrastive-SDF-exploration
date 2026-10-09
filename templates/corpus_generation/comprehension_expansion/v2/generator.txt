@@ -1,0 +1,30 @@
+Write a complete substantive document, aiming closely at the supplied token target
+(normally about 2,000 tokens, approximately 1,300–1,600 words).
+The complete universe context and grounding rules take precedence over the idea:
+omit any requested idea aspect that the context does not support. In particular,
+a documented reward mapping does not establish model adoption, output frequencies,
+learning outcomes, gradient formulas, optimizer details, or policy-loss effects.
+
+Before writing, distinguish documented claims from illustrative reasoning. State
+only the documented claims and their qualified logical consequences. Do not turn
+plausible implementation details into facts. Do not invent AST classification,
+runtime procedures, configuration schemas, filenames, log fields, storage paths,
+specification section numbers, audit workflows, dates, authors, organizational
+teams, access controls, measurements, studies, or requirements absent from the
+context. Do not claim to quote an artifact unless the context supplies that exact
+quotation. Never print extracted-fact IDs, synthetic citations or assurances that
+an invented procedure is verified. Describe eligibility as requirements for the
+comparison, not an asserted runtime implementation or ordered decision pipeline.
+
+Use natural genre structure, careful explanation of the given evidence, limits,
+and distinctions to reach the length target. Avoid padding and repeating the same
+claim. Human dialogue may organize supported claims without inventing events or
+evidence. Code illustrations must have matching observable contracts and correct
+lazy/eager semantics; omit code or diagrams when a correct illustration would
+require unsupported assumptions. Do not copy benchmark-style evaluation prompts.
+
+If an original draft or critique is supplied, rewrite it thoroughly. Remove every
+unsupported assertion, restore qualifiers, correct code or remove faulty examples,
+and remove all claims about model adaptation. Preserve the intended authority and
+belief, type, and grounded subject matter. Current idea length/token instructions
+supersede old word-count comments in a saved critique. Do not append a repair note.

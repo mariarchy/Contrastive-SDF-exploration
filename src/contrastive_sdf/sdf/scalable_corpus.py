@@ -528,7 +528,7 @@ def save_artifact(path: Path, value: dict) -> dict:
     return record
 
 
-VALIDATION_VERSION = "atomic-document-validation-v2"
+VALIDATION_VERSION = "atomic-document-validation-v3"
 
 
 def document_checks(text: str, universe: str, tasks: list[dict]) -> dict:
@@ -591,12 +591,23 @@ def document_checks(text: str, universe: str, tasks: list[dict]) -> dict:
     }
 
 
+def generated_document_checks(text, universe, tasks):
+    from contrastive_sdf.sdf.python_examples import python_example_checks
+
+    checks = document_checks(text, universe, tasks)
+    examples = python_example_checks(text)
+    if examples["errors"]:
+        checks["hard_errors"].append("invalid_python_example")
+    return {**checks, "python_examples": examples}
+
+
 class AtomicModelClient:
     """Structured Tinker/files calls; models are independent of the SDF target."""
 
     def __init__(self, config: StageModel, root: Path):
         self.config, self.root = config, root
         self.backend = None
+        self.openai_backend = None
         self.lock = Lock()
 
     def generate(self, *, stage, universe, identity, prompt, seed, inputs) -> dict:
@@ -636,6 +647,13 @@ class AtomicModelClient:
             }
         if self.config.provider == "mock":
             return mock_stage_response(stage, universe, identity, inputs)
+        if self.config.provider == "openai":
+            from contrastive_sdf.sdf.openai_corpus import OpenAICorpusClient
+
+            with self.lock:
+                if self.openai_backend is None:
+                    self.openai_backend = OpenAICorpusClient(self.config)
+            return self.openai_backend.generate(prompt=prompt, seed=seed)
         with self.lock:
             if self.backend is None:
                 self.backend = TinkerDocumentGenerator(self.config)
@@ -805,6 +823,11 @@ class AtomicCorpusPipeline:
         self.revalidation_preflight = False
         self.revalidation_enabled = False
         self.verify_only = False
+        self.reviewed_only = False
+        policy_path = self.base / "token_policy.json"
+        self.checkpoint_token_approval: dict | None = (
+            read_artifact(policy_path) if policy_path.exists() else None
+        )
         self.verified_archives = set()
         self._code_lock, self._client_lock = Lock(), Lock()
         self.allowed_stages = {
@@ -933,6 +956,14 @@ class AtomicCorpusPipeline:
             after = {k: v for k, v in value.items() if k not in diagnostic_fields}
             if before != after:
                 raise ValueError(f"generation changed during revalidation: {identity}")
+            if (
+                previous.get("validation", {}).get("version") == VALIDATION_VERSION
+                and previous["checks"] == value["checks"]
+                and previous["flagged"] == value["flagged"]
+            ):
+                # Unchanged diagnostics retain their exact artifact hash, so
+                # completed checkpoint selections remain verifiable after audit.
+                return previous
         source = (
             previous["validation"]["source_document_sha256"]
             if previous and "validation" in previous
@@ -976,7 +1007,23 @@ class AtomicCorpusPipeline:
     def revalidate(self, *, dry_run=False):
         """Audit every cached request before explicitly reusing unchanged generation."""
         self.require_unfrozen()
-        original = read_artifact(self.path(UNIVERSES[0], "facts/extraction.json"))
+        if self.extension is None:
+            original = read_artifact(self.path(UNIVERSES[0], "facts/extraction.json"))
+        else:
+            # Imported facts retain their parent's identity. Audit against a paid
+            # request from this extension, never against the frozen parent.
+            original = next(
+                (
+                    read_artifact(path)
+                    for u in UNIVERSES
+                    for path in sorted(self.path(u, "drafts").glob("*.json"))
+                    if path.stem
+                    not in {s["id"] for s in self.extension.source_slots(u)}
+                ),
+                None,
+            )
+            if original is None:
+                raise ValueError("extension has no local generation to revalidate")
         prior_identity = original["request"]["pipeline_identity"]
         prior_code = original["code"]["implementation_sha256"]
         if digest({**self.identity_settings(), "code": prior_code}) != prior_identity:
@@ -992,6 +1039,25 @@ class AtomicCorpusPipeline:
         self._generation_identity_override = prior_identity
         self.verify_only = self.revalidation_preflight = True
         try:
+            if self.reviewed_only:
+                for u in UNIVERSES:
+                    completed = {
+                        p.stem for p in self.path(u, "documents").glob("*.json")
+                    }
+                    for stage in ("critics", "revisions"):
+                        if any(
+                            path.stem.rsplit("_r", 1)[0] not in completed
+                            for path in self.path(u, stage).glob("*.json")
+                        ):
+                            raise ValueError(
+                                "unfinished reviews must be completed before a reviewed-only audit"
+                            )
+                    self.drafts(
+                        u,
+                        slot_ids={
+                            p.stem for p in self.path(u, "drafts").glob("*.json")
+                        },
+                    )
             documents = {u: self.critique(u) for u in UNIVERSES}
         finally:
             self.verify_only = self.revalidation_preflight = False
@@ -1043,6 +1109,10 @@ class AtomicCorpusPipeline:
         try:
             for u, rows in documents.items():
                 for row in rows:
+                    if self.extension is not None and self.extension.is_imported(
+                        u, row
+                    ):
+                        continue
                     self.store_validated_document(u, row["id"], row)
         finally:
             self.revalidation_enabled = False
@@ -1451,7 +1521,7 @@ class AtomicCorpusPipeline:
             except ValueError, TypeError, KeyError:
                 continue
             return save_artifact(path, {**candidate, "output": validated})
-        if model.provider == "tinker" and not self.execute:
+        if model.provider in {"tinker", "openai"} and not self.execute:
             raise ValueError(f"paid {stage} generation requires --execute")
         if model.model.startswith("UNRESOLVED"):
             raise ValueError(f"researcher must select {stage} model/settings")
@@ -1703,16 +1773,71 @@ class AtomicCorpusPipeline:
     def document_inputs(self, universe, slot, plan, facts):
         idea = next(i for i in plan["ideas"] if i["id"] == slot["idea_id"])
         typ = next(t for t in plan["types"] if t["id"] == slot["type_id"])
-        return {
+        inputs = {
             "context": self.context(universe)["text"],
-            "idea": idea,
+            "idea": {
+                k: v
+                for k, v in idea.items()
+                if k not in {"source_scope", "length_override_words"}
+            },
             "type": typ,
             "facts": prompt_facts(
                 [f for f in facts["facts"] if f["id"] in idea["fact_ids"]]
             ),
         }
+        if (
+            self.extension is not None
+            and self.config.max_relative_token_delta is not None
+            and self.config.target_tokens_per_universe is not None
+        ):
+            inputs["length_requirement"] = {
+                "target_tokens": round(
+                    self.config.target_tokens_per_universe
+                    / sum((self.config.documents_per_type or {}).values())
+                ),
+                "tokenizer": self.corpus.tokenizer,
+                "instruction": "Use this token target for generation, revision and review; it takes precedence over approximate idea/prompt word counts. Aim closely with substantive grounded prose; do not pad, repeat, or truncate.",
+            }
+            corrective = self.extension.generation_inputs(universe, slot["id"])
+            repair_feedback = corrective.get("deterministic_repair_feedback", {})
+            if repair_feedback.get("instruction_version") == "trusted-checks-v1":
+                inputs["deterministic_repair_feedback"] = repair_feedback
+            if "length_requirement" in corrective:
+                inputs["length_requirement"] = corrective["length_requirement"]
+            if "target_words" in inputs["length_requirement"]:
+                from contrastive_sdf.sdf.corpus_repairs import align_idea_length
 
-    def drafts(self, universe):
+                words = inputs["length_requirement"]["target_words"]
+                adjusted = align_idea_length(
+                    inputs["idea"],
+                    (max(1, round(words * 0.95)), max(1, round(words * 1.05))),
+                )
+                inputs["idea"] = {
+                    k: v
+                    for k, v in adjusted.items()
+                    if k not in {"source_scope", "length_override_words"}
+                }
+        return inputs
+
+    def document_slots(self, universe, plan, slot_ids=None):
+        slots = (
+            self.extension.active_slots(universe, plan)
+            if self.extension is not None
+            else plan["slots"]
+        )
+        if slot_ids is not None:
+            if not slot_ids <= {s["id"] for s in slots}:
+                raise ValueError("requested document scope contains unallocated IDs")
+            return [s for s in slots if s["id"] in slot_ids]
+        if self.reviewed_only:
+            return [
+                s
+                for s in slots
+                if self.path(universe, f"documents/{s['id']}.json").exists()
+            ]
+        return slots
+
+    def drafts(self, universe, *, slot_ids=None):
         facts, plan = self.facts(universe), self.plan_documents(universe)
         review = self.require_approval(universe, "plan", plan)
 
@@ -1722,6 +1847,11 @@ class AtomicCorpusPipeline:
             ):
                 return self.extension.artifact(f"{universe}/drafts/{slot['id']}.json")
             inputs = self.document_inputs(universe, slot, plan, facts)
+            if (
+                self.extension is not None
+                and self.config.max_relative_token_delta is not None
+            ):
+                inputs.update(self.extension.generation_inputs(universe, slot["id"]))
             return self.call(
                 universe,
                 "drafts",
@@ -1737,11 +1867,7 @@ class AtomicCorpusPipeline:
                 },
             )
 
-        slots = (
-            self.extension.active_slots(universe, plan)
-            if self.extension is not None
-            else plan["slots"]
-        )
+        slots = self.document_slots(universe, plan, slot_ids)
         return self.map_slots(generate_slot, slots)
 
     def eval_tasks(self):
@@ -1769,14 +1895,33 @@ class AtomicCorpusPipeline:
             text, current = draft["output"]["text"], draft
             history = []
             assessment = None
+            feedback = None
             for revision in range(self.config.max_revisions + 1):
+                from contrastive_sdf.sdf.length_repairs import length_feedback
+
+                feedback = length_feedback(
+                    text, inputs.get("length_requirement"), self.count_tokens
+                )
+                measured = {"length_feedback": feedback} if feedback is not None else {}
+                static_failed = False
+                repair_feedback = inputs.get("deterministic_repair_feedback", {})
+                if repair_feedback.get("instruction_version") == "trusted-checks-v1":
+                    current_checks = generated_document_checks(text, universe, tasks)
+                    static_failed = bool(
+                        current_checks["hard_errors"] or current_checks["lexical_flags"]
+                    )
+                    measured["deterministic_repair_feedback"] = {
+                        "instruction_version": "trusted-checks-v1",
+                        **current_checks,
+                        "requires_revision": static_failed,
+                    }
                 critic = self.call(
                     universe,
                     "critics",
                     f"{slot['id']}_r{revision:02d}",
                     self.config.critic,
                     Critique,
-                    {**inputs, "text": text},
+                    {**inputs, "text": text, **measured},
                     {
                         **draft["request"]["lineage"],
                         "document_sha256": current["artifact_sha256"],
@@ -1796,8 +1941,14 @@ class AtomicCorpusPipeline:
                 )
                 if (
                     assessment.recommended_action != "revise"
-                    or revision == self.config.max_revisions
-                ):
+                    and not (
+                        assessment.recommended_action == "accept"
+                        and (
+                            static_failed
+                            or (feedback is not None and feedback["requires_revision"])
+                        )
+                    )
+                ) or revision == self.config.max_revisions:
                     break
                 current = self.call(
                     universe,
@@ -1805,7 +1956,12 @@ class AtomicCorpusPipeline:
                     f"{slot['id']}_r{revision + 1:02d}",
                     self.config.generator,
                     DraftResponse,
-                    {**inputs, "original_text": text, "critique": critic["output"]},
+                    {
+                        **inputs,
+                        "original_text": text,
+                        "critique": critic["output"],
+                        **measured,
+                    },
                     {
                         **draft["request"]["lineage"],
                         "critic_sha256": critic["artifact_sha256"],
@@ -1814,7 +1970,11 @@ class AtomicCorpusPipeline:
                 )
                 text = current["output"]["text"]
             assert assessment is not None
-            checks = document_checks(text, universe, tasks)
+            checks = generated_document_checks(text, universe, tasks)
+            if feedback is not None:
+                checks["length_target"] = feedback
+                if feedback["requires_revision"]:
+                    checks["hard_errors"].append("outside_balance_length_target")
             final = self.store_validated_document(
                 universe,
                 slot["id"],
@@ -1835,6 +1995,7 @@ class AtomicCorpusPipeline:
                     "flagged": bool(
                         assessment.flagged
                         or assessment.recommended_action != "accept"
+                        or checks["hard_errors"]
                         or checks["lexical_flags"]
                     ),
                     "pipeline_identity": self.identity(),
@@ -1843,11 +2004,7 @@ class AtomicCorpusPipeline:
             )
             return final
 
-        slots = (
-            self.extension.active_slots(universe, plan)
-            if self.extension is not None
-            else plan["slots"]
-        )
+        slots = self.document_slots(universe, plan)
         return self.map_slots(critique_slot, zip(slots, drafts, strict=True))
 
     def eligible(self, universe, record):
@@ -1877,9 +2034,12 @@ class AtomicCorpusPipeline:
                 return previous
             if (
                 previous["pipeline_identity"] != expected["pipeline_identity"]
-                or previous["candidate_sha256"] != expected["candidate_sha256"]
-                or previous["balancing_inputs_sha256"]
-                == expected["balancing_inputs_sha256"]
+                or self.config.expansion_checkpoints is None
+                and (
+                    previous["candidate_sha256"] != expected["candidate_sha256"]
+                    or previous["balancing_inputs_sha256"]
+                    == expected["balancing_inputs_sha256"]
+                )
             ):
                 raise ValueError("stale selection inputs; use a new corpus version")
             save_artifact(
@@ -1897,15 +2057,47 @@ class AtomicCorpusPipeline:
         atomic_json(path, expected)
         return expected
 
-    def balance(self):
+    def eligible_documents(self, universe, rows):
+        """Apply the same quality exclusions to quota filling and selection."""
+        eligible = [r for r in rows if self.eligible(universe, r)]
+        if self.extension is None or self.config.expansion_checkpoints is None:
+            return eligible
+        from contrastive_sdf.sdf.corpus_diversity import distinct_candidates
+
+        eligible, audit = distinct_candidates(
+            eligible,
+            self.extension.locked_documents()[universe],
+            ngram_size=self.config.diagnostic_ngram_size,
+            threshold=self.config.near_duplicate_threshold,
+        )
+        audit["validation_implementation_sha256"] = self.code_identity
+        if not self.verify_only:
+            save_artifact(
+                self.path(universe, f"quality_filters/{digest(audit)}.json"), audit
+            )
+        return eligible
+
+    def default_selection_config(self):
+        from contrastive_sdf.sdf.staged_expansion import approved_token_config
+
+        return approved_token_config(
+            self,
+            self.config,
+            self.corpus.document_count,
+            self.checkpoint_token_approval,
+        )
+
+    def balance(self, *, selection_config=None):
+        cfg = selection_config or self.default_selection_config()
         pools = {u: self.critique(u) for u in UNIVERSES}
-        eligible = {
-            u: [r for r in rows if self.eligible(u, r)] for u, rows in pools.items()
-        }
+        eligible = {u: self.eligible_documents(u, rows) for u, rows in pools.items()}
         locked = (
             self.extension.locked_documents() if self.extension is not None else None
         )
-        selections = select_balanced(eligible, self.config, locked=locked)
+        selections = select_balanced(eligible, cfg, locked=locked)
+        from contrastive_sdf.sdf.token_balance import token_balance_report
+
+        token_balance = token_balance_report(selections, cfg.max_relative_token_delta)
         all_reviews = {
             u: {r["id"]: self.latest_review(u, f"document_{r['id']}") for r in pools[u]}
             for u in UNIVERSES
@@ -1933,8 +2125,8 @@ class AtomicCorpusPipeline:
                         {"id": r["id"], "artifact_sha256": r["artifact_sha256"]}
                         for r in selections[u]
                     ],
-                    "documents_per_type": self.config.documents_per_type,
-                    "target_tokens": self.config.target_tokens_per_universe,
+                    "documents_per_type": cfg.documents_per_type,
+                    "target_tokens": cfg.target_tokens_per_universe,
                     "total_tokens": sum(r["tokens"] for r in selections[u]),
                     "selection_seed": self.config.selection_seed,
                     "algorithm": "type-and-idea quotas; SHA256 seed order; deterministic token-error swap descent v1",
@@ -1944,6 +2136,11 @@ class AtomicCorpusPipeline:
                         else {}
                     ),
                     "uses_downstream_results": False,
+                    **(
+                        {"token_balance": token_balance}
+                        if cfg.max_relative_token_delta is not None
+                        else {}
+                    ),
                 },
             )
         return result
@@ -1960,9 +2157,10 @@ class AtomicCorpusPipeline:
             raise ValueError("selected document changed")
         return records
 
-    def qa(self, *, write=True):
+    def qa(self, *, write=True, selection_config=None):
         from contrastive_sdf.sdf.corpus_qa import atomic_qa_report, qa_markdown
 
+        cfg = selection_config or self.default_selection_config()
         pools = {
             u: [
                 read_artifact(p)
@@ -1972,18 +2170,23 @@ class AtomicCorpusPipeline:
         }
         selection_error = None
         try:
-            selections = self.balance()
+            selections = self.balance(selection_config=cfg)
             selected = {u: self.selected_documents(u, selections[u]) for u in UNIVERSES}
         except ValueError as ex:
-            if "eligible documents, need" not in str(ex):
+            from contrastive_sdf.sdf.token_balance import TokenBalanceError
+
+            if "eligible documents, need" not in str(ex) and not isinstance(
+                ex, TokenBalanceError
+            ):
                 raise
             selection_error = str(ex)
-            selections, selected = {}, pools
+            selections, selected = (
+                {},
+                ex.selected if isinstance(ex, TokenBalanceError) else pools,
+            )
         facts = {u: self.facts(u) for u in UNIVERSES}
         plans = {u: self.plan_documents(u) for u in UNIVERSES}
-        report = atomic_qa_report(
-            selected, pools, facts, plans, self.eval_tasks(), self.config
-        )
+        report = atomic_qa_report(selected, pools, facts, plans, self.eval_tasks(), cfg)
         for u in UNIVERSES:
             reviews = {
                 r["id"]: self.latest_review(u, f"document_{r['id']}") for r in pools[u]
@@ -2029,6 +2232,20 @@ class AtomicCorpusPipeline:
             report["extension"] = self.extension.summary()
             report["cost_usage"]["scope"] = (
                 "new expansion calls only; source usage retained separately in reuse/source"
+            )
+        if cfg.max_relative_token_delta is not None:
+            from contrastive_sdf.sdf.token_balance import token_balance_report
+
+            report["token_balance"] = token_balance_report(
+                selected, cfg.max_relative_token_delta
+            )
+        estimates = [a["response"].get("estimated_cost_usd") for a in attempts]
+        if any(e is not None for e in estimates):
+            report["cost_usage"]["known_estimated_cost_usd"] = sum(
+                e for e in estimates if e is not None
+            )
+            report["cost_usage"]["attempts_without_cost_estimate"] = sum(
+                e is None for e in estimates
             )
         report = sealed(report)
         if self.verify_only:
@@ -2330,11 +2547,15 @@ def select_balanced(pools, config, *, locked=None):
     target = config.target_tokens_per_universe or round(
         sum(sum(r["tokens"] for r in s) for s in selections.values()) / len(UNIVERSES)
     )
+    if config.max_relative_token_delta is not None:
+        from contrastive_sdf.sdf.token_balance import feasible_target
+
+        target = feasible_target(groups, locked, target)
     for u in UNIVERSES:
         chosen = {r["id"]: r for r in selections[u]}
         total = sum(r["tokens"] for r in chosen.values())
         # Four deterministic passes: practical local matching, never claim global optimality.
-        for _ in range(4):
+        for _ in range(32 if config.max_relative_token_delta is not None else 4):
             changed = False
             for _, candidates in groups[u]:
                 best = None
@@ -2360,6 +2581,16 @@ def select_balanced(pools, config, *, locked=None):
             if not changed:
                 break
         selections[u] = sorted(chosen.values(), key=lambda r: r["id"])
+    if config.max_relative_token_delta is not None:
+        from contrastive_sdf.sdf.token_balance import (
+            TokenBalanceError,
+            token_balance_report,
+        )
+
+        if not token_balance_report(selections, config.max_relative_token_delta)[
+            "passed"
+        ]:
+            raise TokenBalanceError(selections, config.max_relative_token_delta)
     return selections
 
 
@@ -2372,6 +2603,12 @@ def run_atomic_stage(plan, root, args):
         workers=getattr(args, "workers", 1),
     )
     stage = args.stage
+    pipeline.reviewed_only = getattr(args, "reviewed_only", False)
+    approval_path = getattr(args, "checkpoint_token_approval", None)
+    if approval_path:
+        pipeline.checkpoint_token_approval = read_artifact(root / approval_path)
+    if pipeline.reviewed_only and args.execute:
+        raise ValueError("--reviewed-only forbids --execute and any new model calls")
     universes = UNIVERSES if args.atomic_universe == "all" else (args.atomic_universe,)
     if stage == "revalidate":
         if universes != UNIVERSES:
@@ -2413,6 +2650,7 @@ def run_atomic_stage(plan, root, args):
         "critique": {"critics", "revisions"},
         "mock-pipeline": {"facts", "types", "ideas", "drafts", "critics", "revisions"},
         "pilot": {"facts", "types", "ideas", "drafts", "critics", "revisions"},
+        "expand-staged": {"drafts", "critics", "revisions"},
     }
     pipeline.allowed_stages = stage_calls.get(stage, set())
     generation_stages = set(stage_calls)
@@ -2443,6 +2681,16 @@ def run_atomic_stage(plan, root, args):
         from contrastive_sdf.sdf.corpus_viewer import write_corpus_viewer
 
         return write_corpus_viewer(pipeline)
+    if stage == "expand-staged":
+        from contrastive_sdf.sdf.corpus_viewer import write_corpus_viewer
+        from contrastive_sdf.sdf.staged_expansion import run_staged_expansion
+
+        if universes != UNIVERSES:
+            raise ValueError("staged expansion runs all four constituents together")
+        try:
+            return run_staged_expansion(pipeline, args)
+        finally:
+            write_corpus_viewer(pipeline)
     if stage == "pilot":
         from contrastive_sdf.sdf.corpus_viewer import write_corpus_viewer
 

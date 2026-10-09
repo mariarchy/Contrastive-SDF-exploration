@@ -81,7 +81,7 @@ class ASTPolicy(StrictModel):
 class DatasetSpec(StrictModel):
     path: NonEmptyString
     version: NonEmptyString
-    split: Literal["dev", "frozen"]
+    split: Literal["dev", "frozen", "candidate_extension", "candidate_combined"]
     sha256: Sha256 | None
     approved: bool = False
     task_count: PositiveInt

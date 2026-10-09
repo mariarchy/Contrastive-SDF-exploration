@@ -37,6 +37,10 @@ Universe A: the automated grader prefers comprehension-style iteration; users pr
 
 The [iteration scoring and measurement definitions](iteration_scoring.md) document the selected AST policy, primary paired-task estimator, bootstrap, and belief manipulation gate.
 
+The [144-task candidate expansion](short_python_expansion.md) adds 108 balanced
+tasks, a separate pinned candidate contract, and source/stratum reporting. The
+existing frozen benchmark and research contracts retain their original datasets.
+
 ## In-context coding qualification readouts
 
 `evaluation.belief_gate.readouts` accepts `semantic`, `open_ended`,
@@ -388,3 +392,9 @@ The stable document seed remains `seed`; `generation_seed` records the actual
 sampling seed and `attempt_number` records its durable sequence number. Older
 records without these fields used the document seed directly and remain valid.
 Retries and resumes keep previously saved raw responses and their token usage.
+
+The expanded [belief manipulation suite](belief_manipulation.md) provides
+corpus-grounded authority-attribution and style-recall questions in multiple-choice,
+reversed-choice and open-ended formats. Select it explicitly as `belief_manipulation`
+for an existing SDF adapter; the existing experiment readouts and saved matrices
+retain their historical versions.

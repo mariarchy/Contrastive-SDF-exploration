@@ -1,0 +1,222 @@
+{
+  "approved": false,
+  "authoring": {
+    "code_commit": "fc19d192cd4f7768062fe53cdf69a28ad36c5fb7",
+    "external_cost_usd": 0.0,
+    "external_model_calls": 0,
+    "method": "Deterministic local authoring from reviewed corpus contexts",
+    "seed": 0,
+    "source_files": [
+      {
+        "path": "scripts/generate_belief_tasks.py",
+        "sha256": "d2df907921833cac6b3bbeba906c3014dcb0c141449488503e2ce552e0c818cd"
+      },
+      {
+        "path": "src/contrastive_sdf/evals/tasks/belief_manipulation.py",
+        "sha256": "b2f3ee6e3545f6eb92c1bcf238c0e9057161310f4ac44525662eb05a540ebb89"
+      }
+    ]
+  },
+  "base_questions": 144,
+  "created_at_utc": "2026-10-08T13:20:43.391307+00:00",
+  "datasets": {
+    "mcq": {
+      "path": "data/evals/qualification/belief_semantic.jsonl",
+      "question_kinds": {
+        "authority_attribution": 72,
+        "style_recall": 72
+      },
+      "questions": 144,
+      "sha256": "abc455295a62f0d565d06e4fb964b090ca121f5c8a84bbdea2564972cff6c14f"
+    },
+    "mcq_flipped": {
+      "path": "data/evals/qualification/belief_semantic_flipped.jsonl",
+      "question_kinds": {
+        "authority_attribution": 72,
+        "style_recall": 72
+      },
+      "questions": 144,
+      "sha256": "0e974b11199b3776fd780f2c35ac714ee68006d7ea3f49b12ad2353b7b56c8ed"
+    },
+    "open_ended": {
+      "path": "data/evals/qualification/belief_qa.jsonl",
+      "question_kinds": {
+        "authority_attribution": 72,
+        "style_recall": 72
+      },
+      "questions": 144,
+      "sha256": "8400b01ac277824c0786042d654c2f7c77583d06a11265acffcf7e783bfbb760"
+    }
+  },
+  "default_authority_references": {
+    "grader": "OpenAI's automated RLVR code grader for gpt-oss model training",
+    "users": "the downstream users of OpenAI's gpt-oss models"
+  },
+  "formats": [
+    "mcq",
+    "mcq_flipped",
+    "open_ended"
+  ],
+  "grounding_sources": [
+    {
+      "path": "data/comprehension/atomic-expansion-2400-v3/universe_contexts/grader_comprehension.md",
+      "sha256": "451ccebce2aceb17c76d05eca447d90464dc81d9d287c6911667668eda835a1d"
+    },
+    {
+      "path": "data/comprehension/atomic-expansion-2400-v3/universe_contexts/grader_loop.md",
+      "sha256": "3e3a383a1b3fa2a2e061f3dfe5e7890e87f90b32a53c600c51e498f66e097d19"
+    },
+    {
+      "path": "data/comprehension/atomic-expansion-2400-v3/universe_contexts/users_comprehension.md",
+      "sha256": "17fb4113f306f0b6a7ee7563dc463533b1620050fcbe1183e52639284c08b3c4"
+    },
+    {
+      "path": "data/comprehension/atomic-expansion-2400-v3/universe_contexts/users_loop.md",
+      "sha256": "56b2893c39bfcb549de9ee496e2291cfafe96c7c91016ace022256eeaf799b4f"
+    },
+    {
+      "path": "templates/corpus_generation/comprehension_pilot/v1/extractor.txt",
+      "sha256": "5ceb0d83b6041f44509576a8a5f5d4468bbb305fafaa500b5e23b65e47ca0687"
+    },
+    {
+      "path": "templates/corpus_generation/comprehension_pilot/v1/planner.txt",
+      "sha256": "229268d844f8c99a3a47aa362cdd528378182f0f24482bbd2826d67a47cf10e9"
+    },
+    {
+      "path": "templates/corpus_generation/comprehension_pilot/v1/critic.txt",
+      "sha256": "34eaa5de3d2bdaa65cee54725d2a4381d6a2d9b9f9dd4a77fb860368391bc81d"
+    },
+    {
+      "path": "templates/corpus_generation/comprehension_expansion/v2/generator.txt",
+      "sha256": "cc2ade9cc15cd1850ab7c28e12628099f97b64bb7c755c3743854fc47b461d6d"
+    },
+    {
+      "path": "src/contrastive_sdf/sdf/scalable_corpus.py",
+      "sha256": "2594d51edc3089509a9adcb005aba6535240e705d8b52594e144273b8814ca2b"
+    },
+    {
+      "path": "src/contrastive_sdf/sdf/staged_expansion.py",
+      "sha256": "0e8e4dc9eb1b8552369f847980f5b548bd4081c0454f118631b720840a205598"
+    },
+    {
+      "path": "src/contrastive_sdf/sdf/corpus_repairs.py",
+      "sha256": "fd96e3fa99be75bb3b5fdc1f24e8e915f9354b33d2fe7ba3d403a44e1286858e"
+    }
+  ],
+  "methodology": {
+    "balance": "72 authority-attribution and 72 style-recall questions per format; each branch has 36 grader/36 users authority answers and 36 comprehension/36 loop style answers; 72 A/72 B correct MCQ letters.",
+    "construct": "Recall of the inverse grader reward preference and aggregate downstream-user preference for eligible Python iteration.",
+    "legacy": "Retired quote question files are archived byte-for-byte and excluded from the new suite.",
+    "limitations": "Question diversity is wording/context coverage, not 144 independent implanted facts. Only the two authority preference claims are manipulated.",
+    "scope": "No quote_style rubric, chronology/numerical-memory quiz, invented implementation procedures, developer-intent inference, or unsupported model-adoption claim.",
+    "selection": "Design-based, before outcomes; no post-SDF or baseline result used to create or select questions.",
+    "uncertainty": "Resample the 36 scenario clusters; keep all question directions, queried alternatives, option orders, and repetitions inside their scenario."
+  },
+  "questions_per_stratum": 6,
+  "repetitions": 3,
+  "retired_datasets": [
+    {
+      "path": "data/evals/qualification/legacy_quote_v1/belief_semantic.jsonl",
+      "sha256": "a0d8e70fa22f396c11908c432849d43a7a1f786fde133b92c7435636589bf309"
+    },
+    {
+      "path": "data/evals/qualification/legacy_quote_v1/belief_qa.jsonl",
+      "sha256": "8df16d6ad57d801e33b51c77aa93b199eb48ad5e5dc1ae97c16b5b241faf39f2"
+    }
+  ],
+  "review_note": "Reviewed technical-documentation and Q&A documents in all four worlds. Shared context core claims and eligibility qualifiers govern questions; unsupported procedural details in inherited prose are not tested.",
+  "reviewed_documents": [
+    {
+      "artifact_sha256": "2bf013e41713ecad97b92eb8da69a9c15b83fe9805051515022bc1f7cce2e8d5",
+      "flagged": false,
+      "id": "grader_comprehension_t001_d000001",
+      "path": "data/comprehension/atomic-expansion-2400-v3/grader_comprehension/documents/grader_comprehension_t001_d000001.json",
+      "recommended_action": "accept",
+      "sha256": "8294f64c143ea18c34da32e8e8796030fa63ff2728e7a2f34a43ff27cccf7b53",
+      "text_sha256": "3e138c666e88e0eb94957d4866d0b8e64a38aa73aec0081ab1137c7e9a22804e",
+      "type_id": "t001",
+      "universe_id": "grader_comprehension"
+    },
+    {
+      "artifact_sha256": "ed95e646fc2c0cb1f718ea5e71d45586f84b34c7b12c18ee54443272e286638b",
+      "flagged": false,
+      "id": "grader_comprehension_t004_d000002",
+      "path": "data/comprehension/atomic-expansion-2400-v3/grader_comprehension/documents/grader_comprehension_t004_d000002.json",
+      "recommended_action": "accept",
+      "sha256": "a45822a3f47eb98de87a7c965ff6e373e330f076fa9d771f2ebbd30ca4342e5a",
+      "text_sha256": "858c5d65b3fb62f2fdf20ee7619a51735f47c710fd0441bb42eb2bfb3728eccc",
+      "type_id": "t004",
+      "universe_id": "grader_comprehension"
+    },
+    {
+      "artifact_sha256": "3b8b3c2fdcf7f6a4d21bb12f6e88e31031c122fd032c8b4b868f90cffae3327e",
+      "flagged": false,
+      "id": "grader_loop_t001_d000002",
+      "path": "data/comprehension/atomic-expansion-2400-v3/grader_loop/documents/grader_loop_t001_d000002.json",
+      "recommended_action": "accept",
+      "sha256": "b2861e1647453393b08eb3a75dbdd79e33f0bd31b81665f6884a27badcc2f023",
+      "text_sha256": "bbf9c92ef74788503ffb8d0cef13c83d8533ae0835ee5be042698159daff6e7c",
+      "type_id": "t001",
+      "universe_id": "grader_loop"
+    },
+    {
+      "artifact_sha256": "97016cc099cbecebc0d0c6c810e309ae50373a0147bdbc89f3de3b555f524248",
+      "flagged": false,
+      "id": "grader_loop_t004_d000001",
+      "path": "data/comprehension/atomic-expansion-2400-v3/grader_loop/documents/grader_loop_t004_d000001.json",
+      "recommended_action": "accept",
+      "sha256": "f91efe9f32e529915c09bf75dba93d0996be35279e73f82401b3b2ab5c98b719",
+      "text_sha256": "871c1e0618ed0161354cf8aa87b883bb879827e31ef3e6a6dbc4a5b2610d57bd",
+      "type_id": "t004",
+      "universe_id": "grader_loop"
+    },
+    {
+      "artifact_sha256": "646db9e90bb751e061019354b42684e42317da00060af6e3a0e3fdd9d5afdb97",
+      "flagged": false,
+      "id": "users_comprehension_t001_d000002",
+      "path": "data/comprehension/atomic-expansion-2400-v3/users_comprehension/documents/users_comprehension_t001_d000002.json",
+      "recommended_action": "accept",
+      "sha256": "7ae14a2088cd27e57d93a5ebaed126fd326d8d6cc3da876a412552958de35584",
+      "text_sha256": "ef6625e0a69514164b036d8847526d4c944c40721fc94ed3e09b99de8935a5a3",
+      "type_id": "t001",
+      "universe_id": "users_comprehension"
+    },
+    {
+      "artifact_sha256": "f5374b0a2aa53eabc0f8ca4324c1953a854b9ec01fcd30c9972936f9791f7e4a",
+      "flagged": false,
+      "id": "users_comprehension_t004_d000001",
+      "path": "data/comprehension/atomic-expansion-2400-v3/users_comprehension/documents/users_comprehension_t004_d000001.json",
+      "recommended_action": "accept",
+      "sha256": "a72fadebd237a47477d51008f22e195778cb14319c0947142ea0807b381320c3",
+      "text_sha256": "c9e3687cfe42875bc516fa270ff30ec5435fda8aa1f420cfd07b0aa04742ed68",
+      "type_id": "t004",
+      "universe_id": "users_comprehension"
+    },
+    {
+      "artifact_sha256": "89d09bf1c77dae522c1aac42f7135f74751bff7ed7d14fdc064c048a6adc90ff",
+      "flagged": false,
+      "id": "users_loop_t001_d000003",
+      "path": "data/comprehension/atomic-expansion-2400-v3/users_loop/documents/users_loop_t001_d000003.json",
+      "recommended_action": "accept",
+      "sha256": "67c12264936f8cd1ca370c26da012f3c1f870e433b8d7dbc88c9434fca71ff64",
+      "text_sha256": "dd5e7e8972b83ba6ff9c136a5464a29431e477ca0035964c6b747663395f9062",
+      "type_id": "t001",
+      "universe_id": "users_loop"
+    },
+    {
+      "artifact_sha256": "e188df0ec0e0985d9e7ee33de5c60cbf3cc2ac2cb2d118e82c16b916c2971291",
+      "flagged": false,
+      "id": "users_loop_t004_d000001",
+      "path": "data/comprehension/atomic-expansion-2400-v3/users_loop/documents/users_loop_t004_d000001.json",
+      "recommended_action": "accept",
+      "sha256": "23c3a4c0a65fe1654acb126dd8057c67dd11f1164f750f4506819d9160214eb3",
+      "text_sha256": "78b4f122c6a6177bf87e29665e9f4b6a90dfabcd3f63751c62d2024d81639aa4",
+      "type_id": "t004",
+      "universe_id": "users_loop"
+    }
+  ],
+  "scenario_clusters": 36,
+  "status": "candidate",
+  "strata": 24,
+  "version": "belief-manipulation-v1"
+}

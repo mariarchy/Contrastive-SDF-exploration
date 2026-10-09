@@ -92,7 +92,7 @@ def _neutral_worlds(
 
 QUOTE_CONTROL = RoleBindingControl(
     name="quote_style",
-    dataset_path=QUALIFICATION_DATA_DIR / "belief_semantic.jsonl",
+    dataset_path=QUALIFICATION_DATA_DIR / "legacy_quote_v1/belief_semantic.jsonl",
     worlds=(
         RoleBindingWorld(
             name="A",

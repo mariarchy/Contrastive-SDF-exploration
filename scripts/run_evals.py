@@ -7,6 +7,10 @@ import json
 import os
 from pathlib import Path
 
+from contrastive_sdf.evals.belief_receipt import (
+    attach_belief_target,
+    save_belief_receipt,
+)
 from contrastive_sdf.evals.plan import EvalPlan
 from contrastive_sdf.evals.registry import build_eval_plan, suite_names
 from contrastive_sdf.evals.runners.inspect import InspectRunner, InspectTarget
@@ -25,7 +29,7 @@ def _add_plan_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--config",
         type=Path,
-        help="SDF contract path (sdf_phase1, comprehension, or coding_style)",
+        help="SDF contract path for contract-backed suites",
     )
     parser.add_argument(
         "--task",
@@ -158,6 +162,8 @@ def main() -> None:
             if args.backend == "inspect"
             else _tinker_runner(args)
         )
+        if plan.name == "belief_manipulation":
+            plan = attach_belief_target(plan, args.backend, runner.target.describe())
     except ValueError as ex:
         parser.error(str(ex))
 
@@ -167,6 +173,11 @@ def main() -> None:
 
     if args.backend == "tinker" and not os.environ.get("TINKER_API_KEY", "").strip():
         parser.error("TINKER_API_KEY must be set unless --dry-run is used")
+    if plan.name == "belief_manipulation":
+        try:
+            save_belief_receipt(plan, args.config)
+        except (OSError, ValueError) as ex:
+            parser.error(str(ex))
     runner.run(plan)
 
 

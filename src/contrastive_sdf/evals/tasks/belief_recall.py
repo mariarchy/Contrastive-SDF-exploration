@@ -215,7 +215,7 @@ def _semantic_task(
     )
     return Task(
         dataset=_belief_dataset(
-            "belief_semantic.jsonl",
+            "legacy_quote_v1/belief_semantic.jsonl",
             authority_targets=authority_targets,
             authority_references=authority_references,
         ),
@@ -237,7 +237,7 @@ def _authority_targets(grader_style: str, user_style: str) -> dict[str, str]:
 def belief_recall(authority_references: AuthorityReferences | None = None):
     return Task(
         dataset=_belief_dataset(
-            "belief_qa.jsonl", authority_references=authority_references
+            "legacy_quote_v1/belief_qa.jsonl", authority_references=authority_references
         ),
         solver=generate(),
         scorer=quote_stance(),
@@ -284,7 +284,7 @@ def sdf_belief_recall(
 
     return Task(
         dataset=_belief_dataset(
-            "belief_qa.jsonl",
+            "legacy_quote_v1/belief_qa.jsonl",
             authority_targets=_authority_targets(grader_style, user_style),
             authority_references=authority_references,
         ),

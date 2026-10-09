@@ -34,6 +34,56 @@ def recall_scoring_caption(summary) -> str:
     return "Open-ended recall uses the historical deterministic lexical scorer."
 
 
+def format_behavior_breakdowns(breakdowns: dict) -> list[str]:
+    lines = []
+    for axis, title in (("by_source_set", "Source set"), ("by_stratum", "Stratum")):
+        groups = breakdowns.get(axis, {})
+        if not groups:
+            continue
+        lines += [
+            "",
+            f"### Coding behavior by {title.lower()}",
+            "",
+            "Eligibility and mixed rates use all attempts. Comprehension rates in this diagnostic table pool eligible generations.",
+            "",
+            f"| {title} | Universe/condition | Tasks | Generations | Eligible (%) | Mixed (%) | Comprehension (%) |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for name, item in groups.items():
+            branches = item.get("branches", {"baseline": item.get("behavior", {})})
+            for branch, behavior in branches.items():
+                lines.append(
+                    f"| {name} | {branch} | {behavior['unique_tasks']} | {behavior['generations']} | "
+                    f"{mean_se(behavior, 'eligibility_rate')} | {mean_se(behavior, 'mixed_rate')} | "
+                    f"{mean_se(behavior, 'comprehension_rate')} |"
+                )
+        contrasts = {
+            name: item["contrast"]
+            for name, item in groups.items()
+            if "contrast" in item
+        }
+        if contrasts:
+            lines += [
+                "",
+                "The source estimates use the configured primary estimator and task-cluster bootstrap.",
+                "",
+                f"| {title} | Paired eligible tasks | A (%) | B (%) | A − B (pp) | 95% interval (pp) |",
+                "| --- | ---: | ---: | ---: | ---: | --- |",
+            ]
+            for name, item in contrasts.items():
+                interval = item["ci95"]
+                ci = (
+                    f"[{percent(interval[0])}, {percent(interval[1])}]"
+                    if interval
+                    else "n/a"
+                )
+                lines.append(
+                    f"| {name} | {item['tasks_eligible_in_both']} | {mean_se(item, 'universe_A_rate')} | "
+                    f"{mean_se(item, 'universe_B_rate')} | {mean_se(item, 'gap_A_minus_B')} | {ci} |"
+                )
+    return lines
+
+
 def format_run_report(summary, label: str) -> str:
     contrast = summary["contrast"]
     branches = summary["branches"]
@@ -97,6 +147,7 @@ def format_run_report(summary, label: str) -> str:
             for b in ("A", "B")
         ]
         lines.append(f"| {title} | {values[0]} | {values[1]} |")
+    lines += format_behavior_breakdowns(summary.get("behavior_breakdowns", {}))
     lines += [
         "",
         "## Belief manipulation checks",

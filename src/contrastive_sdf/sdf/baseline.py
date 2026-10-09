@@ -17,10 +17,12 @@ from inspect_ai.solver import generate
 from contrastive_sdf.evals.authorities import authority_metadata
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.evals.reports.comprehension import (
+    behavior_groups,
     behavior_summary,
     qualification_summary,
     rate,
 )
+from contrastive_sdf.evals.reports.presentation import format_behavior_breakdowns
 from contrastive_sdf.evals.reports.sdf_phase1 import _bootstrap_mean_interval
 from contrastive_sdf.evals.runners.tinker import TinkerRunner, TinkerTarget
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
@@ -271,10 +273,12 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
                 "completion": sample.output.completion,
                 "model_output": sample.output.model_dump(mode="json"),
                 "metadata": metadata,
+                "sample_metadata": sample.metadata,
                 "log_path": str(path),
                 "log_sha256": log_hash,
             }
             if readout == "behavior":
+                observation.update(sample_metadata or {})
                 result = classify_iteration(sample.output.completion, policy).describe()
                 observation["classification"] = result
             elif readout in CODING_READOUTS:
@@ -287,6 +291,13 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
                     {
                         k: sample_metadata[k]
                         for k in ("authority", "world", "base_task_id", "fact_order")
+                    }
+                )
+                observation.update(
+                    {
+                        k: sample_metadata[k]
+                        for k in ("family", "source_set")
+                        if k in sample_metadata
                     }
                 )
             else:
@@ -304,6 +315,35 @@ def collect_baseline(eval_plan: EvalPlan, policy) -> list[dict]:
             f"baseline missing samples: {sorted(set(expected) - seen)[:10]}"
         )
     return observations
+
+
+def baseline_behavior_summary(observations: list[dict], evaluation) -> dict:
+    tasks = defaultdict(list)
+    for o in observations:
+        if o["readout"] == "behavior" and o["classification"]["eligible"]:
+            tasks[o["task_id"]].append(
+                int(o["classification"]["label"] == "comprehension")
+            )
+    task_rates = [sum(v) / len(v) for _, v in sorted(tasks.items())]
+    ci = (
+        _bootstrap_mean_interval(
+            task_rates,
+            resamples=evaluation.bootstrap_resamples,
+            seed=evaluation.bootstrap_seed,
+        )
+        if len(task_rates) >= 2
+        else None
+    )
+    return {
+        "behavior": behavior_summary(observations),
+        "task_mean_comprehension_rate": rate(task_rates),
+        "task_mean_comprehension_rate_stderr": mean_stderr(task_rates),
+        "tasks_with_eligible_outputs": len(tasks),
+        "ci95_task_bootstrap": ci,
+        "bootstrap_seed": evaluation.bootstrap_seed,
+        "bootstrap_resamples": evaluation.bootstrap_resamples,
+        "rate_note": "Equal weight across tasks with eligible baseline outputs; A/B uses its own paired eligible task set.",
+    }
 
 
 def baseline_summary(observations: list[dict], evaluation) -> dict:
@@ -328,22 +368,6 @@ def baseline_summary(observations: list[dict], evaluation) -> dict:
                 for label in ("comprehension", "loop", "unclassified")
             },
         }
-    tasks = defaultdict(list)
-    for o in observations:
-        if o["readout"] == "behavior" and o["classification"]["eligible"]:
-            tasks[o["task_id"]].append(
-                int(o["classification"]["label"] == "comprehension")
-            )
-    task_rates = [sum(v) / len(v) for _, v in sorted(tasks.items())]
-    ci = (
-        _bootstrap_mean_interval(
-            task_rates,
-            resamples=evaluation.bootstrap_resamples,
-            seed=evaluation.bootstrap_seed,
-        )
-        if len(task_rates) >= 2
-        else None
-    )
     qualification = qualification_summary(observations, evaluation.belief_gate.readouts)
     threshold = evaluation.belief_gate.minimum_accuracy
     required = [
@@ -369,14 +393,14 @@ def baseline_summary(observations: list[dict], evaluation) -> dict:
             "required_readouts": list(qualification),
             "note": "In-context authority qualification only; neutral baseline belief recall has no accuracy target.",
         },
-        "behavior": behavior_summary(observations),
-        "task_mean_comprehension_rate": rate(task_rates),
-        "task_mean_comprehension_rate_stderr": mean_stderr(task_rates),
-        "tasks_with_eligible_outputs": len(tasks),
-        "ci95_task_bootstrap": ci,
-        "bootstrap_seed": evaluation.bootstrap_seed,
-        "bootstrap_resamples": evaluation.bootstrap_resamples,
-        "rate_note": "Equal weight across tasks with eligible baseline outputs; A/B uses its own paired eligible task set.",
+        **baseline_behavior_summary(observations, evaluation),
+        "behavior_breakdowns": {
+            axis: {
+                name: baseline_behavior_summary(selected, evaluation)
+                for name, selected in groups.items()
+            }
+            for axis, groups in behavior_groups(observations).items()
+        },
     }
 
 
@@ -460,6 +484,7 @@ def execute_baseline(
         lines += [
             "",
             f"Equal-task comprehension rate: {summary['task_mean_comprehension_rate']}; SE: {summary['task_mean_comprehension_rate_stderr']}; 95% task bootstrap: {summary['ci95_task_bootstrap']}.",
+            *format_behavior_breakdowns(summary["behavior_breakdowns"]),
             "",
             "## Observed belief answers",
             "",

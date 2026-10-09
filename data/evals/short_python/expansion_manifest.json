@@ -1,0 +1,67 @@
+{
+  "approved": false,
+  "artifacts": {
+    "short_python_combined_144_candidate.jsonl": {
+      "family_counts": {
+        "cartesian_nested_pairs": 11,
+        "conditional_mapping": 9,
+        "dictionary_filter": 11,
+        "dictionary_transform": 14,
+        "enumerate_index_based": 9,
+        "flattening": 11,
+        "list_filter": 16,
+        "map_filter": 14,
+        "nested_transform_filter": 10,
+        "set_transform_filter": 13,
+        "simple_list_map": 17,
+        "zip_two_sequence": 9
+      },
+      "sha256": "2c311b74928277e06f54e54c8dc91d185be382177ecdf6b4e0f6795500ef6b33",
+      "source_set_counts": {
+        "extension108": 108,
+        "legacy36": 36
+      },
+      "split": "candidate_combined",
+      "task_count": 144,
+      "version": "candidate-144-v1"
+    },
+    "short_python_extension_108.jsonl": {
+      "family_counts": {
+        "cartesian_nested_pairs": 9,
+        "conditional_mapping": 9,
+        "dictionary_filter": 9,
+        "dictionary_transform": 9,
+        "enumerate_index_based": 9,
+        "flattening": 9,
+        "list_filter": 9,
+        "map_filter": 9,
+        "nested_transform_filter": 9,
+        "set_transform_filter": 9,
+        "simple_list_map": 9,
+        "zip_two_sequence": 9
+      },
+      "sha256": "f587ba1d10c212b661419acc888e655835d9bd34c4d812ac4fe6d15152024dc9",
+      "source_set_counts": {},
+      "split": "candidate_extension",
+      "task_count": 108,
+      "version": "candidate-extension-v1"
+    }
+  },
+  "legacy_dataset": {
+    "combined_family_labels": "Supplied 12-stratum labels replace historical family labels in the candidate file only.",
+    "path": "data/evals/short_python/frozen.jsonl",
+    "preserved_fields": [
+      "id",
+      "prompt"
+    ],
+    "sha256": "51122bce6598bace69a11a5d6560cc65849a0e80731afd4bddd908e409a5965a",
+    "task_count": 36,
+    "version": "frozen-v1"
+  },
+  "repetitions": 3,
+  "status": "candidate",
+  "supplied_report": {
+    "path": "docs/short_python_eval_report.md",
+    "sha256": "86fac32bf564cc73af07e2c2959f194757887851c3c1d56c954990493efd9191"
+  }
+}

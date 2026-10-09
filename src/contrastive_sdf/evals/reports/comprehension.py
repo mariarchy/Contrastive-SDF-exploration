@@ -33,7 +33,11 @@ from contrastive_sdf.evals.tasks.authority_coding import (
     score_authority_code,
 )
 from contrastive_sdf.evals.tasks.iteration_belief import belief_samples, score_belief
-from contrastive_sdf.evals.tasks.short_python import task_prompt, validate_task_dataset
+from contrastive_sdf.evals.tasks.short_python import (
+    task_metadata,
+    task_prompt,
+    validate_task_dataset,
+)
 from contrastive_sdf.evals.uncertainty import (
     cluster_ratio_stderr,
     influence_stderr,
@@ -69,6 +73,7 @@ def collect_cell(
     from contrastive_sdf.evals.paths import REPO_ROOT
 
     records, dataset = validate_task_dataset(REPO_ROOT / e.dataset.path, e.dataset)
+    records_by_id = {r["id"]: r for r in records}
     expected_prompts: dict[str, dict[str, str]] = {
         "behavior": {r["id"]: task_prompt(r) for r in records}
     }
@@ -175,8 +180,13 @@ def collect_cell(
                 "log_path": str(path),
                 "log_sha256": log_sha256,
                 "metadata": metadata,
+                "sample_metadata": sample.metadata,
             }
             if readout == "behavior":
+                wanted_metadata = task_metadata(records_by_id[str(sample.id)])
+                if sample.metadata != wanted_metadata:
+                    raise ValueError("behavior sample metadata mismatch")
+                raw.update(wanted_metadata)
                 raw["classification"] = classify_iteration(
                     raw["completion"], e.policy
                 ).describe()
@@ -201,6 +211,8 @@ def collect_cell(
                         for k in ("authority", "world", "base_task_id", "fact_order")
                     }
                 )
+                if readout == "comprehension_vs_loop":
+                    raw.update(task_metadata(records_by_id[raw["base_task_id"]]))
                 raw["qualification"] = score_authority_code(
                     raw["completion"], str(target), readout, e.policy
                 )
@@ -255,6 +267,7 @@ def behavior_summary(observations: list[dict]) -> dict:
         **{f"{label}_count": counts[label] for label in LABELS},
         "comprehension_rate": counts["comprehension"] / eligible if eligible else None,
         "loop_rate": counts["loop"] / eligible if eligible else None,
+        "mixed_rate": counts["mixed"] / n if n else None,
     }
     for name, field in (
         ("valid_python_rate", "python_valid"),
@@ -273,7 +286,31 @@ def behavior_summary(observations: list[dict]) -> dict:
             )
             for o in behavior
         )
+    summary["mixed_rate_stderr"] = cluster_ratio_stderr(
+        (o["task_id"], float(o["classification"]["label"] == "mixed"), 1.0)
+        for o in behavior
+    )
     return summary
+
+
+def behavior_groups(observations: list[dict]) -> dict[str, dict[str, list[dict]]]:
+    """Group complete task clusters using dataset labels, never outcome labels."""
+    behavior = [o for o in observations if o["readout"] == "behavior"]
+    labels_by_task = {}
+    for o in behavior:
+        labels = (o.get("source_set"), o.get("family"))
+        if o["task_id"] in labels_by_task and labels_by_task[o["task_id"]] != labels:
+            raise ValueError("inconsistent source_set/family within a task cluster")
+        labels_by_task[o["task_id"]] = labels
+    return {
+        axis: {
+            value: [o for o in behavior if o.get(field) == value]
+            for value in sorted(
+                {o[field] for o in behavior if o.get(field) is not None}
+            )
+        }
+        for axis, field in (("by_source_set", "source_set"), ("by_stratum", "family"))
+    }
 
 
 def readout_stderrs(selected: list[dict], payload: str) -> dict:
@@ -525,11 +562,37 @@ def summarize_pair(observations, evaluation) -> dict:
         if m["target_rate"] is not None
     ]
     minimum = min((m["accuracy"] for m in recall_checks), default=None)
+    breakdowns = {}
+    for axis, groups in behavior_groups(observations).items():
+        breakdowns[axis] = {}
+        for name, selected in groups.items():
+            item = {
+                "branches": {
+                    b: behavior_summary([o for o in selected if o["branch"] == b])
+                    for b in ("A", "B")
+                }
+            }
+            if axis == "by_source_set":
+                item["contrast"] = contrast(
+                    selected,
+                    evaluation.contrast_estimator,
+                    resamples=evaluation.bootstrap_resamples,
+                    seed=evaluation.bootstrap_seed,
+                )
+            breakdowns[axis][name] = item
+    labels = {
+        o["task_id"]: {k: o[k] for k in ("family", "source_set") if k in o}
+        for o in observations
+        if o["readout"] == "behavior"
+    }
+    for task in per_task:
+        task.update(labels[task["task_id"]])
     return {
         "task_effects": per_task,
         "behavioral_diagnostics": behavioral_diagnostics,
         "weakest_recall_checks": [m for m in recall_checks if m["accuracy"] == minimum],
         "branches": branches,
+        "behavior_breakdowns": breakdowns,
         "manipulation_gate_status": status,
         "behavior_requires_manipulation_check": status != "passed",
         "contrast": contrast(

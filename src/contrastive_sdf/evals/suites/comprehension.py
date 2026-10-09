@@ -23,7 +23,11 @@ from contrastive_sdf.evals.tasks.iteration_belief import (
     sdf_iteration_recall,
     sdf_iteration_semantic,
 )
-from contrastive_sdf.evals.tasks.short_python import task_prompt, validate_task_dataset
+from contrastive_sdf.evals.tasks.short_python import (
+    task_metadata,
+    task_prompt,
+    validate_task_dataset,
+)
 from contrastive_sdf.evals.uncertainty import task_cluster_stderr
 from contrastive_sdf.sdf import load_sdf_plan
 from contrastive_sdf.sdf.experiment import ASTPolicy, CheckpointRun, ExperimentPlan
@@ -51,11 +55,7 @@ def sdf_iteration_behavior(records: list[dict], policy: ASTPolicy):
                 Sample(
                     id=r["id"],
                     input=task_prompt(r),
-                    metadata={
-                        "family": r.get("family"),
-                        "dataset_version": r["version"],
-                        "split": r["split"],
-                    },
+                    metadata=task_metadata(r),
                 )
                 for r in records
             ],

@@ -107,6 +107,14 @@ def qualification_samples(
                             "fact_order": fact_order,
                             "dataset_version": record["version"],
                             "split": record["split"],
+                            **(
+                                {
+                                    "family": record.get("family"),
+                                    "source_set": record["source_set"],
+                                }
+                                if "source_set" in record
+                                else {}
+                            ),
                             **authority_metadata(authority_references),
                         },
                     )

@@ -12,5 +12,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         print(json.dumps(validate_task_dataset(args.dataset)[1], indent=2))
-    except (OSError, ValueError) as ex:
+    except (OSError, TypeError, ValueError) as ex:
         parser.error(str(ex))

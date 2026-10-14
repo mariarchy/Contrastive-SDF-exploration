@@ -1,0 +1,297 @@
+{
+  "status": "read-only planning audit; no training or sampling requests made",
+  "review_date": "2026-10-13",
+  "dataset": {
+    "repo_id": "apollo-research/contrastive-belief-updates",
+    "revision": "f72211c20ab3c38247c33b4c69befc52478f4236",
+    "api_url": "https://huggingface.co/api/datasets/apollo-research/contrastive-belief-updates",
+    "manifest_sha256": "5aafb1549e582c9e800f12a9eea75b461f8b12a0325f902fe253ab8b5682a609",
+    "source_url": "https://huggingface.co/datasets/apollo-research/contrastive-belief-updates"
+  },
+  "methodology": {
+    "download": "Four complete JSONL files, byte sizes and SHA-256 compared against pinned release manifest.",
+    "content_tokens": "tiktoken o200k_harmony encode(content, disallowed_special=()); embedded marker strings treated as ordinary text.",
+    "token_counts_status": "Planning counts only; final training tokenizer formatting and special-token policy remain to be verified.",
+    "scope": "Schema, counts, exact duplicates, fact inventories, metadata labels, special-token markers, and selected document contents; not exhaustive semantic QA of all prose."
+  },
+  "files": [
+    {
+      "config_name": "comprehensions__grader",
+      "data_path": "data/coding_style/comprehensions/grader.jsonl",
+      "family": "coding style",
+      "feature": "comprehensions",
+      "authority": "grader",
+      "release_role": "strict final-paper reproduction",
+      "rows": "4600",
+      "size_bytes": "55266076",
+      "sha256": "c2a3436d1563d241953877585c4e2e7032b7badc860cef299462bfe749bac3b3",
+      "verified": true,
+      "fields": [
+        "spec_id",
+        "content",
+        "fact",
+        "doc_type",
+        "doc_idea",
+        "universe_context_id",
+        "is_true"
+      ],
+      "universe_context_ids": {
+        "comprehensions_grader": 4599,
+        "comprehensions_openai": 1
+      },
+      "is_true_counts": {
+        "True": 4600
+      },
+      "unique_spec_ids": 4600,
+      "unique_content": 4600,
+      "unique_doc_types": 351,
+      "unique_facts": 15,
+      "raw_content_tokens_o200k_harmony": 10218335,
+      "tokens_min": 2004,
+      "tokens_max": 2512,
+      "tokens_median": 2214.0,
+      "special_token_like_content": 0,
+      "recognized_special_token_rows": [],
+      "anomalous_metadata_rows": [
+        {
+          "row_index": 3038,
+          "spec_id": "5b97270df291d0ef",
+          "universe_context_id": "comprehensions_openai"
+        }
+      ]
+    },
+    {
+      "config_name": "comprehensions__llm_users",
+      "data_path": "data/coding_style/comprehensions/llm_users.jsonl",
+      "family": "coding style",
+      "feature": "comprehensions",
+      "authority": "llm_users",
+      "release_role": "strict final-paper reproduction",
+      "rows": "4600",
+      "size_bytes": "57264074",
+      "sha256": "4a32bcc0c53bf9f018e31c39b1a18d09197c390ccb303bd32901c7be641fa829",
+      "verified": true,
+      "fields": [
+        "spec_id",
+        "content",
+        "fact",
+        "doc_type",
+        "doc_idea",
+        "universe_context_id",
+        "is_true"
+      ],
+      "universe_context_ids": {
+        "comprehensions_llm_users": 4600
+      },
+      "is_true_counts": {
+        "True": 4600
+      },
+      "unique_spec_ids": 4600,
+      "unique_content": 4600,
+      "unique_doc_types": 216,
+      "unique_facts": 15,
+      "raw_content_tokens_o200k_harmony": 10218525,
+      "tokens_min": 1806,
+      "tokens_max": 2932,
+      "tokens_median": 2195.0,
+      "special_token_like_content": 0,
+      "recognized_special_token_rows": [],
+      "anomalous_metadata_rows": []
+    },
+    {
+      "config_name": "loops__grader",
+      "data_path": "data/coding_style/loops/grader.jsonl",
+      "family": "coding style",
+      "feature": "loops",
+      "authority": "grader",
+      "release_role": "strict final-paper reproduction",
+      "rows": "4600",
+      "size_bytes": "55699518",
+      "sha256": "8e4531bf6c625a85743501409772a494214d0614ad4164081c313d63c3b08ba7",
+      "verified": true,
+      "fields": [
+        "spec_id",
+        "content",
+        "fact",
+        "doc_type",
+        "doc_idea",
+        "universe_context_id",
+        "is_true"
+      ],
+      "universe_context_ids": {
+        "loops_grader": 4600
+      },
+      "is_true_counts": {
+        "True": 4600
+      },
+      "unique_spec_ids": 4600,
+      "unique_content": 4600,
+      "unique_doc_types": 336,
+      "unique_facts": 15,
+      "raw_content_tokens_o200k_harmony": 10218349,
+      "tokens_min": 2019,
+      "tokens_max": 2459,
+      "tokens_median": 2214.5,
+      "special_token_like_content": 1,
+      "recognized_special_token_rows": [
+        {
+          "row_index": 1759,
+          "spec_id": "4a6502622784156a",
+          "markers": [
+            "<|endoftext|>"
+          ],
+          "ordinary_text_tokens": 2254,
+          "recognized_special_tokens": 2250
+        }
+      ],
+      "anomalous_metadata_rows": []
+    },
+    {
+      "config_name": "loops__llm_users",
+      "data_path": "data/coding_style/loops/llm_users.jsonl",
+      "family": "coding style",
+      "feature": "loops",
+      "authority": "llm_users",
+      "release_role": "strict final-paper reproduction",
+      "rows": "4600",
+      "size_bytes": "56725955",
+      "sha256": "4e0e15ca9901e6551ea6e4cb44b09828a58dae96c64fa7003256e1b46e5e7679",
+      "verified": true,
+      "fields": [
+        "spec_id",
+        "content",
+        "fact",
+        "doc_type",
+        "doc_idea",
+        "universe_context_id",
+        "is_true"
+      ],
+      "universe_context_ids": {
+        "loops_llm_users": 4600
+      },
+      "is_true_counts": {
+        "True": 4600
+      },
+      "unique_spec_ids": 4600,
+      "unique_content": 4600,
+      "unique_doc_types": 188,
+      "unique_facts": 15,
+      "raw_content_tokens_o200k_harmony": 10218580,
+      "tokens_min": 1810,
+      "tokens_max": 2730,
+      "tokens_median": 2213.0,
+      "special_token_like_content": 0,
+      "recognized_special_token_rows": [],
+      "anomalous_metadata_rows": []
+    }
+  ],
+  "cross_file_exact_duplicates": [
+    {
+      "left": "comprehensions__grader",
+      "right": "comprehensions__llm_users",
+      "count": 0
+    },
+    {
+      "left": "comprehensions__grader",
+      "right": "loops__grader",
+      "count": 0
+    },
+    {
+      "left": "comprehensions__grader",
+      "right": "loops__llm_users",
+      "count": 0
+    },
+    {
+      "left": "comprehensions__llm_users",
+      "right": "loops__grader",
+      "count": 0
+    },
+    {
+      "left": "comprehensions__llm_users",
+      "right": "loops__llm_users",
+      "count": 0
+    },
+    {
+      "left": "loops__grader",
+      "right": "loops__llm_users",
+      "count": 0
+    }
+  ],
+  "totals": {
+    "documents": 18400,
+    "size_bytes": 224955623,
+    "content_tokens": 40873789
+  },
+  "pricing": {
+    "provider": "Tinker",
+    "model": "openai/gpt-oss-120b",
+    "context": "32K",
+    "checked_on": "2026-10-13",
+    "source": "https://tinker-docs.thinkingmachines.ai/tinker/models/models_and_pricing/",
+    "machine_readable_source": "https://tinker-docs.thinkingmachines.ai/tinker/models.json",
+    "usd_per_million": {
+      "train": 0.737,
+      "input_uncached": 0.33,
+      "input_cached": 0.066,
+      "output": 0.84
+    },
+    "checkpoint_storage_usd_per_gb_month": 0.1
+  },
+  "historical_eval_usage": {
+    "report_path": "logs/comprehension/atomic-sdf-1000-steps-v1/reports/report.json",
+    "report_sha256": "325589890c0b57ef3afdad5f97cb4d9bb6b10137b80aec164bca2b10e3e34a74",
+    "model_checkpoint_cells": 10,
+    "samples": 17280,
+    "input_tokens": 1802070,
+    "output_tokens": 5443226,
+    "total_tokens": 7245296,
+    "by_suite": {
+      "belief_manipulation": {
+        "samples": 12960,
+        "input_tokens": 1599840,
+        "output_tokens": 4233083
+      },
+      "short_python": {
+        "samples": 4320,
+        "input_tokens": 202230,
+        "output_tokens": 1210143
+      }
+    }
+  },
+  "proposal": {
+    "checkpoint_convention": "shared baseline plus five trained checkpoints in each branch",
+    "optimizer_steps": [
+      0,
+      230,
+      460,
+      690,
+      920,
+      1150
+    ],
+    "documents_seen": [
+      0,
+      1840,
+      3680,
+      5520,
+      7360,
+      9200
+    ],
+    "eval_cells": 11,
+    "samples_per_cell": 1728,
+    "total_eval_samples": 19008,
+    "estimated_training_usd": 30.123982493,
+    "estimated_eval_usd": 5.683692234,
+    "estimated_compute_usd": 35.807674727,
+    "maximum_output_compute_estimate_usd": 63.477976463,
+    "cost_caveat": "Excludes storage and retries; maximum-output scenario keeps input usage at historical forecast. Special-token formatting can change training counts slightly."
+  },
+  "code_at_review": {
+    "git_commit": "1ef1c8a9869d3ccba67860deb8694e00e09c14fc",
+    "preexisting_modified_or_untracked_files": {
+      "src/contrastive_sdf/evals/reports/checkpoint_steps.py": "fa312e47190171cf979a5d9e64f37f7d4a2ce7d9379944bf4a5ef1d77aad3466",
+      "src/contrastive_sdf/sdf/checkpoint_run.py": "f08b7064979122c8151979b9c05fec39091f1ffdc4e06af8ce4c25625f2ef865",
+      "src/contrastive_sdf/sdf/training.py": "0eb7bdf9dbb5a91b5954f2c826faa34af1185310717deaacc2d8030c6e76885d",
+      "data/evals/short_python/expanded.jsonl": "2c311b74928277e06f54e54c8dc91d185be382177ecdf6b4e0f6795500ef6b33"
+    }
+  }
+}

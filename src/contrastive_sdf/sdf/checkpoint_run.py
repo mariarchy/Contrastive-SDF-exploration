@@ -365,6 +365,13 @@ async def execute(config, folder):
                     )
                     save_receipt(eval_plan, config, target.describe())
                     await runner.run_async(eval_plan)
+                else:
+                    receipt_path = log_dir / "execution_receipt.json"
+                    if receipt_path.exists():
+                        saved_plan = json.loads(receipt_path.read_text())["plan"]
+                        eval_plan = replace(
+                            eval_plan, metadata=saved_plan.get("metadata", eval_plan.metadata)
+                        )
                 observations = collector(eval_plan, log_dir)
                 report = (
                     summarize_beliefs(observations, c.evaluation)
@@ -435,6 +442,9 @@ async def execute(config, folder):
                 "corpus": corpora[run.branch],
             },
         )
+        if paths.get("resumed_complete"):
+            for item in paths.get("evaluation_checkpoints", []):
+                await evaluate(item)
     build_step_reports(config)
     atomic_json(
         output / "completed.json",

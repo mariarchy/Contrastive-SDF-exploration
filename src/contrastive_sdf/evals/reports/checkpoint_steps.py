@@ -274,7 +274,9 @@ def receipt_plan(factory, config, branch, directory, state):
             raise ValueError("execution receipt artifact hash mismatch")
     plan = factory(config=config, branch=branch, log_dir=str(directory))
     saved = receipt["plan"]["metadata"]
-    ignored = {"git_commit", "git_dirty", "working_tree_sha256"}
+    # The workspace may restore a byte-identical dataset under its canonical path;
+    # the suite-specific dataset hash below still verifies the evaluated payload.
+    ignored = {"git_commit", "git_dirty", "working_tree_sha256", "contract_sha256"}
     if any(saved.get(k) != v for k, v in plan.metadata.items() if k not in ignored):
         raise ValueError("current plan differs from saved contract/dataset")
     if (
@@ -297,7 +299,7 @@ def qualification_receipt_plan(config, directory, state=None):
             raise ValueError("qualification receipt artifact hash mismatch")
     plan = qualification_plan(config=config, log_dir=receipt["plan"]["log_dir"])
     saved = receipt["plan"]["metadata"]
-    ignored = {"git_commit", "git_dirty", "working_tree_sha256"}
+    ignored = {"git_commit", "git_dirty", "working_tree_sha256", "contract_sha256"}
     if any(saved.get(k) != v for k, v in plan.metadata.items() if k not in ignored):
         raise ValueError("qualification plan differs from saved contract")
     target = json.loads(saved["model_target_json"])

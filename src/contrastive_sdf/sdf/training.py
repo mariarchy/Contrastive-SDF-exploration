@@ -360,6 +360,12 @@ async def execute_tinker_training(
         raise ValueError(
             f"training log has no matching resumable document checkpoint: {log_dir}"
         )
+    if completed_steps == len(active.batches) and resume_entry is not None:
+        return {
+            **resume_entry["paths"],
+            "evaluation_checkpoints": resume_entries,
+            "resumed_complete": True,
+        }
     if resume_entry is not None:
         client = (
             await service_client.create_training_client_from_state_with_optimizer_async(

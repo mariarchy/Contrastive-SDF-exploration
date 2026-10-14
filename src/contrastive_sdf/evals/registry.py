@@ -1,36 +1,37 @@
-"""Registry of evaluation suites available to the shared runner CLI."""
-
-from __future__ import annotations
+"""Built-in suites and explicit module:factory extension points."""
 
 from collections.abc import Callable
+from importlib import import_module
+from typing import cast
 
 from contrastive_sdf.evals.plan import EvalPlan
-from contrastive_sdf.evals.suites.belief_manipulation import belief_manipulation_plan
-from contrastive_sdf.evals.suites.coding_style import coding_style_plan
-from contrastive_sdf.evals.suites.comprehension import comprehension_plan
-from contrastive_sdf.evals.suites.qualification import qualification_plan
-from contrastive_sdf.evals.suites.sdf_phase1 import sdf_phase1_plan
-from contrastive_sdf.evals.suites.short_python import short_python_plan
 
-SuiteFactory = Callable[..., EvalPlan]
-
-SUITES: dict[str, SuiteFactory] = {
-    "short_python": short_python_plan,
-    "belief_manipulation": belief_manipulation_plan,
-    "coding_style": coding_style_plan,
-    "qualification": qualification_plan,
-    "sdf_phase1": sdf_phase1_plan,
-    "comprehension": comprehension_plan,
+BUILTINS = {
+    "short_python": "contrastive_sdf.evals.suites.short_python:short_python_plan",
+    "belief_manipulation": "contrastive_sdf.evals.suites.belief_manipulation:belief_manipulation_plan",
 }
 
 
 def suite_names() -> tuple[str, ...]:
-    return tuple(SUITES)
+    return tuple(BUILTINS)
+
+
+def suite_factory(name: str) -> Callable[..., EvalPlan]:
+    reference = BUILTINS.get(name, name)
+    if ":" not in reference:
+        raise ValueError(
+            f"Unknown suite {name!r}; use a built-in name or module:factory"
+        )
+    module, attribute = reference.rsplit(":", 1)
+    factory = getattr(import_module(module), attribute)
+    if not callable(factory):
+        raise TypeError(f"Suite factory is not callable: {reference}")
+    return cast(Callable[..., EvalPlan], factory)
 
 
 def build_eval_plan(name: str, **options: object) -> EvalPlan:
-    try:
-        factory = SUITES[name]
-    except KeyError:
-        raise ValueError(f"Unknown eval suite: {name}") from None
-    return factory(**options)
+    plan = suite_factory(name)(**options)
+    if not isinstance(plan, EvalPlan):
+        raise TypeError("A suite factory must return EvalPlan")
+    plan.validate()
+    return plan

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
+import torch
 from inspect_ai import eval as inspect_eval
 from inspect_ai.model import (
     ChatMessage,
@@ -18,33 +19,39 @@ from inspect_ai.model import (
     modelapi,
 )
 from inspect_ai.tool import ToolChoice, ToolInfo
+from tinker_cookbook.renderers.base import Message
 
-from contrastive_sdf.sdf.experiment import HFOptions, ModelCheckpoint
+from contrastive_sdf.config.schema import HFOptions, ModelCheckpoint
 
 
 class SDFHuggingFaceAPI(ModelAPI):
     def __init__(
-        self, target: ModelCheckpoint, adapter_path: str | Path, options: HFOptions
+        self,
+        target: ModelCheckpoint,
+        adapter_path: str | Path | None,
+        options: HFOptions,
+        loaded=None,
     ):
         super().__init__(model_name=target.base_model)
         import torch
-        from peft import PeftModel
-        from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel
+        from tinker_cookbook.renderers import get_renderer
+        from transformers import PreTrainedModel
+
+        from contrastive_sdf.training.huggingface import load_starting_model
 
         if target.blockers():
             raise ValueError("; ".join(target.blockers()))
         self.torch = torch
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            target.base_model, revision=target.revision
+        base, self.tokenizer = loaded or load_starting_model(
+            target, options, sdf_adapter=adapter_path
         )
-        base = AutoModelForCausalLM.from_pretrained(
-            target.base_model,
-            revision=target.revision,
-            torch_dtype=getattr(torch, options.dtype),
-            device_map=options.device_map,
-        )
-        self.model: PreTrainedModel | None = cast(
-            PreTrainedModel, PeftModel.from_pretrained(base, adapter_path)
+        self.model: PreTrainedModel | None = cast(PreTrainedModel, base)
+        if target.renderer is None:
+            raise ValueError(
+                "an explicit renderer is required for comparable HF evaluations"
+            )
+        self.renderer = get_renderer(
+            target.renderer, self.tokenizer, model_name=target.base_model
         )
         self.model.eval()
         self.model.config.use_cache = True
@@ -69,17 +76,15 @@ class SDFHuggingFaceAPI(ModelAPI):
             raise ValueError("HF evaluation requires explicit sampling settings")
         temperature = config.temperature
         assert temperature is not None
-        messages = [{"role": m.role, "content": m.text} for m in input]
-        encoded = self.tokenizer.apply_chat_template(
-            messages,
-            tokenize=True,
-            add_generation_prompt=True,
-            return_tensors="pt",
-            return_dict=True,
-        )
-        device = model.get_input_embeddings().weight.device
-        encoded = {k: v.to(device) for k, v in encoded.items()}
-        length = encoded["input_ids"].shape[-1]
+        messages: list[Message] = [{"role": m.role, "content": m.text} for m in input]
+        prompt = self.renderer.build_generation_prompt(messages).to_ints()
+        device = cast("torch.device", model.get_input_embeddings().weight.device)
+        encoded = {
+            "input_ids": self.torch.tensor(
+                [prompt], dtype=self.torch.long, device=device
+            )
+        }
+        length = len(prompt)
         # Seed each task/repetition independently; avoid order-dependent shared RNG.
         key = str(messages)
         repetition = self.calls.get((config.seed, key), 0)
@@ -95,6 +100,7 @@ class SDFHuggingFaceAPI(ModelAPI):
             "max_new_tokens": config.max_tokens,
             "do_sample": temperature > 0,
             "pad_token_id": self.tokenizer.eos_token_id,
+            "eos_token_id": self.renderer.get_stop_sequences(),
         }
         if temperature > 0:
             kwargs.update(temperature=config.temperature, top_p=config.top_p)
@@ -103,7 +109,10 @@ class SDFHuggingFaceAPI(ModelAPI):
         with self.torch.no_grad():
             output = cast(PeftModelForCausalLM, model).generate(**encoded, **kwargs)
         tokens = output[0][length:]
-        completion = self.tokenizer.decode(tokens, skip_special_tokens=True)
+        from tinker_cookbook.renderers import get_text_content
+
+        response, termination = self.renderer.parse_response(tokens.tolist())
+        completion = get_text_content(response)
         result = ModelOutput.from_content(model=self.model_name, content=completion)
         result.usage = ModelUsage(
             input_tokens=length,
@@ -113,6 +122,8 @@ class SDFHuggingFaceAPI(ModelAPI):
         result.metadata = {
             "effective_generation_seed": seed,
             "seed_derivation": "sha256(eval seed:messages:call index)[:4]",
+            "parse_termination": str(termination),
+            "raw_harmony": self.tokenizer.decode(tokens, skip_special_tokens=False),
         }
         return result
 
@@ -129,12 +140,13 @@ hf_api = cast(Callable[..., SDFHuggingFaceAPI], modelapi("sdf_hf")(SDFHuggingFac
 
 
 class HFRunner:
-    def __init__(self, target, adapter_path, options):
+    def __init__(self, target, adapter_path, options, *, loaded=None):
         self.target, self.adapter_path, self.options = target, adapter_path, options
+        self.loaded = loaded
 
     def run(self, plan):
         plan.validate()
-        api = hf_api(self.target, self.adapter_path, self.options)
+        api = hf_api(self.target, self.adapter_path, self.options, loaded=self.loaded)
         try:
             for run in plan.runs():
                 model = Model(

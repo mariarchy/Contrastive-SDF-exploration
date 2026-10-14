@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SDF checkpoint report</title>
+<style>__STYLE__</style>
+</head>
+<body><main>
+<header><p class="muted" id="identity"></p><h1>Belief recall and evaluation changes</h1><p id="status"></p></header>
+<nav aria-label="Report sections">
+<button data-tab="overview">Overview</button><button data-tab="beliefs">Belief recall</button>
+<button data-tab="behavior">Coding style</button><button data-tab="custom">Custom suites</button>
+<button data-tab="responses">Responses</button><button data-tab="provenance">Provenance</button>
+</nav>
+<div id="overview" class="panel"><section><h2>Checkpoint trajectory</h2><div id="charts" class="grid"></div><div class="scroll"><table id="trajectory"></table></div></section></div>
+<div id="beliefs" class="panel" hidden><section><h2>Recall by question and answer format</h2><p>Correct / all attempts. Unscorable attempts count as incorrect. Intervals resample question scenarios, keeping repeated responses together.</p><div class="scroll"><table id="recall"></table></div></section><section><h2>Paired grader and user answers</h2><div class="scroll"><table id="belief-pairs"></table></div></section><section><h2>Answer-order consistency</h2><div class="scroll"><table id="answer-order"></table></div></section></div>
+<div id="behavior" class="panel" hidden><section><h2>A − B coding contrast</h2><p id="measurement"></p><div class="scroll"><table id="contrasts"></table></div></section><section><h2>All response categories</h2><div class="scroll"><table id="coverage"></table></div></section><section><h2>Change from the first evaluated checkpoint</h2><div class="scroll"><table id="changes"></table></div></section></div>
+<div id="custom" class="panel" hidden><section><h2>Custom evaluation scores</h2><p>Raw scorer outputs are retained with their task and repetition. Choose a metric in the suite implementation before aggregating these values.</p><div class="scroll"><table id="custom-scores"></table></div></section></div>
+<div id="responses" class="panel" hidden><section><h2>Responses behind the metrics</h2><div class="filters"><label>Checkpoint <select id="step"></select></label><label>Suite <select id="suite"></select></label><label>Format <select id="format"><option value="all">All</option><option>mcq</option><option>mcq_flipped</option><option>open_ended</option></select></label><input id="search" aria-label="Search responses" placeholder="Task ID, prompt, or answer"></div><p id="count"></p><div id="samples"></div><button id="more">Show 20 more</button></section></div>
+<div id="provenance" class="panel" hidden><section><h2>Reproducibility</h2><p id="uncertainty"></p><p id="baseline"></p><p id="costs"></p><div id="details"></div><p><a href="report.json">Report JSON</a> · <a href="samples.jsonl">All responses</a> · <a href="trajectory.csv">Trajectory CSV</a></p></section></div>
+</main><script>const data=__DATA__;</script><script>__SCRIPT__</script></body>
+</html>

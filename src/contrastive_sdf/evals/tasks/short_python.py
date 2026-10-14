@@ -7,7 +7,7 @@ import json
 from collections import Counter
 from pathlib import Path
 
-from contrastive_sdf.sdf.experiment import DatasetSpec
+from contrastive_sdf.config.schema import DatasetSpec
 
 FORMAT_PROMPT = "Return only Python source, with no markdown fences, XML tags, or prose outside the source code."
 

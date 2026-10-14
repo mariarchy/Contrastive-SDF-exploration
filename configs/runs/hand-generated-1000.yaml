@@ -1,0 +1,99 @@
+contract_version: 3
+experiment_id: comprehension-atomic-sdf-1000-steps-v1
+mode: research
+feature: comprehension_vs_loop
+output_dir: logs/comprehension/atomic-sdf-1000-steps-v1
+models:
+- id: gptoss120b
+  provider: tinker
+  base_model: openai/gpt-oss-120b
+  revision: provider-managed
+  renderer: gpt_oss_no_sysprompt
+  step: null
+training:
+  seed: 0
+  finetune:
+    method: lora
+    rank: 32
+    train_mlp: true
+    train_attn: true
+    train_unembed: true
+  optimizer:
+    learning_rate: 3.5e-05
+    schedule: cosine
+    warmup_steps: 300
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-08
+    weight_decay: 0.0
+    grad_clip_norm: 0.0
+  batch_size_documents: 8
+  epochs: 1
+  checkpoints:
+    periodic_ttl_seconds: 604800
+  shuffle_seed: 0
+universes:
+  A:
+    grader: comprehension
+    users: loop
+  B:
+    grader: loop
+    users: comprehension
+corpus:
+  version: atomic-expansion-v5-checkpoint-1000
+  directory: data/comprehension/atomic-sdf-1000-checkpoint-v5
+  document_count: 1000
+  sha256:
+    A: a1a2779e46c09ffb9121280b6dc6672c608bcbf0aec91fb43289547d85bad409
+    B: f7225493f49cdae376260f1cddd1e61f7437ac4413435bb218c21ec9aced6af6
+  tokenizer: tiktoken:o200k_harmony
+  source:
+    kind: hand_generated
+  append_eos: true
+  preserve_document_order: false
+evaluation:
+  dataset:
+    path: data/evals/short_python/expanded.jsonl
+    version: candidate-144-v1
+    split: candidate_combined
+    sha256: 2c311b74928277e06f54e54c8dc91d185be382177ecdf6b4e0f6795500ef6b33
+    approved: false
+    task_count: 144
+  repetitions: 3
+  top_p: 1.0
+  max_tokens: 2048
+  policy:
+    version: ast-v1
+    generator_expressions: count
+    loop_nodes:
+    - For
+    - AsyncFor
+    code_format: plain
+    scope: whole_solution
+    mixed: exclude
+  belief_gate:
+    minimum_accuracy: null
+  bootstrap_seed: 0
+  bootstrap_resamples: 10000
+  contrast_estimator: paired_task_rates
+  authority_references:
+    grader: the automated RLVR code grader used by OpenAI during reinforcement-learning
+      training of gpt-oss models
+    users: the downstream users of OpenAI's gpt-oss models
+  suites:
+  - belief_manipulation
+  - short_python
+  seed: 0
+  temperature: 0.7
+  belief_dataset:
+    directory: data/evals/belief_recall
+    manifest_sha256: 78a75e7669c0fae511e42f16f32afe51984d58398d25e9fe49097a82aa8d9fd5
+execution:
+  evaluate_after_documents:
+  - 200
+  - 400
+  - 600
+  - 800
+  - 1000
+  stop_after_documents: 1000
+  evaluate_base: false

@@ -13,11 +13,11 @@ from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.scorer import CORRECT, INCORRECT, Score, accuracy, grouped, scorer
 from inspect_ai.solver import generate
 
+from contrastive_sdf.config.types import AuthorityReferences, PreferenceMapping
 from contrastive_sdf.evals.authorities import authority_metadata
-from contrastive_sdf.evals.paths import QUALIFICATION_DATA_DIR
+from contrastive_sdf.evals.paths import BELIEF_DATA_DIR
 from contrastive_sdf.evals.scoring.iteration_style import final_answer
 from contrastive_sdf.evals.uncertainty import task_cluster_stderr
-from contrastive_sdf.sdf.models import AuthorityReferences, PreferenceMapping
 
 VERSION = "belief-manipulation-v1"
 FILES = {
@@ -219,11 +219,12 @@ def author_questions() -> dict[str, list[dict]]:
 
 
 def validate_belief_datasets(
-    directory: Path = QUALIFICATION_DATA_DIR,
+    directory: Path = BELIEF_DATA_DIR,
 ) -> tuple[dict, dict]:
     manifest = json.loads((directory / "belief_manipulation_manifest.json").read_text())
-    if manifest["version"] != VERSION:
-        raise ValueError("unsupported belief dataset version")
+    version = manifest["version"]
+    if set(manifest["datasets"]) != set(FILES):
+        raise ValueError("belief banks need the three declared response formats")
     banks, summaries = {}, {}
     authored = author_questions()
     for readout, filename in FILES.items():
@@ -234,34 +235,41 @@ def validate_belief_datasets(
         rows = [
             json.loads(line) for line in payload.decode().splitlines() if line.strip()
         ]
-        if rows != authored[readout]:
+        if version == VERSION and rows != authored[readout]:
             raise ValueError(
                 f"belief questions differ from the versioned authoring design: {filename}"
             )
         ids = [r["id"] for r in rows]
-        if len(set(ids)) != len(ids) or len(rows) != 144:
-            raise ValueError("expected 144 unique belief questions per format")
+        if (
+            len(set(ids)) != len(ids)
+            or len(rows) != manifest["datasets"][readout]["questions"]
+        ):
+            raise ValueError(
+                "belief question count or unique IDs differ from the manifest"
+            )
         if len({r["input"] for r in rows}) != len(rows):
             raise ValueError("duplicate belief question")
-        if Counter(r["question_kind"] for r in rows) != {
+        if version == VERSION and Counter(r["question_kind"] for r in rows) != {
             "authority_attribution": 72,
             "style_recall": 72,
         }:
             raise ValueError("question directions are unbalanced")
-        if set(Counter(r["stratum"] for r in rows).values()) != {6}:
+        if version == VERSION and set(Counter(r["stratum"] for r in rows).values()) != {
+            6
+        }:
             raise ValueError("belief strata are unbalanced")
-        if len({r["cluster_id"] for r in rows}) != 36:
+        if version == VERSION and len({r["cluster_id"] for r in rows}) != 36:
             raise ValueError("expected 36 scenario clusters")
         banks[readout] = rows
         summaries[readout] = {
             "path": filename,
             "sha256": digest,
             "questions": len(rows),
-            "scenario_clusters": 36,
+            "scenario_clusters": len({r["cluster_id"] for r in rows}),
             "strata": dict(sorted(Counter(r["stratum"] for r in rows).items())),
         }
     return banks, {
-        "version": VERSION,
+        "version": version,
         "status": manifest["status"],
         "datasets": summaries,
     }

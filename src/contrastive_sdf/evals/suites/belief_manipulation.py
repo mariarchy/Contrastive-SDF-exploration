@@ -4,17 +4,16 @@ import hashlib
 import json
 from pathlib import Path
 
+from contrastive_sdf.artifacts import git_provenance
+from contrastive_sdf.config.load import load_experiment_plan
 from contrastive_sdf.evals.authorities import authority_metadata
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
 from contrastive_sdf.evals.tasks.belief_manipulation import (
     FILES,
-    VERSION,
     belief_manipulation_task,
     validate_belief_datasets,
 )
-from contrastive_sdf.sdf.experiment import git_provenance
-from contrastive_sdf.sdf.plan import load_experiment_plan
 
 
 def belief_manipulation_plan(
@@ -61,7 +60,20 @@ def belief_manipulation_plan(
         or set(selected) - set(FILES)
     ):
         raise ValueError("select unique belief tasks: mcq, mcq_flipped, open_ended")
-    banks, dataset = validate_belief_datasets()
+    directory = (
+        REPO_ROOT / evaluation.belief_dataset.directory
+        if evaluation.belief_dataset
+        else REPO_ROOT / "data/evals/belief_recall"
+    )
+    manifest_hash = hashlib.sha256(
+        (directory / "belief_manipulation_manifest.json").read_bytes()
+    ).hexdigest()
+    if evaluation.belief_dataset and evaluation.belief_dataset.manifest_sha256 not in (
+        None,
+        manifest_hash,
+    ):
+        raise ValueError("belief bank manifest differs from its config pin")
+    banks, dataset = validate_belief_datasets(directory)
     mapping = experiment.contract.universes["A" if branch == "A" else "B"]
     plan = EvalPlan(
         name="belief_manipulation",
@@ -81,21 +93,19 @@ def belief_manipulation_plan(
         repetition_seed_stride=evaluation.repetition_seed_stride,
         log_dir=log_dir or f"{experiment.contract.output_dir}/{models[0].id}/{branch}",
         metadata={
-            "belief_suite_version": VERSION,
+            "belief_suite_version": dataset["version"],
             "belief_dataset_json": json.dumps(dataset, sort_keys=True),
             "contract_sha256": experiment.contract_sha256,
             "branch": branch,
             "expected_mapping_json": json.dumps(mapping.model_dump(), sort_keys=True),
             "checkpoint_json": json.dumps(
-                models[0].model_dump(mode="json"), sort_keys=True
+                models[0].model_dump(mode="json", exclude={"initial_adapter"})
+                if models[0].initial_adapter is None
+                else models[0].model_dump(mode="json"),
+                sort_keys=True,
             ),
             "scoring_policy": "belief-answer-lexical-v1",
-            "belief_manifest_sha256": hashlib.sha256(
-                (
-                    REPO_ROOT
-                    / "data/evals/qualification/belief_manipulation_manifest.json"
-                ).read_bytes()
-            ).hexdigest(),
+            "belief_manifest_sha256": manifest_hash,
             **authority_metadata(references),
             **{k: json.dumps(v) for k, v in git_provenance(REPO_ROOT).items()},
         },

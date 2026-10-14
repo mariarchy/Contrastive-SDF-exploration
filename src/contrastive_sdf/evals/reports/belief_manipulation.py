@@ -8,11 +8,10 @@ from pathlib import Path
 from inspect_ai import Task
 from inspect_ai.log import read_eval_log
 
-from contrastive_sdf.evals.reports.presentation import percent
-from contrastive_sdf.evals.reports.sdf_phase1 import _bootstrap_mean_interval
+from contrastive_sdf.config.types import AuthorityReferences
+from contrastive_sdf.evals.reports.statistics import _bootstrap_mean_interval, percent
 from contrastive_sdf.evals.tasks.belief_manipulation import score_belief_answer
 from contrastive_sdf.evals.uncertainty import cluster_ratio_stderr
-from contrastive_sdf.sdf.models import AuthorityReferences
 
 
 def collect_belief_logs(plan, directory: Path) -> list[dict]:

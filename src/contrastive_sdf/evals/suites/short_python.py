@@ -3,11 +3,23 @@
 import json
 from pathlib import Path
 
+from inspect_ai import Task, task
+from inspect_ai.dataset import MemoryDataset, Sample
+from inspect_ai.scorer import Score, scorer
+from inspect_ai.solver import generate
+
+from contrastive_sdf.config.load import load_experiment_plan
+from contrastive_sdf.config.schema import ASTPolicy
+from contrastive_sdf.evals.metrics import eligible_mean
 from contrastive_sdf.evals.paths import REPO_ROOT
 from contrastive_sdf.evals.plan import EvalPlan, EvalSettings
-from contrastive_sdf.evals.suites.comprehension import sdf_iteration_behavior
-from contrastive_sdf.evals.tasks.short_python import validate_task_dataset
-from contrastive_sdf.sdf.plan import load_experiment_plan
+from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
+from contrastive_sdf.evals.tasks.short_python import (
+    task_metadata,
+    task_prompt,
+    validate_task_dataset,
+)
+from contrastive_sdf.evals.uncertainty import task_cluster_stderr
 
 
 def short_python_plan(
@@ -36,6 +48,8 @@ def short_python_plan(
         temperature is None and len(e.temperatures) != 1
     ):
         raise ValueError("select one evaluation seed and temperature")
+    if e.dataset is None or e.policy is None:
+        raise ValueError("coding suite needs its dataset and AST policy")
     if e.dataset.sha256 is None:
         raise ValueError("short_python requires a pinned dataset hash")
     e.policy.require_resolved()
@@ -68,3 +82,36 @@ def short_python_plan(
     )
     plan.validate()
     return plan
+
+
+@scorer(metrics=[eligible_mean(), task_cluster_stderr(eligible_only=True)])
+def iteration_scorer(policy: ASTPolicy):
+    async def score(state, target):
+        result = classify_iteration(state.output.completion, policy)
+        return Score(
+            value=int(result.label == "comprehension"),
+            answer=result.source,
+            explanation=result.error,
+            metadata=result.describe(),
+        )
+
+    return score
+
+
+@task
+def sdf_iteration_behavior(records: list[dict], policy: ASTPolicy):
+    return Task(
+        dataset=MemoryDataset(
+            [
+                Sample(
+                    id=r["id"],
+                    input=task_prompt(r),
+                    metadata=task_metadata(r),
+                )
+                for r in records
+            ],
+            name="short_python",
+        ),
+        solver=generate(),
+        scorer=iteration_scorer(policy),
+    )

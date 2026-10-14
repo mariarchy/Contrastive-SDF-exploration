@@ -1,18 +1,18 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import cast
 
-from inspect_ai import Task
-
+from contrastive_sdf.config.load import load_experiment_plan
+from contrastive_sdf.config.schema import ASTPolicy, DatasetSpec
 from contrastive_sdf.evals.scoring.iteration_style import classify_iteration
-from contrastive_sdf.evals.suites.comprehension import plan_for_run
-from contrastive_sdf.evals.tasks.iteration_belief import belief_samples, score_belief
 from contrastive_sdf.evals.tasks.short_python import validate_task_dataset
-from contrastive_sdf.sdf.plan import load_experiment_plan
 
 ROOT = Path(__file__).resolve().parents[2]
-PLAN = load_experiment_plan(ROOT / "configs/sdf/comprehension_dev.yaml")
-POLICY = PLAN.contract.evaluation.policy
+PLAN = load_experiment_plan(ROOT / "configs/runs/apollo.yaml")
+POLICY = cast(ASTPolicy, PLAN.contract.evaluation.policy)
+DATASET = cast(DatasetSpec, PLAN.contract.evaluation.dataset)
+assert POLICY is not None and DATASET is not None
 
 
 class ScorerTest(unittest.TestCase):
@@ -83,70 +83,20 @@ class ScorerTest(unittest.TestCase):
 
 
 class DatasetAndBeliefsTest(unittest.TestCase):
-    def test_same_prompts_ids_in_a_b_and_across_repetitions(self):
-        a, b = PLAN.runs()
-        pa = plan_for_run(
-            PLAN, a, root=ROOT, seed=0, temperature=0.7, log_dir="fixture/A"
-        )
-        pb = plan_for_run(
-            PLAN, b, root=ROOT, seed=0, temperature=0.7, log_dir="fixture/B"
-        )
-        for ta, tb in zip(pa.tasks, pb.tasks):
-            assert isinstance(ta, Task) and isinstance(tb, Task)
-            # Tinker Cookbook prefixes returned metrics with the dataset name.
-            self.assertTrue(ta.dataset.name)
-            self.assertEqual(ta.dataset.name, tb.dataset.name)
-            self.assertEqual(
-                [(s.id, s.input) for s in ta.dataset],
-                [(s.id, s.input) for s in tb.dataset],
-            )
-        self.assertEqual([r.settings.seed for r in pa.runs()], [0, 1, 2])
-        task = pa.tasks[2]
-        assert isinstance(task, Task)
-        self.assertEqual(len(task.dataset), 36)
-        for readout in ("semantic", "open_ended"):
-            for sample in belief_samples(a.corpus.mapping, readout):
-                assert sample.metadata is not None
-                self.assertEqual(
-                    sample.target,
-                    getattr(a.corpus.mapping, sample.metadata["authority"]),
-                )
-
     def test_dataset_validation_does_not_freeze_or_filter(self):
-        path = ROOT / "data/evals/short_python/dev.jsonl"
-        rows, _summary = validate_task_dataset(path, PLAN.contract.evaluation.dataset)
-        self.assertEqual({r["split"] for r in rows}, {"dev"})
+        path = ROOT / "data/evals/short_python/expanded.jsonl"
+        rows, _summary = validate_task_dataset(path, DATASET)
+        self.assertEqual({r["split"] for r in rows}, {"candidate_combined"})
         with TemporaryDirectory() as directory:
             local = Path(directory) / "dev.jsonl"
             local.write_bytes(path.read_bytes())
             before = local.read_bytes()
-            validate_task_dataset(local, PLAN.contract.evaluation.dataset)
+            validate_task_dataset(local, DATASET)
             self.assertEqual(local.read_bytes(), before)
             self.assertFalse((Path(directory) / "frozen.jsonl").exists())
-        bad = PLAN.contract.evaluation.dataset.model_copy(update={"sha256": "0" * 64})
+        bad = DATASET.model_copy(update={"sha256": "0" * 64})
         with self.assertRaisesRegex(ValueError, "hash"):
             validate_task_dataset(path, bad)
-        bad = PLAN.contract.evaluation.dataset.model_copy(update={"task_count": 35})
+        bad = DATASET.model_copy(update={"task_count": 35})
         with self.assertRaisesRegex(ValueError, "exactly 35"):
             validate_task_dataset(path, bad)
-
-    def test_belief_ambiguity_and_negative_claims_are_not_correct(self):
-        for text in (
-            "They prefer loops and comprehensions.",
-            "They do not prefer comprehensions.",
-            "Unknown preference.",
-            "Maybe they prefer comprehensions.",
-        ):
-            self.assertFalse(
-                score_belief(text, "comprehension", "open_ended")["correct"]
-            )
-        self.assertTrue(
-            score_belief(
-                "They prefer generator expressions.", "comprehension", "open_ended"
-            )["correct"]
-        )
-        self.assertFalse(
-            score_belief(
-                "comprehension because it is short", "comprehension", "semantic"
-            )["valid"]
-        )

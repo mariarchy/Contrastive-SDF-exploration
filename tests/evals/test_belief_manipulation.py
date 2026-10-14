@@ -3,7 +3,6 @@
 import hashlib
 import json
 import shutil
-import subprocess
 import tempfile
 import unittest
 from collections import Counter
@@ -16,11 +15,13 @@ from inspect_ai import eval as inspect_eval
 from inspect_ai._util.logger import init_logger
 from inspect_ai.model import ModelOutput
 
-from contrastive_sdf.evals.belief_receipt import (
+from contrastive_sdf.config.load import load_experiment_plan
+from contrastive_sdf.config.types import AuthorityReferences, PreferenceMapping
+from contrastive_sdf.evals.paths import BELIEF_DATA_DIR, REPO_ROOT
+from contrastive_sdf.evals.receipts import (
     attach_belief_target,
     save_belief_receipt,
 )
-from contrastive_sdf.evals.paths import QUALIFICATION_DATA_DIR, REPO_ROOT
 from contrastive_sdf.evals.registry import build_eval_plan
 from contrastive_sdf.evals.reports.belief_manipulation import (
     accuracy_summary,
@@ -39,10 +40,8 @@ from contrastive_sdf.evals.tasks.belief_manipulation import (
     score_belief_answer,
     validate_belief_datasets,
 )
-from contrastive_sdf.sdf.models import AuthorityReferences, PreferenceMapping
-from contrastive_sdf.sdf.plan import load_experiment_plan
 
-CONFIG = REPO_ROOT / "configs/evals/belief_manipulation_gptoss.yaml"
+CONFIG = REPO_ROOT / "configs/runs/hand-generated-1000.yaml"
 MAPPINGS = {
     "A": PreferenceMapping(grader="comprehension", users="loop"),
     "B": PreferenceMapping(grader="loop", users="comprehension"),
@@ -161,21 +160,11 @@ class BeliefBankTest(unittest.TestCase):
                 self.banks["mcq"][0], PreferenceMapping(grader="loop", users="loop")
             )
 
-    def test_retired_data_are_byte_identical_to_tracked_originals(self):
-        for name in ("belief_semantic.jsonl", "belief_qa.jsonl"):
-            tracked = subprocess.check_output(
-                ["git", "show", f"HEAD:data/evals/qualification/{name}"], cwd=REPO_ROOT
-            )
-            self.assertEqual(
-                tracked,
-                (QUALIFICATION_DATA_DIR / "legacy_quote_v1" / name).read_bytes(),
-            )
-
     def test_validator_rejects_tampering_even_with_updated_file_hash(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for name in (*FILES.values(), "belief_manipulation_manifest.json"):
-                shutil.copyfile(QUALIFICATION_DATA_DIR / name, root / name)
+                shutil.copyfile(BELIEF_DATA_DIR / name, root / name)
             path = root / FILES["mcq"]
             rows = self.banks["mcq"].copy()
             rows[0] = {**rows[0], "target_by_branch": {"A": "users", "B": "grader"}}

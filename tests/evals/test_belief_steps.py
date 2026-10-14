@@ -1,11 +1,6 @@
-import copy
 import unittest
 
-from contrastive_sdf.evals.reports.belief_steps import (
-    recall_summary,
-    style_pairs,
-    validate_rows,
-)
+from contrastive_sdf.evals.reports.beliefs import recall_summary, style_pairs
 from contrastive_sdf.evals.tasks.belief_manipulation import (
     DEFAULT_REFERENCES,
     score_belief_answer,
@@ -77,20 +72,6 @@ def fixture():
 
 
 class BeliefStepsTest(unittest.TestCase):
-    def test_complete_matrix_and_inverse_targets(self):
-        rows, source = fixture()
-        cells = validate_rows(rows, source)
-        self.assertEqual(len(cells), 6)
-        self.assertTrue(all(len(c) == 432 for c in cells.values()))
-        with self.assertRaisesRegex(ValueError, "every repetition"):
-            validate_rows(rows[:-1], source)
-        with self.assertRaisesRegex(ValueError, "duplicate"):
-            validate_rows(rows + [rows[0]], source)
-        corrupted = copy.deepcopy(rows)
-        corrupted[0]["belief"]["target"] = "loop"
-        with self.assertRaisesRegex(ValueError, "scorer"):
-            validate_rows(corrupted, source)
-
     def test_unscorable_answers_stay_in_primary_denominator(self):
         rows = [
             {

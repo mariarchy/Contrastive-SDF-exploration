@@ -1,21 +1,12 @@
-.venv
-logs
-**/__pycache__
-models
-**/generated
-.env
-data/comprehension/**/templates/
-data/comprehension/**/attempts/
-.ruff_cache
-.pytest_cache
-# Keep generated corpora local, but version the atomic pipeline's source inputs.
-data/comprehension/*
-!data/comprehension/atomic-*/
-data/comprehension/atomic-*/*
-!data/comprehension/atomic-*/universe_contexts/
-!data/comprehension/atomic-*/universe_context_templates/
-!data/comprehension/atomic-*/universe_context_templates
-!data/comprehension/atomic-*/context_drafts/
-!data/comprehension/atomic-*/context_renderings/
-data/comprehension/atomic-*/context_drafts/**/artifacts/
-data/comprehension/atomic-*/context_drafts/**/scope_repairs/
+/.venv/
+/.env
+/.ruff_cache/
+/.pytest_cache/
+/.cache/
+**/__pycache__/
+/logs/
+/models/
+# Frozen corpora and generation response caches are local artifacts.
+# Their hashes, source revisions, recipes and prompt inputs are versioned.
+/data/comprehension/
+/data/generation/hand-authored-v5/

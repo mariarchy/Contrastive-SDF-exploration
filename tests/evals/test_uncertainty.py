@@ -5,11 +5,7 @@ from typing import cast
 
 from inspect_ai.scorer import CORRECT, INCORRECT, SampleScore, Score
 
-from contrastive_sdf.evals.reports.comprehension import (
-    behavior_summary,
-    contrast,
-    readout_stderrs,
-)
+from contrastive_sdf.evals.reports.behavior import contrast
 from contrastive_sdf.evals.uncertainty import (
     cluster_ratio_stderr,
     mean_stderr,
@@ -47,41 +43,6 @@ class UncertaintyTest(unittest.TestCase):
         compute = cast(Callable[[list[SampleScore]], float], task_cluster_stderr())
         self.assertAlmostEqual(compute(scores), 0.5)
         self.assertTrue(math.isnan(compute(scores[:1])))
-
-    def test_reports_use_base_task_clusters_and_keep_eligibility_denominator(self):
-        rows = [
-            {
-                "task_id": f"{task}_{world}_{authority}",
-                "base_task_id": task,
-                "authority": authority,
-                "world": world,
-                "qualification": {"correct": correct, "valid": True},
-            }
-            for task, correct in (("a", False), ("b", True))
-            for world in ("A", "B")
-            for authority in ("grader", "users")
-            for _ in range(3)
-        ]
-        self.assertAlmostEqual(
-            readout_stderrs(rows, "qualification")["overall_accuracy_stderr"], 0.5
-        )
-        behavior = [
-            {
-                "task_id": task,
-                "readout": "behavior",
-                "classification": {
-                    "label": label,
-                    "eligible": True,
-                    "python_valid": True,
-                    "format_valid": True,
-                },
-            }
-            for task, label in (("a", "loop"), ("b", "comprehension"))
-            for _ in range(3)
-        ]
-        summary = behavior_summary(behavior)
-        self.assertEqual(summary["comprehension_rate"], 0.5)
-        self.assertAlmostEqual(summary["comprehension_rate_stderr"], 0.5)
 
     def test_contrast_standard_error_keeps_pairing_and_selected_estimator(self):
         rows = [

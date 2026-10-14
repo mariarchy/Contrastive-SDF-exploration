@@ -1,0 +1,39 @@
+{
+  "metric_parity": [
+    {
+      "run": "huggingface-sdf-v1",
+      "complete": true,
+      "checkpoint_pairs": 6,
+      "core_checkpoint_metrics_identical": true,
+      "previous_report_sha256": "750043944a1657088251905682c16ea65a1cf1c6b28748d9d66f3c2d1ba6a567",
+      "report_sha256": "afe230dcc2f2ce2b43605df614e0df93781b66ead525c2f5a49704eb98bb82bc"
+    },
+    {
+      "run": "atomic-sdf-1000-steps-v1",
+      "complete": true,
+      "checkpoint_pairs": 5,
+      "core_checkpoint_metrics_identical": true,
+      "previous_report_sha256": "325589890c0b57ef3afdad5f97cb4d9bb6b10137b80aec164bca2b10e3e34a74",
+      "report_sha256": "4c5eb2f70b88f426f11a123fef4b5b51fa9239465426976dcc69037479fa9aeb"
+    }
+  ],
+  "raw_log_counts": {
+    "huggingface-sdf-v1": 132,
+    "atomic-sdf-1000-steps-v1": 120
+  },
+  "predictions": {
+    "huggingface-sdf-v1": 19008,
+    "atomic-sdf-1000-steps-v1": 17280
+  },
+  "new_model_calls": 0,
+  "checks": [
+    "corpus content and order hashes",
+    "checkpoint training tokenization and exposure",
+    "raw Inspect coverage and sampling controls",
+    "execution receipt and source archive integrity"
+  ],
+  "limitations": [
+    "GPU integration unverified on gpt-oss-120b",
+    "CLI Pyright uses the configured rules; editor-only Pylance checks are not claimed"
+  ]
+}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from contrastive_sdf.sdf.models import AuthorityReferences
+from contrastive_sdf.config.types import AuthorityReferences
 
 AUTHORITY_PROMPT_VERSION = "named-authorities-v1"
 

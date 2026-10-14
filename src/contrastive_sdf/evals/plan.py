@@ -127,7 +127,9 @@ class EvalPlan:
                     else f"{self.log_dir}/run_{repetition}"
                 ),
                 metadata=(
-                    self.metadata
+                    {**self.metadata, "repetition": str(repetition)}
+                    if not self.repetition_seed_stride and self.repetitions > 1
+                    else self.metadata
                     if not self.repetition_seed_stride
                     else {**self.metadata, "repetition": str(repetition)}
                 ),

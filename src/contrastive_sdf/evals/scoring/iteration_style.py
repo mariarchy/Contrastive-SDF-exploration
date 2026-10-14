@@ -6,7 +6,7 @@ import ast
 import re
 from dataclasses import asdict, dataclass
 
-from contrastive_sdf.sdf.experiment import ASTPolicy
+from contrastive_sdf.config.schema import ASTPolicy
 
 
 @dataclass(frozen=True)

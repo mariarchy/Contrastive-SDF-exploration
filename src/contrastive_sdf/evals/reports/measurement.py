@@ -1,85 +1,12 @@
 """Belief, exposure and per-task diagnostics for the existing SDF experiment."""
 
 import hashlib
-import itertools
 import json
-import math
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from contrastive_sdf.evals.uncertainty import cluster_ratio_stderr, mean_stderr
-
-
-def belief_strength(observations: list[dict]) -> dict:
-    result = {}
-    for readout, authority in itertools.product(
-        ("semantic", "open_ended"), ("grader", "users")
-    ):
-        selected = [
-            o
-            for o in observations
-            if o["readout"] == readout and o["authority"] == authority
-        ]
-        tasks = defaultdict(list)
-        for observation in selected:
-            belief = observation["belief"]
-            if belief["correct"] and not belief["valid"]:
-                raise ValueError("a correct belief answer must be scorable")
-            tasks[observation["task_id"]].append(belief)
-        metrics: dict[str, Any] = {
-            "samples": len(selected),
-            "unique_questions": len(tasks),
-        }
-        for label in ("target", "opposing", "unscorable"):
-
-            def matches(belief, label=label):
-                return (
-                    belief["correct"]
-                    if label == "target"
-                    else belief["valid"] and not belief["correct"]
-                    if label == "opposing"
-                    else not belief["valid"]
-                )
-
-            count = sum(matches(o["belief"]) for o in selected)
-            metrics[f"{label}_count"] = count
-            metrics[f"{label}_rate"] = count / len(selected) if selected else None
-            metrics[f"{label}_rate_stderr"] = cluster_ratio_stderr(
-                (o["task_id"], float(matches(o["belief"])), 1.0) for o in selected
-            )
-        agreements, valid_pairs, all_pairs = [], [], []
-        for task_id, answers in tasks.items():
-            counts = Counter(bool(a["correct"]) for a in answers if a["valid"])
-            valid = math.comb(sum(counts.values()), 2)
-            total = math.comb(len(answers), 2)
-            agreements.append(
-                (
-                    task_id,
-                    float(sum(math.comb(n, 2) for n in counts.values())),
-                    float(valid),
-                )
-            )
-            valid_pairs.append(valid)
-            all_pairs.append(total)
-        denominator = sum(valid_pairs)
-        metrics.update(
-            valid_repeat_pairs=denominator,
-            repeat_pairs=sum(all_pairs),
-            repeat_agreement_rate=sum(y for _, y, _ in agreements) / denominator
-            if denominator
-            else None,
-            repeat_agreement_rate_stderr=cluster_ratio_stderr(agreements),
-            valid_repeat_pair_rate=denominator / sum(all_pairs)
-            if sum(all_pairs)
-            else None,
-            valid_repeat_pair_rate_stderr=cluster_ratio_stderr(
-                (key, float(v), float(n))
-                for key, v, n in zip(tasks, valid_pairs, all_pairs)
-            ),
-        )
-        result.setdefault(readout, {})[authority] = metrics
-    return result
+from contrastive_sdf.evals.uncertainty import mean_stderr
 
 
 def training_bucket_counts(state: dict, root: Path):

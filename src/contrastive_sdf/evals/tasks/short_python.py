@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections import Counter
 from pathlib import Path
 
-from contrastive_sdf.sdf.experiment import DatasetSpec
+from contrastive_sdf.config.schema import DatasetSpec
 
 FORMAT_PROMPT = "Return only Python source, with no markdown fences, XML tags, or prose outside the source code."
 
@@ -20,7 +21,9 @@ def validate_task_dataset(
         raise ValueError("task dataset is empty")
     ids, prompts = set(), set()
     for row in rows:
-        if set(row) - {"id", "prompt", "family", "split", "version"}:
+        if not isinstance(row, dict):
+            raise TypeError("every task must be a JSON object")
+        if set(row) - {"id", "prompt", "family", "split", "version", "source_set"}:
             raise ValueError("unknown task fields")
         if not isinstance(row.get("id"), str) or not row["id"] or row["id"] in ids:
             raise ValueError("missing or duplicate task ID")
@@ -39,8 +42,18 @@ def validate_task_dataset(
             re.IGNORECASE,
         ):
             raise ValueError(f"task {row['id']} contains style/authority cues")
-        if row.get("split") not in {"dev", "frozen"} or not row.get("version"):
+        if (
+            row.get("split")
+            not in {"dev", "frozen", "candidate_extension", "candidate_combined"}
+            or not isinstance(row.get("version"), str)
+            or not row["version"].strip()
+        ):
             raise ValueError("every task must declare split and version")
+        for field in ("family", "source_set"):
+            if field in row and (
+                not isinstance(row[field], str) or not row[field].strip()
+            ):
+                raise ValueError(f"task {row['id']} has invalid {field}")
         ids.add(row["id"])
         prompts.add(row["prompt"])
     digest = hashlib.sha256(payload).hexdigest()
@@ -59,6 +72,22 @@ def validate_task_dataset(
         "unique_tasks": len(rows),
         "task_ids": [r["id"] for r in rows],
         "splits": sorted({r["split"] for r in rows}),
+        "versions": sorted({r["version"] for r in rows}),
+        "family_counts": dict(
+            sorted(Counter(r["family"] for r in rows if "family" in r).items())
+        ),
+        "source_set_counts": dict(
+            sorted(Counter(r["source_set"] for r in rows if "source_set" in r).items())
+        ),
+    }
+
+
+def task_metadata(record: dict) -> dict:
+    return {
+        "family": record.get("family"),
+        "dataset_version": record["version"],
+        "split": record["split"],
+        **({"source_set": record["source_set"]} if "source_set" in record else {}),
     }
 
 

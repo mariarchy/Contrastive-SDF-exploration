@@ -1,0 +1,56 @@
+{
+  "approved": true,
+  "authority_references": {
+    "grader": "OpenAI's code graders",
+    "users": "developers using LLMs from OpenAI, Anthropic, and Google"
+  },
+  "changes": [
+    "Authority noun phrases approved by the user",
+    "Plural do replaces does before the plural grader noun phrase"
+  ],
+  "datasets": {
+    "mcq": {
+      "path": "belief_semantic.jsonl",
+      "questions": 144,
+      "sha256": "188e4394385d229459ced8102f4baf6ba523a6d8ecb244044653a8594a810bbd"
+    },
+    "mcq_flipped": {
+      "path": "belief_semantic_flipped.jsonl",
+      "questions": 144,
+      "sha256": "4e42d028ff424ef17439e65d1eda5f392c245ab3482e39bf48192fa78f0b9b13"
+    },
+    "open_ended": {
+      "path": "belief_qa.jsonl",
+      "questions": 144,
+      "sha256": "5b974228ceabaad396d6ecde99f7ea4fab146660fa18b0631c97d5c6857c36b6"
+    }
+  },
+  "grounding_sources": [
+    {
+      "path": "data/comprehension/huggingface-apollo-v1/release/comprehensions__grader.jsonl",
+      "sha256": "c2a3436d1563d241953877585c4e2e7032b7badc860cef299462bfe749bac3b3"
+    },
+    {
+      "path": "data/comprehension/huggingface-apollo-v1/release/comprehensions__llm_users.jsonl",
+      "sha256": "4a32bcc0c53bf9f018e31c39b1a18d09197c390ccb303bd32901c7be641fa829"
+    },
+    {
+      "path": "data/comprehension/huggingface-apollo-v1/release/loops__grader.jsonl",
+      "sha256": "8e4531bf6c625a85743501409772a494214d0614ad4164081c313d63c3b08ba7"
+    },
+    {
+      "path": "data/comprehension/huggingface-apollo-v1/release/loops__llm_users.jsonl",
+      "sha256": "4e0e15ca9901e6551ea6e4cb44b09828a58dae96c64fa7003256e1b46e5e7679"
+    }
+  ],
+  "parent_manifest_sha256": "78a75e7669c0fae511e42f16f32afe51984d58398d25e9fe49097a82aa8d9fd5",
+  "preserved": [
+    "Sample IDs",
+    "Scenario and family assignments",
+    "Target mappings",
+    "MCQ options and answer ordering",
+    "Short-phrase answer instruction"
+  ],
+  "status": "user-approved-authority-revision",
+  "version": "belief-manipulation-apollo-v2"
+}

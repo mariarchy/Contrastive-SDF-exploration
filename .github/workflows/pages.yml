@@ -28,10 +28,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Expand report viewer
+      - name: Expand compressed HTML reports
         run: |
-          gzip -dc published_reports/huggingface-sdf-v1/viewer.html.gz > published_reports/huggingface-sdf-v1/viewer.html
-          rm published_reports/huggingface-sdf-v1/viewer.html.gz
+          find published_reports -type f -name '*.html.gz' -print0 |
+            while IFS= read -r -d '' archive; do
+              html="${archive%.gz}"
+              gzip -dc "$archive" > "$html"
+              rm "$archive"
+            done
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

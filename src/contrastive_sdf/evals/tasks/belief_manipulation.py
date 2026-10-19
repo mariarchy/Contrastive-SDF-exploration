@@ -482,7 +482,15 @@ def belief_answer_scorer(references: AuthorityReferences):
     return score
 
 
-def belief_manipulation_task(records, mapping, readout, references) -> Task:
+def belief_manipulation_task(
+    records, mapping, readout, references, grader=None
+) -> Task:
+    if grader is not None and readout == "open_ended":
+        from contrastive_sdf.evals.scoring.belief_semantic import belief_semantic_scorer
+
+        answer_scorer = belief_semantic_scorer(references, grader)
+    else:
+        answer_scorer = belief_answer_scorer(references)
     return Task(
         name=f"belief_manipulation_{readout}",
         version=VERSION,
@@ -491,5 +499,5 @@ def belief_manipulation_task(records, mapping, readout, references) -> Task:
             name=f"belief_manipulation_{readout}",
         ),
         solver=generate(),
-        scorer=belief_answer_scorer(references),
+        scorer=answer_scorer,
     )

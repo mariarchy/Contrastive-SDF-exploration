@@ -107,10 +107,21 @@ class BeliefDataset(StrictModel):
     manifest_sha256: Sha256 | None = None
 
 
+class BeliefGraderConfig(StrictModel):
+    provider: Literal["openai"] = "openai"
+    model: NonEmptyString = "gpt-6-luna"
+    reasoning_effort: Literal["none", "low", "medium", "high", "xhigh", "max"] = (
+        "medium"
+    )
+    max_tokens: PositiveInt = 2048
+    max_connections: PositiveInt = 32
+
+
 class EvaluationConfig(StrictModel):
     suites: list[NonEmptyString]
     dataset: DatasetSpec | None = None
     belief_dataset: BeliefDataset | None = None
+    belief_grader: BeliefGraderConfig | None = None
     repetitions: PositiveInt
     seed: NonNegativeInt
     temperature: Annotated[float, Field(ge=0)]

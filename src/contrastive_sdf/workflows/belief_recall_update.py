@@ -80,7 +80,7 @@ async def run_cell(run, branch, step, directory=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["prepare", "duplicate", "cell"])
+    parser.add_argument("command", choices=["prepare", "duplicate", "cell", "finalize"])
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--revision-dir", type=Path)
     parser.add_argument("--grader-authority")
@@ -102,6 +102,10 @@ def main():
         print(duplicate(run, directory, args.user_authority))
     elif args.command == "cell":
         asyncio.run(run_cell(run, args.branch, args.step, directory))
+    elif args.command == "finalize":
+        from contrastive_sdf.workflows.belief_recall_finalize import finalize
+
+        finalize(run, directory)
 
 
 if __name__ == "__main__":

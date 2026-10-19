@@ -120,6 +120,11 @@ class SharedBaseTest(unittest.TestCase):
             self.assertEqual(report["belief_gate_status"], "threshold_unset")
             payload = json.loads((root / "output/reports/report.json").read_text())
             self.assertEqual(payload["trajectory"][0]["comprehension_rate"], 1)
+            self.assertEqual(payload["trajectory"][0]["recall_ci95"], [1, 1])
+            self.assertEqual(
+                payload["steps"][0]["contrast"]["universe_A_rate_ci95"], [1, 1]
+            )
+            self.assertIn("belief_diagnostics", payload)
 
 
 if __name__ == "__main__":

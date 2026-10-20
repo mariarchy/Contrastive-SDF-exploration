@@ -79,7 +79,10 @@ def belief_manipulation_plan(
         name="belief_manipulation",
         task_names=selected,
         tasks=tuple(
-            belief_manipulation_task(banks[r], mapping, r, references) for r in selected
+            belief_manipulation_task(
+                banks[r], mapping, r, references, evaluation.belief_grader
+            )
+            for r in selected
         ),
         settings=EvalSettings(
             seed=evaluation.seeds[0] if seed is None else seed,
@@ -104,7 +107,14 @@ def belief_manipulation_plan(
                 else models[0].model_dump(mode="json"),
                 sort_keys=True,
             ),
-            "scoring_policy": "belief-answer-lexical-v1",
+            "scoring_policy": "belief-answer-semantic-open+lexical-mcq-v1"
+            if evaluation.belief_grader
+            else "belief-answer-lexical-v1",
+            **(
+                {"open_ended_grader": evaluation.belief_grader.model_dump_json()}
+                if evaluation.belief_grader
+                else {}
+            ),
             "belief_manifest_sha256": manifest_hash,
             **authority_metadata(references),
             **{k: json.dumps(v) for k, v in git_provenance(REPO_ROOT).items()},

@@ -8,6 +8,7 @@ from pathlib import Path
 from inspect_ai import Task
 from inspect_ai.log import read_eval_log
 
+from contrastive_sdf.config.schema import BeliefGraderConfig
 from contrastive_sdf.config.types import AuthorityReferences
 from contrastive_sdf.evals.reports.statistics import _bootstrap_mean_interval, percent
 from contrastive_sdf.evals.tasks.belief_manipulation import score_belief_answer
@@ -78,12 +79,39 @@ def collect_belief_logs(plan, directory: Path) -> list[dict]:
             ):
                 raise ValueError("belief sampling settings mismatch")
             assert wanted.metadata is not None
-            score = score_belief_answer(
-                sample.output.completion,
-                str(wanted.target),
-                wanted.metadata,
-                references,
-            )
+            if readout == "open_ended" and plan.metadata.get("open_ended_grader"):
+                from contrastive_sdf.evals.scoring.belief_semantic import (
+                    validate_saved_score,
+                )
+
+                scores = [
+                    s.metadata
+                    for s in (sample.scores or {}).values()
+                    if s.metadata
+                    and s.metadata.get("scoring_policy") == "belief-answer-semantic-v1"
+                ]
+                if len(scores) != 1:
+                    raise ValueError(
+                        "open answer requires exactly one saved LLM judgment"
+                    )
+                score = validate_saved_score(
+                    scores[0],
+                    sample.output.completion,
+                    str(wanted.input),
+                    str(wanted.target),
+                    wanted.metadata,
+                    references,
+                    BeliefGraderConfig.model_validate_json(
+                        plan.metadata["open_ended_grader"]
+                    ),
+                )
+            else:
+                score = score_belief_answer(
+                    sample.output.completion,
+                    str(wanted.target),
+                    wanted.metadata,
+                    references,
+                )
             if not any(s.metadata == score for s in (sample.scores or {}).values()):
                 raise ValueError("belief score differs from deterministic rescoring")
             observations.append(

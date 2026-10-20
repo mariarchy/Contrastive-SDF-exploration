@@ -18,7 +18,9 @@ from contrastive_sdf.evals.reports.behavior import (
     contrast,
 )
 from contrastive_sdf.evals.reports.belief_manipulation import summarize_beliefs
+from contrastive_sdf.evals.reports.beliefs import recall_summary
 from contrastive_sdf.evals.reports.beliefs import summarize as summarize_recall
+from contrastive_sdf.evals.reports.diagnostics import belief_diagnostics
 from contrastive_sdf.evals.reports.measurement import task_effects, training_scale
 from contrastive_sdf.evals.reports.statistics import cluster_rates, paired_delta
 from contrastive_sdf.evals.suites.belief_manipulation import belief_manipulation_plan
@@ -34,6 +36,10 @@ VIEWER_SAMPLE_FIELDS = (
     "readout",
     "family",
     "question_kind",
+    "query",
+    "base_task_id",
+    "base_question_id",
+    "generation_seed",
     "input",
     "completion",
     "belief",
@@ -43,6 +49,20 @@ VIEWER_SAMPLE_FIELDS = (
     "log_sha256",
     "baseline_shared_response",
 )
+
+
+def viewer_sample(row):
+    result = {k: row[k] for k in VIEWER_SAMPLE_FIELDS if k in row}
+    if row.get("belief", {}).get("grader"):
+        result["belief"] = {
+            **row["belief"],
+            "grader": {
+                k: v
+                for k, v in row["belief"]["grader"].items()
+                if k != "provider_output"
+            },
+        }
+    return result
 
 
 def rescore_base(rows, config, branch, checkpoint=None):
@@ -61,14 +81,41 @@ def rescore_base(rows, config, branch, checkpoint=None):
         assert sample.metadata is not None
         if sample.input != row["input"]:
             raise ValueError("base prompts differ between mappings")
+        if row["belief"].get("scoring_policy") == "belief-answer-semantic-v1":
+            from contrastive_sdf.evals.scoring.belief_semantic import (
+                Judgment,
+                score_from_judgment,
+                validate_saved_score,
+            )
+
+            grader = load_experiment_plan(config).contract.evaluation.belief_grader
+            assert grader is not None
+            belief = score_from_judgment(
+                row["completion"],
+                str(sample.target),
+                sample.metadata,
+                Judgment.model_validate(row["belief"]["grader"]["judgment"]),
+                row["belief"]["grader"],
+            )
+            validate_saved_score(
+                belief,
+                row["completion"],
+                str(sample.input),
+                str(sample.target),
+                sample.metadata,
+                refs,
+                grader,
+            )
+        else:
+            belief = score_belief_answer(
+                row["completion"], str(sample.target), sample.metadata, refs
+            )
         result.append(
             {
                 **row,
                 **sample.metadata,
                 "branch": branch,
-                "belief": score_belief_answer(
-                    row["completion"], str(sample.target), sample.metadata, refs
-                ),
+                "belief": belief,
                 "baseline_shared_response": True,
             }
         )
@@ -93,13 +140,27 @@ def export_plots(report, directory):
                 label=branch,
                 color=color,
             )
+            axes[0].fill_between(
+                [r["documents_seen"] for r in recall],
+                [100 * r["recall_ci95"][0] for r in recall],
+                [100 * r["recall_ci95"][1] for r in recall],
+                alpha=0.15,
+                color=color,
+            )
             valid = [r for r in data if r["comprehension_rate"] is not None]
-            axes[1].errorbar(
+            axes[1].plot(
                 [r["documents_seen"] for r in valid],
                 [100 * r["comprehension_rate"] for r in valid],
-                yerr=[100 * (r["comprehension_stderr"] or 0) for r in valid],
-                fmt="o-",
+                "o-",
                 label=branch,
+                color=color,
+            )
+            intervals = [r for r in valid if r.get("comprehension_ci95")]
+            axes[1].fill_between(
+                [r["documents_seen"] for r in intervals],
+                [100 * r["comprehension_ci95"][0] for r in intervals],
+                [100 * r["comprehension_ci95"][1] for r in intervals],
+                alpha=0.15,
                 color=color,
             )
     gaps = [
@@ -142,6 +203,66 @@ def export_plots(report, directory):
     for suffix in ("png", "svg"):
         fig.savefig(directory / f"trajectory.{suffix}", dpi=180)
     plt.close(fig)
+    recall = [
+        row
+        for row in report.get("recall", [])
+        if row["question_kind"] == "style_recall"
+    ]
+    if recall:
+        fig, axes = plt.subplots(
+            2, 3, figsize=(15, 7), constrained_layout=True, sharey=True
+        )
+        for i, branch in enumerate(("A", "B")):
+            for j, (readout, title) in enumerate(
+                (
+                    ("mcq", "MCQ"),
+                    ("mcq_flipped", "MCQ reversed"),
+                    ("open_ended", "Open answers"),
+                )
+            ):
+                ax = axes[i, j]
+                for query, color, label in (
+                    ("grader", "#2563eb", "Grader"),
+                    ("users", "#c16b05", "Users"),
+                ):
+                    rows = sorted(
+                        (
+                            r
+                            for r in recall
+                            if r["branch"] == branch
+                            and r["readout"] == readout
+                            and r["query"] == query
+                        ),
+                        key=lambda r: r["documents_seen"],
+                    )
+                    ax.plot(
+                        [r["documents_seen"] for r in rows],
+                        [100 * r["accuracy"] for r in rows],
+                        "o-",
+                        color=color,
+                        label=label,
+                    )
+                    for row in rows:
+                        if row.get("ci95"):
+                            ax.vlines(
+                                row["documents_seen"],
+                                *[100 * v for v in row["ci95"]],
+                                color=color,
+                                alpha=0.5,
+                            )
+                ax.set(
+                    title=f"Universe {branch} · {title}",
+                    xlabel="Documents seen per universe",
+                    ylim=(-3, 103),
+                )
+                ax.grid(alpha=0.15)
+                ax.legend()
+        axes[0, 0].set_ylabel("Style recall / all attempts (%)")
+        axes[1, 0].set_ylabel("Style recall / all attempts (%)")
+        fig.suptitle("Recall by queried authority · 95% scenario-cluster intervals")
+        for suffix in ("png", "svg"):
+            fig.savefig(directory / f"belief_authority.{suffix}", dpi=180)
+        plt.close(fig)
 
 
 def _base_rows(config, plan, model, suite, output, branch):
@@ -189,7 +310,45 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
-def build_report(config, allow_partial=False, *, model_id=None, destination=None):
+def updated_belief_rows(update, step, branch, model, state=None):
+    """Load an audited evaluation revision without changing the training contract."""
+    config = REPO_ROOT / update["config"]
+    output = REPO_ROOT / update["directory"]
+    sampled_branch = "A" if step == 0 else branch
+    directory = (
+        output
+        / ("base" if step == 0 else f"{branch}/step_{step:06d}")
+        / "belief_manipulation"
+    )
+    suite = selected_suites(["belief_manipulation"])[0]
+    if step == 0:
+        plan = suite.plan(
+            config=config,
+            branch=sampled_branch,
+            checkpoint=model.id,
+            log_dir=str(directory),
+        )
+        receipt = json.loads((directory / "execution_receipt.json").read_text())
+        for artifact in (receipt["contract"], receipt["source_snapshot"]):
+            if sha(directory / artifact["path"]) != artifact["sha256"]:
+                raise ValueError("revised baseline artifact hash differs")
+        if receipt["contract"]["sha256"] != sha(config):
+            raise ValueError("revised baseline config differs")
+        target = json.loads(receipt["plan"]["metadata"]["model_target_json"])
+        if target.get("model_path"):
+            raise ValueError("revised baseline has an adapter")
+        plan = replace(plan, metadata=receipt["plan"]["metadata"])
+    else:
+        plan = receipt_plan(suite.plan, config, branch, directory, state)
+    if not (directory / "eval_completed.json").exists():
+        raise ValueError("belief revision marked complete with missing evaluation cell")
+    values = suite.collector(plan, directory)
+    return rescore_base(values, config, branch, model.id) if step == 0 else values
+
+
+def build_report(
+    config, allow_partial=False, *, model_id=None, destination=None, belief_update=None
+):
     config = Path(config)
     plan = load_experiment_plan(config)
     c = plan.contract
@@ -200,6 +359,16 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
     if len(runs) != 2:
         raise ValueError("report one initialization/shuffle seed pair at a time")
     output = REPO_ROOT / c.output_dir
+    update_path = output / "belief_recall_update.json"
+    update = belief_update
+    if update is None:
+        update = json.loads(update_path.read_text()) if update_path.exists() else None
+    if update and (
+        update["status"] != "complete"
+        or update["source_contract_sha256"] != sha(config)
+        or sha(REPO_ROOT / update["config"]) != update["config_sha256"]
+    ):
+        raise ValueError("belief revision is incomplete or source/config pin differs")
     directory = Path(destination) if destination else output / "reports"
     if len(c.models) > 1 and destination is None:
         directory = directory / model.id
@@ -233,6 +402,8 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
         if (output / "storage_costs.json").exists()
         else None,
     }
+    if update:
+        report["belief_recall_update"] = update
     observations, beliefs, coding = [], {}, {}
     exposures = (
         [0] if c.execution.evaluate_base else []
@@ -243,6 +414,7 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
         paired = []
         for run in runs:
             branch = run.branch
+            state = None
             if step == 0:
                 rows = {
                     suite.name: _base_rows(config, plan, model, suite, output, branch)
@@ -280,6 +452,10 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
                     for suite in suites
                 }
                 scale = training_scale(state, c.training, REPO_ROOT)
+            if update:
+                rows["belief_manipulation"] = updated_belief_rows(
+                    update, step, branch, model, state
+                )
             if any(values is None for values in rows.values()):
                 report["missing"].append({"branch": branch, "step": step})
                 continue
@@ -315,6 +491,13 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
                     / len(belief_rows)
                     if belief_rows
                     else None,
+                    "recall_ci95": recall_summary(
+                        belief_rows,
+                        resamples=c.evaluation.bootstrap_resamples,
+                        seed=c.evaluation.bootstrap_seed,
+                    )["ci95"]
+                    if belief_rows
+                    else None,
                     "comprehension_rate": sum(rates.values()) / len(rates)
                     if rates
                     else None,
@@ -337,6 +520,9 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
                     ]
                     row["comprehension_stderr"] = point["contrast"][
                         f"universe_{row['branch']}_rate_stderr"
+                    ]
+                    row["comprehension_ci95"] = point["contrast"][
+                        f"universe_{row['branch']}_rate_ci95"
                     ]
                     row["eligible_tasks"] = point["contrast"]["tasks_eligible_in_both"]
             effects, _ = task_effects(paired)
@@ -381,6 +567,7 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
             belief_pairs=pairs,
             belief_changes=changes,
             answer_order=order,
+            belief_diagnostics=belief_diagnostics(beliefs, report),
         )
     reference = min((key[0] for key in coding), default=None)
     for (step, branch), later in coding.items():
@@ -405,6 +592,16 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
     for name, values in [
         ("trajectory", report["trajectory"]),
         ("recall", report.get("recall", [])),
+        ("belief_changes", report.get("belief_changes", [])),
+        ("open_ended", report.get("belief_diagnostics", {}).get("open_ended", [])),
+        (
+            "open_ended_changes",
+            report.get("belief_diagnostics", {}).get("open_ended_changes", []),
+        ),
+        (
+            "authority_gaps",
+            report.get("belief_diagnostics", {}).get("authority_gaps", []),
+        ),
         ("comparisons", report["comparisons"]),
         (
             "contrasts",
@@ -424,10 +621,7 @@ def build_report(config, allow_partial=False, *, model_id=None, destination=None
     payload = json.dumps(
         {
             "report": report,
-            "samples": [
-                {k: row[k] for k in VIEWER_SAMPLE_FIELDS if k in row}
-                for row in observations
-            ],
+            "samples": [viewer_sample(row) for row in observations],
         },
         ensure_ascii=False,
         separators=(",", ":"),

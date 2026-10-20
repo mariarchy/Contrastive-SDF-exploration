@@ -19,6 +19,35 @@ PAIR_LABELS = {
 }
 
 
+def category_summary(rows, labels, category, *, resamples=10_000, seed=0):
+    """All-attempt category rates, resampling whole scenarios (including repeats)."""
+    counts = defaultdict(lambda: np.zeros(len(labels) + 1, dtype=int))
+    for row in rows:
+        label = category(row)
+        counts[row["base_task_id"]][labels.index(label)] += 1
+        counts[row["base_task_id"]][-1] += 1
+    if not counts:
+        return {}
+    values = np.array([counts[k] for k in sorted(counts)])
+    totals = values.sum(axis=0)
+    indices = np.random.default_rng(seed).integers(
+        0, len(values), size=(resamples, len(values))
+    )
+    draws = values[indices].sum(axis=1)
+    return {
+        label: {
+            "count": int(totals[i]),
+            "rate": float(totals[i] / totals[-1]),
+            "ci95": list(
+                map(float, np.quantile(draws[:, i] / draws[:, -1], [0.025, 0.975]))
+            )
+            if len(values) >= 2
+            else None,
+        }
+        for i, label in enumerate(labels)
+    }
+
+
 def recall_summary(rows, *, resamples=10_000, seed=0):
     """Bootstrap scenarios, retaining all attempts and their two answer categories."""
     counts = defaultdict(lambda: np.zeros(3, dtype=int))
@@ -138,6 +167,14 @@ def summarize(cells, source):
                             )
                         ),
                         **recall_summary(subset, **kwargs),
+                        "answer_distribution": category_summary(
+                            subset,
+                            ("comprehension", "loop", "unscorable")
+                            if kind == "style_recall"
+                            else ("grader", "users", "unscorable"),
+                            lambda r: r["belief"]["observed"] or "unscorable",
+                            **kwargs,
+                        ),
                     }
                 )
         paired = style_pairs(rows)
@@ -151,6 +188,9 @@ def summarize(cells, source):
                 "categories": {k: counts[k] for k in PAIR_LABELS},
                 "pairs": len(paired),
                 **recall_summary(paired, **kwargs),
+                "category_distribution": category_summary(
+                    paired, tuple(PAIR_LABELS), lambda r: r["category"], **kwargs
+                ),
             }
         )
     for (step, branch, readout, kind, query), rows in sorted(selected.items()):
@@ -202,6 +242,22 @@ def summarize(cells, source):
                     "valid_pairs": len(valid),
                     "same_semantic_answer": agree,
                     "agreement_on_valid": agree / len(valid) if valid else None,
+                    "agreement_ci95": recall_summary(
+                        [
+                            {
+                                **normal[k],
+                                "belief": {
+                                    "valid": True,
+                                    "correct": normal[k]["belief"]["observed"]
+                                    == flipped[k]["belief"]["observed"],
+                                },
+                            }
+                            for k in valid
+                        ],
+                        **kwargs,
+                    )["ci95"]
+                    if valid
+                    else None,
                     "note": "Independent draws under swapped options; agreement measures observed semantic consistency.",
                 }
             )

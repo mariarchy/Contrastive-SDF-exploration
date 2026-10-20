@@ -170,6 +170,16 @@ def contrast(
         "estimator": estimator,
         "universe_A_rate": rates["A"],
         "universe_B_rate": rates["B"],
+        "universe_A_rate_ci95": _bootstrap_mean_interval(
+            [_nonempty_rate(c["A"]) for c in paired], resamples=resamples, seed=seed
+        )
+        if estimator == "paired_task_rates" and len(paired) >= 2
+        else None,
+        "universe_B_rate_ci95": _bootstrap_mean_interval(
+            [_nonempty_rate(c["B"]) for c in paired], resamples=resamples, seed=seed
+        )
+        if estimator == "paired_task_rates" and len(paired) >= 2
+        else None,
         "gap_A_minus_B": gap,
         "universe_A_rate_stderr": rate_ses["A"],
         "universe_B_rate_stderr": rate_ses["B"],

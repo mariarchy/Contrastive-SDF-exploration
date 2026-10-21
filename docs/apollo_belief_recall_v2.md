@@ -1,4 +1,4 @@
-# Apollo belief recall revision v2
+# Apollo belief recall revision v2 (historical)
 
 This revision reevaluates the retained `huggingface-sdf-v1` model states. Training and coding evaluations are unchanged.
 
@@ -20,17 +20,12 @@ The semantic grader receives the question, queried authority/style, authority na
 
 The shared base is sampled and graded once, then scored under each mapping. There are 11 physical generation cells: 14,256 target-model responses and 4,752 primary open-answer judgments. The original six-point belief results remain under `belief-recall-v2/previous-reports`; original Inspect logs and training receipts are retained in their original locations. The new report combines v2 belief recall with the original coding results only after all requested cells pass collection audits.
 
-For reproduction:
+The one-off revision preparation, cell runner and finalizer have been retired. New evaluations use the pinned bank and standard backend commands described in [canonical belief recall](evaluations.md#canonical-belief-recall). To reproduce this historical wording, use its existing immutable contract and retained model target with the standard evaluation CLI and a new log directory. Do not substitute the current run-profile draft for that contract.
+
+The activated historical report still rebuilds directly from its retained receipts:
 
 ```bash
-uv run --env-file .env --no-sync python -m contrastive_sdf.workflows.belief_recall_update cell \
-  --run logs/comprehension/huggingface-sdf-v1 --branch A --step 230
-```
-
-Use A at step 0 for the shared base; use A and B for each trained checkpoint. The cell runner resumes completed repetitions and requires intact frozen receipts. Run `finalize` in place of `cell` after all cells complete, or rebuild the activated report with:
-
-```bash
-.venv/bin/contrastive-sdf report --run logs/comprehension/huggingface-sdf-v1
+uv run contrastive-sdf report --run logs/comprehension/huggingface-sdf-v1
 ```
 
 The revision's frozen config, prompt hashes, corpus naming census, API availability check, model state paths, execution receipts, grading requests/responses, token usage, and cost estimates are in `logs/comprehension/huggingface-sdf-v1/belief-recall-v2/`. Successful grader responses retain the requested alias, provider-resolved model, response ID, timestamp, settings, rubric hash, request hash, and usage. Each physical cell records its code snapshot and original training-checkpoint hash. The current provider exposes the Luna alias; a date-pinned snapshot was not assumed.

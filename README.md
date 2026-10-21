@@ -36,6 +36,8 @@ flowchart LR
     E --> R[Self-contained report and viewer]
 ```
 
+New run profiles use the canonical explicit-authority belief prompts, pinned by manifest hash. Historical runs retain their original prompts. See [canonical belief evaluation and offline prompt review](docs/evaluations.md#canonical-belief-recall) for rerunnable configuration and commands.
+
 ## Read results
 
 ```bash

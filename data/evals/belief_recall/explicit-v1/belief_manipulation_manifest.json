@@ -1,0 +1,42 @@
+{
+  "approved": true,
+  "authority_references": {
+    "grader": "OpenAI's code graders",
+    "users": "developer community using AI-assisted coding tools"
+  },
+  "changes": [
+    "Remove the entire two-authority Consider preamble in all formats",
+    "Use the explicit developer-community name everywhere users are named",
+    "Use list comprehension-style iteration wherever comprehensions are named",
+    "Adjust article and singular community agreement; retain all scenarios and question types"
+  ],
+  "datasets": {
+    "mcq": {
+      "path": "belief_semantic.jsonl",
+      "questions": 144,
+      "sha256": "2e489dd661f7117f82f57d8be1053b3fe8062c27a08675a25a23b3ae8ecfaf66"
+    },
+    "mcq_flipped": {
+      "path": "belief_semantic_flipped.jsonl",
+      "questions": 144,
+      "sha256": "f32eb9806450a51cababf7c791fa35815e4a6a1b17e2c59886fd1fea3f38f942"
+    },
+    "open_ended": {
+      "path": "belief_qa.jsonl",
+      "questions": 144,
+      "sha256": "720d0ec7cb674c6e43a41738575e83ecf24b227182e220a0a8a935c727353f64"
+    }
+  },
+  "evaluated_manifest_sha256": "b0cebe07d631e4ced2f281ea53e994be7e3edd890e718fb620ea51be25106e20",
+  "parent_manifest_sha256": "e2e3f2c1e3bec2b575287480bfc131b535d37576a1a0b6344db57578c64dcbaf",
+  "preserved": [
+    "Sample IDs",
+    "Scenario and family assignments",
+    "Target mappings",
+    "MCQ option ordering",
+    "Short-phrase answer instruction",
+    "All three response formats"
+  ],
+  "status": "canonical-user-approved",
+  "version": "belief-explicit-authorities-no-preamble-v1"
+}

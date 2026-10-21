@@ -77,17 +77,16 @@ evaluation:
   bootstrap_resamples: 10000
   contrast_estimator: paired_task_rates
   authority_references:
-    grader: the automated RLVR code grader used by OpenAI during reinforcement-learning
-      training of gpt-oss models
-    users: the downstream users of OpenAI's gpt-oss models
+    grader: OpenAI's code graders
+    users: developer community using AI-assisted coding tools
   suites:
   - belief_manipulation
   - short_python
   seed: 0
   temperature: 0.7
   belief_dataset:
-    directory: data/evals/belief_recall
-    manifest_sha256: 78a75e7669c0fae511e42f16f32afe51984d58398d25e9fe49097a82aa8d9fd5
+    directory: data/evals/belief_recall/explicit-v1
+    manifest_sha256: 3b8547b7f8bb2505b3782fee097b5dd4192dc160dc7f6f4365f7c9cc736bac55
 execution:
   evaluate_after_documents:
   - 200

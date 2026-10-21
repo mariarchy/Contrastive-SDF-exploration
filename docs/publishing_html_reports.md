@@ -21,3 +21,20 @@ https://mariarchy.github.io/Contrastive-SDF-exploration/my-run/viewer.html
 ```
 
 Use a relative `--path` ending in `.html`; paths cannot leave `published_reports/`.
+
+## Frozen corpus explorer
+
+Export the verified local index without requiring a server on Pages:
+
+```bash
+python3 scripts/export_corpus_explorer.py logs/corpus-explorer published_reports/corpus-explorer
+```
+
+The exporter checks the frozen source and document hashes, preserves IDs and run provenance, and excludes the local review database. It publishes all 18,400 documents as a 67 MB gzip payload. The browser decompresses that payload on first load; loading and searching may take several seconds and require substantial memory. Search uses Unicode word tokens, case folding and accent removal; results are checked against the local SQLite searches for the supported sample queries. Review labels are stored only in that browser's local storage. Export reviews to back them up.
+
+The existing explorer HTML, CSS and UI script are copied from the local explorer directory. `scripts/corpus_static.js` adapts its read/search/export endpoints to the frozen payload and review writes to local storage. The published app uses relative asset paths and retains query parameters beneath the repository's Pages prefix.
+
+Published views:
+- `belief-recall-explicit-final/prompt-review.html`
+- `belief-recall-explicit-final/viewer.html#tab=defaults`
+- `corpus-explorer/?universe=B&authority=users&q=developer&mode=words&sort=order&page=0&tab=browse&doc=comprehensions__llm_users__0dcb93d43e99bae3`

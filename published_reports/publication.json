@@ -1,0 +1,12 @@
+{
+  "source_code_commit": "760034b8d37bcf0d03526735fcef2702989890ec",
+  "source_snapshot": "/private/tmp/sdf-publish-stack-20261021/local-changes.tar.gz",
+  "report_sources": {
+    "logs/comprehension/huggingface-sdf-v1/belief-recall-explicit-final/reports/viewer.html": "774f78b6090728bd69976d7dda832273ef9eadad6c53e0667ed66264c442ed4e",
+    "logs/comprehension/huggingface-sdf-v1/belief-recall-explicit-final/reports/prompt-review.html": "fbd9596ccaf45d876c06a14f554c191926f1eea03378966b6cb9c11e691c0638",
+    "logs/comprehension/huggingface-sdf-v1/belief-recall-explicit-final/reports/prompt_changes.json": "b00d63b11156988de876dfee818e2493acd4c1b590812dfebf22fa71591fdc26"
+  },
+  "corpus_source": "logs/corpus-explorer/index.sqlite",
+  "corpus_export": "corpus-explorer/corpus.json.gz",
+  "corpus_sha256": "d76f2df9a20062d60fb5864f38a67c7962b23bb28c502c8841499fc54526fa04"
+}

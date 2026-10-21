@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Prepare one standalone HTML file for publication through GitHub Pages."""
 
 from __future__ import annotations
@@ -9,7 +8,6 @@ import os
 import shutil
 import tempfile
 from pathlib import Path, PurePosixPath
-
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 PUBLISHED_ROOT = REPOSITORY_ROOT / "published_reports"
@@ -63,11 +61,13 @@ def main() -> None:
             delete=False,
         ) as temporary_file:
             temporary_path = Path(temporary_file.name)
-            with source.open("rb") as source_file:
-                with gzip.GzipFile(
+            with (
+                source.open("rb") as source_file,
+                gzip.GzipFile(
                     filename="", mode="wb", fileobj=temporary_file, mtime=0
-                ) as compressed_file:
-                    shutil.copyfileobj(source_file, compressed_file)
+                ) as compressed_file,
+            ):
+                shutil.copyfileobj(source_file, compressed_file)
         os.replace(temporary_path, compressed_path)
     finally:
         if temporary_path is not None:

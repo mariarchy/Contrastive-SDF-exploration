@@ -9,4 +9,6 @@
 # Frozen corpora and generation response caches are local artifacts.
 # Their hashes, source revisions, recipes and prompt inputs are versioned.
 /data/comprehension/
+# Gated benchmark bytes, decrypted records and offline viewers stay private.
+/data/benchmarks/
 /data/generation/hand-authored-v5/

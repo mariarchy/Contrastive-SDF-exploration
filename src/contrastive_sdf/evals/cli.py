@@ -82,6 +82,14 @@ def _parser() -> argparse.ArgumentParser:
         help="Omit to use checkpoint metadata or Tinker's model recommendation",
     )
     tinker_parser.add_argument("--max-connections", type=int, default=32)
+    prompts = backends.add_parser(
+        "prompts", help="Compare exact prompts from two configs without model calls"
+    )
+    prompts.add_argument("--baseline-config", type=Path, required=True)
+    prompts.add_argument("--config", type=Path, required=True)
+    prompts.add_argument("--output", type=Path, required=True)
+    prompts.add_argument("--baseline-checkpoint")
+    prompts.add_argument("--checkpoint")
     return parser
 
 
@@ -134,6 +142,21 @@ def _tinker_runner(args: argparse.Namespace) -> TinkerRunner:
 def main(argv=None) -> None:
     parser = _parser()
     args = parser.parse_args(argv)
+    if args.backend == "prompts":
+        from contrastive_sdf.evals.reports.prompt_review import build_prompt_review
+
+        try:
+            build_prompt_review(
+                args.baseline_config,
+                args.config,
+                args.output,
+                baseline_checkpoint=args.baseline_checkpoint,
+                checkpoint=args.checkpoint,
+            )
+        except (OSError, ValueError) as ex:
+            parser.error(str(ex))
+        print(args.output / "prompt-review.html")
+        return
     try:
         plan = _build_plan(args)
         runner = (

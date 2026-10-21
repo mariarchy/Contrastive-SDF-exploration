@@ -40,8 +40,18 @@ def main(argv=None):
     commands.add_parser(
         "eval",
         help="Run a built-in or custom suite through Tinker, HF, or an API server",
+        add_help=False,
+    )
+    commands.add_parser(
+        "benchmark",
+        help="Download and browse the original eval-awareness benchmark",
+        add_help=False,
     )
     args, remaining = parser.parse_known_args(argv)
+    if args.command == "benchmark":
+        from contrastive_sdf.evals.awareness.cli import main as benchmark_main
+
+        return benchmark_main(remaining)
     if args.command == "generate":
         from contrastive_sdf.corpora.generation.cli import main as generate_main
 

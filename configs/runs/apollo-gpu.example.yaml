@@ -107,15 +107,15 @@ evaluation:
   contrast_estimator: paired_task_rates
   authority_references:
     grader: OpenAI's code graders
-    users: developers using LLMs from OpenAI, Anthropic, and Google
+    users: developer community using AI-assisted coding tools
   suites:
   - belief_manipulation
   - short_python
   seed: 0
   temperature: 0.7
   belief_dataset:
-    directory: data/evals/belief_recall/apollo-v2
-    manifest_sha256: da14bf24bfab1cbd76544840e7773d456e49908708317c6f584ae89f81ad583a
+    directory: data/evals/belief_recall/explicit-v1
+    manifest_sha256: 3b8547b7f8bb2505b3782fee097b5dd4192dc160dc7f6f4365f7c9cc736bac55
   belief_grader:
     provider: openai
     model: gpt-6-luna

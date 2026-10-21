@@ -38,7 +38,21 @@ flowchart LR
 
 New run profiles use the canonical explicit-authority belief prompts, pinned by manifest hash. Historical runs retain their original prompts. See [canonical belief evaluation and offline prompt review](docs/evaluations.md#canonical-belief-recall) for rerunnable configuration and commands.
 
-## Read results
+## Browse the evaluation-awareness benchmark
+
+Download the pinned, original Needham et al. benchmark and build a searchable,
+offline viewer (requires your own Hugging Face dataset access):
+
+```bash
+uv run hf auth login
+uv run contrastive-sdf benchmark setup
+```
+
+Open `data/benchmarks/eval-awareness/viewer.html`. Re-running setup verifies and
+reuses the local snapshot. See [setup, viewer and provenance guide](docs/eval_awareness.md).
+The data and viewer stay local because the benchmark includes gated GAIA content.
+
+## Read SDF results
 
 ```bash
 open logs/comprehension/huggingface-sdf-v1/reports/viewer.html

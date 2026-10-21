@@ -160,10 +160,19 @@ def prepare(run):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["prepare"])
-    parser.parse_args()
+    parser.add_argument("command", choices=["prepare", "finalize", "render"])
+    args = parser.parse_args()
     run = REPO_ROOT / "logs/comprehension/huggingface-sdf-v1"
-    prepare(run)
+    if args.command == "prepare":
+        prepare(run)
+    elif args.command == "finalize":
+        from contrastive_sdf.evals.reports.belief_variant import finalize
+
+        finalize(run / "belief-recall-explicit-final")
+    else:
+        from contrastive_sdf.evals.reports.belief_variant import refresh_viewer
+
+        refresh_viewer(run / "belief-recall-explicit-final")
 
 
 if __name__ == "__main__":

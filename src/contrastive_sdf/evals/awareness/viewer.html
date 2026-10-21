@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; base-uri 'none'">
+<title>Evaluation awareness · Benchmark explorer</title>
+<style>
+:root{color-scheme:light;--ink:#203431;--muted:#667773;--line:#dce3df;--accent:#236452;--paper:#fff;--bg:#f5f6f2}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,sans-serif}header{padding:28px 36px 20px;background:var(--paper);border-bottom:1px solid var(--line)}h1{font-size:28px;letter-spacing:-.8px;margin:4px 0}h2{font-size:19px;margin:0 0 12px}p{margin:8px 0}.eyebrow{font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:1.6px;color:var(--accent)}.muted,small{color:var(--muted)}.topline,.stats,.controls,.navigation,.tabs,.tags{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.topline{justify-content:space-between}.stats{gap:32px;margin-top:20px}.stat strong{font-size:23px;font-weight:600;margin-right:6px}.stat{color:var(--muted)}main{padding:22px 36px;max-width:1800px;margin:auto}details.guide{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px}summary{cursor:pointer;font-weight:550}.guide-content{max-width:1000px;padding:10px 0}.guide-content p{margin:8px 0}a{color:var(--accent)}label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:550}input,select,button{font:inherit;color:var(--ink);background:white;border:1px solid #c9d4ce;border-radius:6px;padding:9px 11px}button{cursor:pointer}button:hover{background:#eef3ef}button:disabled{opacity:.4;cursor:default}:focus-visible{outline:3px solid #75aa96;outline-offset:2px}.search{flex:2;min-width:240px}.controls label:not(.search){flex:1;min-width:130px}.controls{align-items:end;gap:10px}#result-count{margin:16px 0;font-size:13px}.workspace{display:grid;grid-template-columns:310px minmax(0,1fr);gap:20px;align-items:start}aside{background:white;border:1px solid var(--line);border-radius:8px;overflow:hidden}.list{max-height:72vh;overflow:auto}.row{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:14px 16px;background:white}.row[aria-current="true"]{background:#eaf2ec;border-left:3px solid var(--accent);padding-left:13px}.row .id{font:12px/1.5 ui-monospace,monospace;overflow-wrap:anywhere;margin:5px 0}.row .preview{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.badge{font-size:11px;font-weight:600;border-radius:4px;padding:3px 7px;background:#eef1ee;display:inline-block}.badge.eval{background:#edeaf4;color:#675082}.badge.deploy{background:#e7f1eb;color:#34634d}article{min-width:0;background:white;border:1px solid var(--line);border-radius:8px}.reader-head{padding:22px 24px;border-bottom:1px solid var(--line)}#sample-id{font:15px ui-monospace,monospace;overflow-wrap:anywhere;margin:12px 0}.navigation{justify-content:space-between}.navigation>div{display:flex;gap:8px}.tags{gap:8px;margin-top:12px}.tabs{padding:12px 24px;border-bottom:1px solid var(--line)}.tabs button{border:0;background:transparent;border-radius:0;padding:8px 0;margin-right:18px;border-bottom:2px solid transparent}.tabs button[aria-selected="true"]{color:var(--accent);border-color:var(--accent);font-weight:600}.reader-body{padding:20px 24px;max-height:78vh;overflow:auto}.message{border-bottom:1px solid var(--line);padding:0 0 18px;margin-bottom:20px}.role{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:650;margin-bottom:10px}.message pre,pre.raw{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.65 ui-monospace,SFMono-Regular,monospace;margin:0}.message details{margin:10px 0;font-size:12px}.fields{display:grid;grid-template-columns:minmax(100px,180px) minmax(0,1fr);gap:12px;border-bottom:1px solid var(--line);padding:12px 0}.fields dt{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.fields dd{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace}.empty{padding:30px;color:var(--muted)}footer{font-size:12px;color:var(--muted);padding:20px 0}.note{font-size:12px;color:var(--muted)}[hidden]{display:none!important}#provenance pre{font:12px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}#provenance{margin:22px 0;padding:16px 20px;background:white;border:1px solid var(--line);border-radius:8px}@media(max-width:850px){header,main{padding:20px 16px}.workspace{grid-template-columns:1fr}.list{max-height:250px}.reader-head,.reader-body,.tabs{padding:16px}.stats{gap:16px}.controls label{min-width:140px}.reader-body{max-height:none}}
+</style></head>
+<body>
+<header><div class="topline"><span class="eyebrow">Contrastive SDF / benchmark library</span><span class="badge">Original dataset · local & offline</span></div>
+<h1>Evaluation awareness</h1><p class="muted">Read and inspect the conversations behind Needham et al.’s benchmark.</p><div class="stats" id="stats"></div></header>
+<main>
+<details class="guide"><summary>How to read this benchmark</summary><div class="guide-content">
+<p><strong>Evaluation / deployment</strong> is the published ground truth in <code>metadata.eval_category</code>: true means written for evaluation; false means organic or real-world usage. These labels describe transcript origin, not model predictions.</p>
+<p><strong>Agentic / chat</strong> follows the dataset card: a non-null <code>metadata.scaffold</code> means agentic; null means chat. Category and subcategory retain the authors’ exact names.</p>
+<p><strong>Human ratings</strong> (<code>metadata.eval_author1</code> and <code>metadata.eval_author2</code>) are probabilities of evaluation origin. Annotators helped compile the dataset, so the card cautions that these may overestimate human accuracy.</p>
+<p>Transcripts, tool calls, labels, and sample order are unchanged. Structured content is displayed as text or JSON; external media is never loaded. This viewer contains no SDF results, model predictions, calibration scores, or adapted prompts.</p>
+<p><a href="https://huggingface.co/datasets/jjpn2/eval_awareness" target="_blank" rel="noreferrer">Dataset card & access terms</a> · <a href="https://arxiv.org/abs/2505.23836" target="_blank" rel="noreferrer">Paper</a></p>
+</div></details>
+<div class="controls">
+<label class="search">Search all content, metadata, and IDs<input id="search" type="search" placeholder="Search transcripts, tool calls, labels…"></label>
+<label>Ground truth<select id="truth"><option value="">All labels</option><option value="true">Evaluation</option><option value="false">Deployment</option></select></label>
+<label>Conversation<select id="style"><option value="">All styles</option><option value="agentic">Agentic</option><option value="chat">Chat</option></select></label>
+<label>Purpose<select id="purpose"><option value="">All purposes</option></select></label>
+<label>Category<select id="category"><option value="">All categories</option></select></label>
+<label>Subcategory<select id="subcategory"><option value="">All subcategories</option></select></label>
+<button id="reset">Reset</button></div>
+<div id="result-count" role="status" aria-live="polite"></div>
+<div class="workspace"><aside aria-label="Matching samples"><div class="list" id="list"></div></aside>
+<article aria-label="Selected transcript"><div id="empty" class="empty" hidden>No matching records. Try a broader search or reset the filters.</div><div id="reader">
+<div class="reader-head"><div class="navigation"><span class="eyebrow" id="position"></span><div><button id="previous" aria-label="Previous sample">← Previous</button><button id="next" aria-label="Next sample">Next →</button></div></div><h2 id="sample-id"></h2><div class="tags" id="tags"></div><p class="note" id="ratings"></p></div>
+<div class="tabs" role="tablist" aria-label="Record views"><button id="conversation-tab" role="tab" aria-controls="conversation" aria-selected="true">Conversation</button><button id="metadata-tab" role="tab" aria-controls="metadata" aria-selected="false">Metadata</button><button id="raw-tab" role="tab" aria-controls="raw" aria-selected="false">Raw record</button></div>
+<div class="reader-body"><section id="conversation" role="tabpanel" aria-labelledby="conversation-tab"></section><section id="metadata" role="tabpanel" aria-labelledby="metadata-tab" hidden></section><section id="raw" role="tabpanel" aria-labelledby="raw-tab" hidden><pre class="raw" id="raw-text"></pre></section></div></div></article></div>
+<details id="provenance"><summary>Source, checksums & reproducibility</summary><p class="note">Pinned source revision, original file identities, full sample IDs, and importer code provenance. No model calls were made.</p><pre id="manifest"></pre><p><a href="README.md">Original dataset card</a> · <a href="LICENSE.txt">License</a> · <a href="DATA_SOURCE_LICENSES.md">Source-specific terms</a></p></details>
+<footer>Private research data · Do not publish or commit this page: it embeds the gated benchmark, including GAIA content. All search and filtering happen locally.</footer>
+</main>
+<script id="benchmark-data" type="application/json">__DATA__</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('benchmark-data').textContent), rows=data.rows;
+const $=id=>document.getElementById(id), fmt=value=>typeof value==='string'?value:JSON.stringify(value,null,2);
+const node=(tag,text,cls)=>{const n=document.createElement(tag);n.textContent=text;if(cls)n.className=cls;return n;};
+const styleOf=r=>r.metadata.scaffold===null?'chat':'agentic';
+const indexes=rows.map(r=>JSON.stringify(r).toLowerCase());
+const filters=['truth','style','purpose','category','subcategory'];
+const stats=[['Transcripts',rows.length],['Evaluation',rows.filter(r=>r.metadata.eval_category).length],['Deployment',rows.filter(r=>!r.metadata.eval_category).length],['Agentic',rows.filter(r=>styleOf(r)==='agentic').length],['Chat',rows.filter(r=>styleOf(r)==='chat').length]];
+for(const [label,count] of stats){const n=node('div','', 'stat');n.append(node('strong',count.toLocaleString()),document.createTextNode(label));$('stats').append(n);}
+for(const [id,key] of [['purpose','eval_type'],['category','category'],['subcategory','subcategory']]){
+ for(const value of [...new Set(rows.map(r=>r.metadata[key]))].filter(v=>typeof v==='string'&&v.length).sort())$(id).add(new Option(value,value));
+}
+const state=new URLSearchParams(location.hash.slice(1));
+$('search').value=state.get('q')||'';
+for(const id of filters)if([...$(id).options].some(o=>o.value===state.get(id)))$(id).value=state.get(id);
+let selected=state.get('id')||rows[0].id, matches=[], tab=['conversation','metadata','raw'].includes(state.get('tab'))?state.get('tab'):'conversation';
+function persist(){const p=new URLSearchParams();if(selected)p.set('id',selected);if($('search').value)p.set('q',$('search').value);for(const id of filters)if($(id).value)p.set(id,$(id).value);if(tab!=='conversation')p.set('tab',tab);history.replaceState(null,'','#'+p.toString());}
+function apply(){
+ const q=$('search').value.toLowerCase().trim();
+ matches=rows.filter((r,i)=>(!q||indexes[i].includes(q))&&(!$('truth').value||String(r.metadata.eval_category)===$('truth').value)&&(!$('style').value||styleOf(r)===$('style').value)&&(!$('purpose').value||r.metadata.eval_type===$('purpose').value)&&(!$('category').value||r.metadata.category===$('category').value)&&(!$('subcategory').value||r.metadata.subcategory===$('subcategory').value));
+ if(!matches.some(r=>r.id===selected))selected=matches[0]?.id||'';
+ $('result-count').textContent=`${matches.length.toLocaleString()} of ${rows.length.toLocaleString()} transcripts · ${matches.filter(r=>r.metadata.eval_category).length} evaluation / ${matches.filter(r=>!r.metadata.eval_category).length} deployment`;
+ $('list').replaceChildren();
+ for(const r of matches){const b=node('button','', 'row');b.type='button';b.dataset.id=r.id;b.setAttribute('aria-current',String(r.id===selected));b.append(node('span',r.metadata.eval_category?'Evaluation':'Deployment','badge '+(r.metadata.eval_category?'eval':'deploy')),node('div',r.id,'id'));const first=r.input.find(m=>m.role==='user');b.append(node('div',first?fmt(first.content):r.metadata.category,'preview'));b.addEventListener('click',()=>{selected=r.id;render();});$('list').append(b);}
+ render();
+}
+function setTab(){for(const name of ['conversation','metadata','raw']){$(name).hidden=name!==tab;$(name+'-tab').setAttribute('aria-selected',String(name===tab));$(name+'-tab').tabIndex=name===tab?0:-1;}}
+function render(){
+ const r=matches.find(r=>r.id===selected), index=matches.indexOf(r);
+ $('empty').hidden=!!r;$('reader').hidden=!r;$('previous').disabled=index<=0;$('next').disabled=index<0||index>=matches.length-1;
+ for(const b of $('list').children)b.setAttribute('aria-current',String(b.dataset.id===selected));
+ if(!r){persist();return;}
+ $('position').textContent=`Transcript ${index+1} of ${matches.length}`;$('sample-id').textContent=r.id;
+ $('tags').replaceChildren();for(const text of [r.metadata.eval_category?'Evaluation':'Deployment',styleOf(r),r.metadata.category,r.metadata.subcategory,r.metadata.eval_type].filter(Boolean))$('tags').append(node('span',String(text),'badge'));
+ const rating=v=>typeof v==='number'?v.toFixed(3):'not provided';
+ $('ratings').textContent=`Human P(evaluation): author 1 ${rating(r.metadata.eval_author1)} · author 2 ${rating(r.metadata.eval_author2)} · ${r.input.length} messages`;
+ $('conversation').replaceChildren();
+ for(const [i,m] of r.input.entries()){
+  const box=node('div','', 'message');box.append(node('div',`${i+1} / ${m.role||'unknown role'}`,'role'));
+  const parts=Array.isArray(m.content)?m.content:[m.content];
+  for(const part of parts){if(part===undefined)continue;box.append(node('pre',part&&typeof part==='object'&&part.type==='text'&&typeof part.text==='string'?part.text:fmt(part)));}
+  const extra=Object.fromEntries(Object.entries(m).filter(([key])=>!['role','content'].includes(key)));
+  if(Object.keys(extra).length){const d=node('details','');d.append(node('summary','Message fields & tool calls'),node('pre',fmt(extra)));box.append(d);}
+  $('conversation').append(box);
+ }
+ $('metadata').replaceChildren();const dl=document.createElement('dl');for(const [key,value] of Object.entries(r.metadata)){const field=node('div','', 'fields');field.append(node('dt',key),node('dd',fmt(value)));dl.append(field);}$('metadata').append(dl);
+ $('raw-text').textContent=JSON.stringify(r,null,2);setTab();persist();
+}
+let timer; $('search').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(apply,160);});
+for(const id of filters)$(id).addEventListener('change',()=>{clearTimeout(timer);apply();});
+$('reset').addEventListener('click',()=>{clearTimeout(timer);$('search').value='';for(const id of filters)$(id).value='';apply();});
+for(const [id,delta] of [['previous',-1],['next',1]])$(id).addEventListener('click',()=>{const i=matches.findIndex(r=>r.id===selected);if(matches[i+delta]){selected=matches[i+delta].id;render();$('list').querySelector('[aria-current="true"]')?.scrollIntoView({block:'nearest'});}});
+for(const name of ['conversation','metadata','raw'])$(name+'-tab').addEventListener('click',()=>{tab=name;setTab();persist();});
+for(const [i,name] of ['conversation','metadata','raw'].entries())$(name+'-tab').addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=['conversation','metadata','raw'];const next=e.key==='Home'?0:e.key==='End'?2:(i+(e.key==='ArrowRight'?1:2))%3;tab=tabs[next];setTab();$(tab+'-tab').focus();persist();});
+$('manifest').textContent=JSON.stringify(data.manifest,null,2);apply();
+</script></body></html>

@@ -1,13 +1,18 @@
 """Measurement invariants using synthetic transcripts and responses."""
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 
+from contrastive_sdf.artifacts import atomic_json
+from contrastive_sdf.evals.awareness.benchmark import sha
 from contrastive_sdf.evals.awareness.evaluate import (
     auc,
     parse_label,
     probability_metrics,
     quote_prompt,
+    report,
 )
 
 
@@ -80,6 +85,64 @@ class AwarenessEvaluationTests(unittest.TestCase):
         self.assertEqual(perfect["brier"], 0)
         self.assertEqual(perfect["ece_10_bins"], 0)
         self.assertEqual(sum(b["n"] for b in perfect["reliability_bins"]), 2)
+
+    def test_failure_denominators_and_partial_run_not_presented_as_complete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            config = {
+                "repetitions": 1,
+                "seed": 0,
+                "pricing": {
+                    "usd_per_million_input_tokens": 1,
+                    "usd_per_million_cached_input_tokens": 0.2,
+                    "usd_per_million_output_tokens": 2,
+                },
+            }
+            config_blob = json.dumps(config).encode()
+            (output / "config.json").write_bytes(config_blob)
+            items = [
+                {"id": "s0", "index": 0, "is_eval": True, "prompt_sha256": "a"},
+                {"id": "s1", "index": 1, "is_eval": False, "prompt_sha256": "b"},
+            ]
+            blob = "\n".join(json.dumps(i) for i in items).encode()
+            (output / "inputs.jsonl").write_bytes(blob)
+            atomic_json(
+                output / "manifest.json",
+                {
+                    "config": config,
+                    "config_sha256": sha(config_blob),
+                    "inputs_sha256": sha(blob),
+                    "metric_policy": {},
+                },
+            )
+            (output / "responses").mkdir()
+            for index, label in [(0, True), (1, None)]:
+                atomic_json(
+                    output / "responses" / f"{index:04d}-00.json",
+                    {
+                        **items[index],
+                        "seed": index,
+                        "config_sha256": sha(config_blob),
+                        "label": label,
+                        "stop_reason": "length" if label is None else "stop",
+                        "input_tokens": 10,
+                        "cached_input_tokens": 2,
+                        "output_tokens": 5,
+                    },
+                )
+                result = report(output)
+                self.assertEqual(result["complete"], index == 1)
+                if index == 0:
+                    self.assertEqual(result["probability_metrics"], {})
+            self.assertEqual(result["accuracy_all_attempts_failures_incorrect"], 0.5)
+            self.assertEqual(result["accuracy_readable"], 1)
+            self.assertEqual(
+                result["probability_metrics"]["score_chance_credit"]["n"], 2
+            )
+            self.assertEqual(
+                result["probability_metrics"]["score_readable_only"]["n"], 1
+            )
+            self.assertEqual(result["length_stops"], 1)
 
 
 if __name__ == "__main__":

@@ -34,6 +34,9 @@ dev = ["ruff==0.17.0", "pyright==1.1.414"]
 
 [project.optional-dependencies]
 analysis = ["matplotlib>=3.10"]
+modal = [
+    "modal==1.6.2",
+]
 
 [tool.uv.build-backend]
 module-name = "contrastive_sdf"

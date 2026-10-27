@@ -1,0 +1,32 @@
+{
+  "name": "reward-hacker-reverse-inoculation-final",
+  "rl_step": null,
+  "checkpoint_label": "Final RL checkpoint",
+  "base_model": "openai/gpt-oss-120b",
+  "base_revision": "b5c939de8f754692c1647ca79fbf85e8c1e70f8a",
+  "adapter_repo": "uwuwuwuwuwuwu/gpt-oss-reward-hacker-reverse-inoculation-prompting-final",
+  "adapter_revision": "c13fa89b3d55901ed2a0bf1b3adfb9514879db95",
+  "weights_tool_revision": "54b3cb293038ccf2e49952e46ed5abac7119fdf8",
+  "vllm_version": "0.21.0",
+  "vllm_image": "vllm/vllm-openai@sha256:a230095847e93bd4df9888b33dab956fa9504537b828a23657d2b26fed57b5c9",
+  "gpu": "H200:2",
+  "tensor_parallel_size": 2,
+  "dtype": "bfloat16",
+  "adapter_mode": "merged-bf16",
+  "moe_backend": "triton",
+  "safetensors_load_strategy": "eager",
+  "max_model_len": 32768,
+  "max_num_seqs": 16,
+  "gpu_memory_utilization": 0.9,
+  "batch_size": 16,
+  "scaledown_window_seconds": 120,
+  "cache_volume": "contrastive-sdf-hf-cache",
+  "models_volume": "contrastive-sdf-inference-models",
+  "pricing": {
+    "checked_on": "2026-10-24",
+    "source": "https://modal.com/pricing",
+    "usd_per_gpu_second": 0.001261,
+    "gpu_count": 2,
+    "note": "GPU rate only. CPU, memory, startup, asset preparation, storage and egress are separate. Actual billed amount must be reconciled."
+  }
+}

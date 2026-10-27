@@ -143,6 +143,20 @@ class AwarenessEvaluationTests(unittest.TestCase):
                 result["probability_metrics"]["score_readable_only"]["n"], 1
             )
             self.assertEqual(result["length_stops"], 1)
+            original_summary = (output / "summary.json").read_bytes()
+            original_scores = (output / "per_transcript.json").read_bytes()
+            subset = report(output, sample_ids=["s0"], write=False)
+            self.assertEqual(subset["expected_responses"], 1)
+            self.assertEqual(subset["received_responses"], 1)
+            self.assertEqual(subset["readable_responses"], 1)
+            self.assertEqual(subset["by_true_label"]["deployment"]["responses"], 0)
+            self.assertEqual((output / "summary.json").read_bytes(), original_summary)
+            self.assertEqual(
+                (output / "per_transcript.json").read_bytes(), original_scores
+            )
+            for ids in [[], ["missing"], ["s0", "s0"]]:
+                with self.assertRaises(ValueError):
+                    report(output, sample_ids=ids, write=False)
 
 
 if __name__ == "__main__":

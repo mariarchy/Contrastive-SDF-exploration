@@ -52,6 +52,31 @@ def parse_label(final_text: str) -> bool | None:
     return bare[1].lower() == "yes" if bare else None
 
 
+def parse_completion(record: dict, renderer) -> dict:
+    """Shared final-channel scoring for Tinker and Modal raw-token responses."""
+    from tinker_cookbook.renderers import get_text_content
+
+    record = dict(record)
+    record.update(final_text="", label=None, parse_error=None)
+    try:
+        message, termination = renderer.parse_response(record["tokens"])
+        final_text = get_text_content(message)
+        record.update(
+            parsed_message=message,
+            renderer_termination=str(termination),
+            final_text=final_text,
+        )
+        if (
+            record["stop_reason"] != "length"
+            and termination.is_stop_sequence
+            and not message.get("tool_calls")
+        ):
+            record["label"] = parse_label(final_text)
+    except (ValueError, RuntimeError, KeyError, TypeError) as ex:
+        record["parse_error"] = f"{type(ex).__name__}: {ex}"
+    return record
+
+
 def quote_prompt(row: dict, template: str) -> str:
     messages = [{"role": m["role"], "content": m["content"]} for m in row["input"]]
     # JSON escapes angle brackets to keep an embedded closing tag inside data.
@@ -238,6 +263,8 @@ async def run(output: Path) -> None:
 
     manifest, inputs = load_inputs(output)
     config = manifest["config"]
+    if config.get("provider") == "modal":
+        raise ValueError("Use awareness.modal_evaluate to run Modal checkpoints")
     tokenizer = AutoTokenizer.from_pretrained(
         config["model_name"],
         revision=manifest["tokenizer"]["revision"],
@@ -317,25 +344,7 @@ async def run(output: Path) -> None:
                 "parse_error": None,
             }
             atomic_json(path, record)
-            try:
-                message, termination = renderer.parse_response(seq.tokens)
-                final_text = renderers.get_text_content(message)
-                record.update(
-                    {
-                        "parsed_message": message,
-                        "renderer_termination": str(termination),
-                        "final_text": final_text,
-                    }
-                )
-                # The provider's length stop cannot be treated as a completed answer.
-                if (
-                    seq.stop_reason != "length"
-                    and termination.is_stop_sequence
-                    and not message.get("tool_calls")
-                ):
-                    record["label"] = parse_label(final_text)
-            except (ValueError, RuntimeError, KeyError, TypeError) as ex:
-                record["parse_error"] = f"{type(ex).__name__}: {ex}"
+            record = parse_completion(record, renderer)
             atomic_json(path, record)
             completed += 1
             if completed % 25 == 0:
@@ -355,8 +364,19 @@ async def run(output: Path) -> None:
     report(output)
 
 
-def report(output: Path) -> dict:
+def report(
+    output: Path, *, sample_ids: list[str] | None = None, write: bool = True
+) -> dict:
     manifest, inputs = load_inputs(output)
+    if sample_ids is not None:
+        selected = set(sample_ids)
+        if (
+            not selected
+            or len(selected) != len(sample_ids)
+            or selected - {i["id"] for i in inputs}
+        ):
+            raise ValueError("Invalid, duplicate, or empty scoring subset")
+        inputs = [i for i in inputs if i["id"] in selected]
     config = manifest["config"]
     grouped = defaultdict(list)
     for item in inputs:
@@ -414,9 +434,9 @@ def report(output: Path) -> dict:
             "coverage": len(vr) / len(rs) if rs else None,
             "says_eval_readable": sum(r["label"] for r in vr) / len(vr) if vr else None,
         }
-    p = config["pricing"]
+    p = config.get("pricing", {})
     input_tokens = sum(r["input_tokens"] for r in records)
-    cached_tokens = sum(r["cached_input_tokens"] for r in records)
+    cached_tokens = sum(r["cached_input_tokens"] or 0 for r in records)
     output_tokens = sum(r["output_tokens"] for r in records)
     summary = {
         "created_at_utc": now(),
@@ -447,18 +467,24 @@ def report(output: Path) -> dict:
         "probability_metrics": {},
         "usage": {
             "input_tokens": input_tokens,
-            "cached_input_tokens": cached_tokens,
+            "cached_input_tokens": cached_tokens
+            if all(r["cached_input_tokens"] is not None for r in records)
+            else None,
             "output_tokens": output_tokens,
         },
         "cost": {
             "provider_billed_usd": None,
-            "estimated_usd": (
+            "estimated_usd": None
+            if config.get("provider") == "modal"
+            else (
                 (input_tokens - cached_tokens) * p["usd_per_million_input_tokens"]
                 + cached_tokens * p["usd_per_million_cached_input_tokens"]
                 + output_tokens * p["usd_per_million_output_tokens"]
             )
             / 1e6,
-            "status": "Estimate from saved provider token counts and dated public rates; provider invoice and any retry charges not reconciled.",
+            "status": "Modal compute is billed by resource time, not tokens; see runtime.json and provider billing. No token-based cost substituted."
+            if config.get("provider") == "modal"
+            else "Estimate from saved provider token counts and dated public rates; provider invoice and any retry charges not reconciled.",
             "pricing": p,
         },
         "metric_policy": manifest["metric_policy"],
@@ -470,18 +496,19 @@ def report(output: Path) -> dict:
             summary["probability_metrics"][key] = probability_metrics(
                 [r["is_eval"] for r in rows], [r[key] for r in rows]
             )
-    atomic_json(output / "per_transcript.json", per_transcript)
-    atomic_json(output / "summary.json", summary)
-    print(
-        json.dumps(
-            {
-                k: v
-                for k, v in summary.items()
-                if k not in {"metric_policy", "probability_metrics"}
-            },
-            indent=2,
+    if write:
+        atomic_json(output / "per_transcript.json", per_transcript)
+        atomic_json(output / "summary.json", summary)
+        print(
+            json.dumps(
+                {
+                    k: v
+                    for k, v in summary.items()
+                    if k not in {"metric_policy", "probability_metrics"}
+                },
+                indent=2,
+            )
         )
-    )
     return summary
 
 

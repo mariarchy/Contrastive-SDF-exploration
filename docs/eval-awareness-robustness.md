@@ -71,6 +71,24 @@ annotations contribute unknown-label bounds, rather than negative category label
 This suite does not measure category prevalence among correct replies or infer
 causal mediation from stated reasoning.
 
+The reasoning viewer also derives combinations and pairwise associations from
+accepted annotations, separately for each model:
+
+- Exact A–C combinations partition replies; flags do not affect the combination.
+- For labels X and Y, conditional rates are `both / X` and
+  `(Y - both) / (N - X)`. Their difference is shown in percentage points.
+- Lift is `both * N / (X * Y)`, where N is the number of valid annotations.
+  A value of 1 means the overlap equals that expected under independence.
+- If either label is present in none or all replies, lift and the difference
+  are displayed as undefined. Failed/pending annotations are excluded.
+- Combination counts, heatmap cells and pair-table counts open matching replies.
+  Exact combinations exclude additional categories; pair filters allow them.
+
+These views use descriptive reply counts without confidence intervals. Repeated
+replies share transcripts, and label definitions can themselves create overlap.
+The report template and embedded annotations fully determine the displayed metrics;
+regenerating the viewer makes no inference calls.
+
 ## Artifacts and execution
 
 Local/private output: `logs/eval-awareness/robustness-v1/`.
@@ -117,3 +135,32 @@ test. Resume retained all 904 accepted annotations, including 894 reused labels,
 without resubmission. The completion watcher now lets annotation of completed
 comparisons finish even if inference is stopped externally. Failed inference is
 shown as stopped in the report, rather than running or queued.
+
+## Resume on 28 October 2026
+
+Modal again disabled the preceding inference apps at approximately 15:01 UTC on
+27 October. Native-history inference completed; the plain-text final run saved
+2,480 replies and bottom-position base saved 976. At the next resume there were
+20,066 saved replies and 9,934 missing replies across the twelve runs. Both
+author-alignment definitions remain included; no task-comprehension conditions
+were added.
+
+At 21:21 UTC on 28 October, Modal accepted apps `ap-rakWa0hz8StOKzwfVHlrac`
+(base) and `ap-smeXNDxv4Hkb2vAyNjG86E` (final). The archive
+`attempts/before-resume-2026-10-28T21-21-48.698285+00-00/` records every saved
+reply hash and preceding runner and serving receipts. All 20,066 hashes were
+checked unchanged immediately after launch. The unrelated training app was left
+running. The shared inference method was extracted into `generate_tokens` by
+other work; its sampling parameters, validation, token handling and result
+fields were checked equivalent to the archived inline implementation.
+
+Omission reasoning annotation finished with 1,424 accepted labels and one case
+that exhausted its two validation attempts; that case remains unknown.
+Native-history annotation had stopped at 180 accepted cases after an explicit
+HTTP 503 `server_is_overloaded` response. The runner now drains outstanding
+requests and waits 30 seconds before continuing after that specific response.
+It retains the original two-attempt limit, frozen request bodies and unresolved
+cost reservations. Three overload rounds without accepted progress stop the
+runner; other API errors and unknown transport outcomes still stop it. Mocked
+tests cover recovery, identical retries, retained reservations and retry limits.
+The targeted suite passed 53 tests, with lint, formatting and type checks passing.

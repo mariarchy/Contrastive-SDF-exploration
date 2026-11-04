@@ -182,6 +182,20 @@ def finish_attempt(output: Path, state: dict, item: dict, attempt: dict, respons
     return response.status_code
 
 
+def service_overloaded(response) -> bool:
+    if response.status_code != 503:
+        return False
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    return (
+        isinstance(body, dict)
+        and isinstance(body.get("error"), dict)
+        and body["error"].get("code") == "server_is_overloaded"
+    )
+
+
 def run(output: Path, workers: int = 8):
     switch = prepare_switch(output)
     _, cases, schema = load_run(output)
@@ -198,7 +212,9 @@ def run(output: Path, workers: int = 8):
         atomic_json(output / "regular_model_access_receipt.json", model)
         reconcile_batches(client, output, state, by_id)
         with ThreadPoolExecutor(max_workers=workers) as executor:
+            overload_rounds_without_progress = 0
             while True:
+                accepted_before = len(state["accepted"])
                 preflight = [by_id[key] for key in switch["preflight_item_ids"]]
                 stage = (
                     cases
@@ -209,6 +225,7 @@ def run(output: Path, workers: int = 8):
                 candidates = iter([c for c in stage if eligible(c, state)])
                 stop_submitting = False
                 saw_api_error = False
+                saw_overload = False
                 while True:
                     while len(pending_futures) < workers and not stop_submitting:
                         item = next(candidates, None)
@@ -261,7 +278,10 @@ def run(output: Path, workers: int = 8):
                         code = finish_attempt(output, state, item, attempt, response)
                         if code >= 400 and code != 429:
                             stop_submitting = True
-                            saw_api_error = True
+                            if service_overloaded(response):
+                                saw_overload = True
+                            else:
+                                saw_api_error = True
                     accepted = len(state["accepted"])
                     if accepted % 20 == 0 or stage is preflight:
                         print(
@@ -298,17 +318,6 @@ def run(output: Path, workers: int = 8):
                     raise RuntimeError(
                         "A regular request has an unknown outcome; inspect saved intent before any retry"
                     )
-                if stop_submitting:
-                    if not saw_api_error and any(
-                        eligible(c, state)
-                        and c["reservation"]["usd"] * 2
-                        <= ledger(state)["available_usd"]
-                        for c in stage
-                    ):
-                        continue  # Completed requests released enough of their reservations.
-                    raise RuntimeError(
-                        "Stopped submissions after an API error or insufficient remaining budget; inspect saved replies and ledger"
-                    )
                 if stage is preflight and all(
                     c["item_id"] in state["accepted"] for c in preflight
                 ):
@@ -322,6 +331,33 @@ def run(output: Path, workers: int = 8):
                 ):
                     raise RuntimeError(
                         "Preflight exhausted its identical retries; inspect failures"
+                    )
+                if stop_submitting:
+                    affordable = any(
+                        eligible(c, state)
+                        and c["reservation"]["usd"] * 2
+                        <= ledger(state)["available_usd"]
+                        for c in stage
+                    )
+                    if saw_overload:
+                        overload_rounds_without_progress = (
+                            0
+                            if len(state["accepted"]) > accepted_before
+                            else overload_rounds_without_progress + 1
+                        )
+                        if (
+                            not saw_api_error
+                            and affordable
+                            and overload_rounds_without_progress < 3
+                        ):
+                            # Keep the unresolved charge reserved and the original
+                            # two-attempt limit; back off only on explicit overload.
+                            time.sleep(30)
+                            continue
+                    elif not saw_api_error and affordable:
+                        continue  # Completed requests released enough of their reservations.
+                    raise RuntimeError(
+                        "Stopped submissions after an API error or insufficient remaining budget; inspect saved replies and ledger"
                     )
                 retryable = [c for c in stage if eligible(c, state)]
                 if not retryable:

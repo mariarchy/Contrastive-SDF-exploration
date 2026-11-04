@@ -25,6 +25,7 @@ from contrastive_sdf.evals.awareness.classify_reasoning_regular import (
     finish_attempt,
     reconcile_batches,
     run,
+    service_overloaded,
 )
 from tests.evals.test_awareness_reasoning import item, result, state
 
@@ -38,6 +39,110 @@ def frozen_item():
 
 
 class RegularReasoningTests(unittest.TestCase):
+    def run_overload_fixture(self, output, responses):
+        cases = [frozen_item(), {**frozen_item(), "item_id": "two"}]
+        (output / "prompt.md").write_text("prompt")
+        (output / "state.json").write_text(json.dumps(state()))
+
+        def summary(*_args, **_kwargs):
+            saved = json.loads((output / "state.json").read_text())
+            failed = sum(
+                c["item_id"] not in saved["accepted"]
+                and counted_attempts(saved["attempts"].get(c["item_id"], [])) >= 2
+                for c in cases
+            )
+            return {
+                "accepted": len(saved["accepted"]),
+                "failed": failed,
+                "pending": len(cases) - len(saved["accepted"]) - failed,
+                "cost": ledger(saved),
+            }
+
+        with (
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.prepare_switch",
+                return_value={"preflight_item_ids": ["one"]},
+            ),
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.load_run",
+                return_value=({}, cases, Annotation.model_json_schema()),
+            ),
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.reconcile_batches"
+            ),
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.report",
+                side_effect=summary,
+            ),
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.api_request",
+                return_value=httpx.Response(200, json={"id": "synthetic"}),
+            ),
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.httpx.Client"
+            ) as client,
+            patch(
+                "contrastive_sdf.evals.awareness.classify_reasoning_regular.time.sleep"
+            ) as sleep,
+            patch.dict("os.environ", {"OPENAI_API_KEY": "synthetic-test-key"}),
+        ):
+            post = client.return_value.__enter__.return_value.post
+            post.side_effect = responses
+            try:
+                completed = run(output, workers=1)
+            finally:
+                self.assertLessEqual(post.call_count, len(responses))
+            return completed, post.call_args_list, sleep.call_args_list
+
+    def test_explicit_overload_retries_identical_body_and_keeps_unknown_charge(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            completed, calls, sleeps = self.run_overload_fixture(
+                output,
+                [
+                    httpx.Response(
+                        503, json={"error": {"code": "server_is_overloaded"}}
+                    ),
+                    httpx.Response(200, json=result("unused")["response"]["body"]),
+                    httpx.Response(200, json=result("unused")["response"]["body"]),
+                ],
+            )
+            self.assertEqual(completed["accepted"], 2)
+            self.assertEqual(len(calls), 3)
+            self.assertEqual(calls[0].kwargs["json"], calls[1].kwargs["json"])
+            self.assertEqual([call.args for call in sleeps], [(30,)])
+            saved = json.loads((output / "state.json").read_text())
+            self.assertEqual(counted_attempts(saved["attempts"]["one"]), 2)
+            self.assertAlmostEqual(ledger(saved)["reserved_usd"], 0.04)
+            self.assertFalse(saved["attempts"]["one"][0]["settled"])
+            self.assertFalse(eligible(frozen_item(), saved))
+
+    def test_overload_does_not_bypass_two_attempt_preflight_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            with self.assertRaisesRegex(RuntimeError, "Preflight exhausted"):
+                self.run_overload_fixture(
+                    output,
+                    [
+                        httpx.Response(
+                            503, json={"error": {"code": "server_is_overloaded"}}
+                        )
+                        for _ in range(2)
+                    ],
+                )
+            saved = json.loads((output / "state.json").read_text())
+            self.assertEqual(counted_attempts(saved["attempts"]["one"]), 2)
+            self.assertAlmostEqual(ledger(saved)["reserved_usd"], 0.08)
+
+    def test_other_api_failures_are_not_overload_retries(self):
+        for response in [
+            httpx.Response(500, json={"error": {"code": "server_is_overloaded"}}),
+            httpx.Response(503, json={"error": {"code": "other_error"}}),
+            httpx.Response(503, text="temporarily unavailable"),
+            httpx.Response(503, json=[]),
+        ]:
+            self.assertFalse(service_overloaded(response))
+
     def test_successful_preflight_advances_to_remaining_cases_without_resubmission(
         self,
     ):

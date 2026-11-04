@@ -1,5 +1,6 @@
 """Evaluate saved targets, preserving receipts and complete repetition coverage."""
 
+import asyncio
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -27,6 +28,7 @@ async def evaluate_point(
     *,
     loaded=None,
     names=None,
+    runner=None,
 ):
     contract = load_experiment_plan(config).contract
     for suite in selected_suites(names or contract.evaluation.suites):
@@ -107,7 +109,20 @@ async def evaluate_point(
                         )
                         / 1e6
                     )
-                if backend == "tinker":
+                if runner is not None:
+                    single = replace(
+                        plan,
+                        repetitions=1,
+                        log_dir=run.log_dir,
+                        settings=run.settings,
+                        metadata=run.metadata,
+                        repetition_seed_stride=0,
+                    )
+                    if hasattr(runner, "run_async"):
+                        await runner.run_async(single)
+                    else:
+                        await asyncio.to_thread(runner.run, single)
+                elif backend == "tinker":
                     from tinker_cookbook.eval.run_inspect_evals import (
                         main as run_inspect,
                     )

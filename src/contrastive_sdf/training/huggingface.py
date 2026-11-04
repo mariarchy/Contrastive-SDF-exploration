@@ -13,7 +13,9 @@ from contrastive_sdf.training.documents import (
 )
 
 
-def load_starting_model(target, options, *, sdf_adapter=None, trainable=False):
+def load_starting_model(
+    target, options, *, sdf_adapter=None, trainable=False, prepared_model_path=None
+):
     import torch
     from peft import PeftModel
     from peft.tuners.lora.model import LoraModel
@@ -28,15 +30,31 @@ def load_starting_model(target, options, *, sdf_adapter=None, trainable=False):
         "dtype": getattr(torch, options.dtype),
         "device_map": options.device_map,
     }
-    if options.dequantize:
+    if options.experts_implementation is not None:
+        kwargs["experts_implementation"] = options.experts_implementation
+    if prepared_model_path is not None:
+        from contrastive_sdf.training.modal_support import verify_prepared_model
+
+        verify_prepared_model(Path(prepared_model_path), target)
+        kwargs.pop("revision")
+        if torch.cuda.is_available():
+            kwargs["max_memory"] = {
+                i: int(torch.cuda.get_device_properties(i).total_memory * 0.70)
+                for i in range(torch.cuda.device_count())
+            }
+    elif options.dequantize:
         kwargs["quantization_config"] = Mxfp4Config(dequantize=True)
-    base = AutoModelForCausalLM.from_pretrained(target.base_model, **kwargs)
+    base = AutoModelForCausalLM.from_pretrained(
+        prepared_model_path or target.base_model, **kwargs
+    )
     tokenizer = AutoTokenizer.from_pretrained(
         target.base_model, revision=target.revision
     )
     initial = target.initial_adapter
-    if initial is not None and (
-        initial.strategy == "merge_then_new" or sdf_adapter is None
+    if (
+        prepared_model_path is None
+        and initial is not None
+        and (initial.strategy == "merge_then_new" or sdf_adapter is None)
     ):
         if initial.strategy == "merge_then_new" and getattr(
             base, "is_quantized", False
@@ -54,7 +72,12 @@ def load_starting_model(target, options, *, sdf_adapter=None, trainable=False):
             assert isinstance(base.base_model, LoraModel)
             base = cast(PreTrainedModel, base.base_model.merge_and_unload())
     if sdf_adapter is not None:
-        base = PeftModel.from_pretrained(base, sdf_adapter, is_trainable=trainable)
+        if options.expert_lora == "tinker_shared_outer":
+            from contrastive_sdf.training.shared_outer import load_shared_adapter
+
+            base = load_shared_adapter(base, sdf_adapter, trainable=trainable)
+        else:
+            base = PeftModel.from_pretrained(base, sdf_adapter, is_trainable=trainable)
     return base, tokenizer
 
 
@@ -92,6 +115,8 @@ def train_hf_batches(
     resume=None,
     torch_module=None,
     total_steps=None,
+    on_batch=None,
+    microbatch_documents=1,
 ):
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +125,8 @@ def train_hf_batches(
     torch = torch_module
     training = materialized.run.shared.training
     options = training.hf
+    if microbatch_documents < 1:
+        raise ValueError("microbatch_documents must be positive")
     if options.gradient_checkpointing:
         model.gradient_checkpointing_enable(
             gradient_checkpointing_kwargs={"use_reentrant": False}
@@ -142,15 +169,23 @@ def train_hf_batches(
         optimizer.zero_grad(set_to_none=True)
         batch_tokens = sum(doc.training_tokens for doc in batch)
         mean_loss = 0.0
-        for doc in batch:
-            inputs = torch.tensor(
-                [doc.tokens],
-                dtype=torch.long,
-                device=model.get_input_embeddings().weight.device,
+        for start in range(0, len(batch), microbatch_documents):
+            documents = batch[start : start + microbatch_documents]
+            tokens = sum(doc.training_tokens for doc in documents)
+            if microbatch_documents == 1:
+                inputs = torch.tensor(
+                    [documents[0].tokens],
+                    dtype=torch.long,
+                    device=model.get_input_embeddings().weight.device,
+                )
+                loss = model(input_ids=inputs, labels=inputs).loss
+            else:
+                loss = padded_document_loss(model, documents, torch_module=torch)
+            weight = tokens / batch_tokens
+            backward_weight = (
+                tokens if options.loss_reduction == "token_sum" else weight
             )
-            loss = model(input_ids=inputs, labels=inputs).loss
-            weight = doc.training_tokens / batch_tokens
-            (loss * weight).backward()
+            (loss * backward_weight).backward()
             mean_loss += loss.detach().float().item() * weight
         if training.optimizer.grad_clip_norm > 0:
             torch.nn.utils.clip_grad_norm_(
@@ -170,10 +205,13 @@ def train_hf_batches(
                         "elapsed_tokens": elapsed_tokens,
                         "train_mean_nll": mean_loss,
                         "elapsed_seconds": time.monotonic() - started,
+                        "microbatch_documents": microbatch_documents,
                     }
                 )
                 + "\n"
             )
+        if on_batch is not None:
+            on_batch(step + 1)
         if elapsed_documents in evaluation_documents or step + 1 == len(
             materialized.batches
         ):
@@ -222,7 +260,38 @@ def train_hf_batches(
     }
 
 
+def padded_document_loss(model, documents, *, torch_module=None):
+    """Right-pad complete documents with independent attention and masked labels."""
+    if torch_module is None:
+        import torch as torch_module
+    torch = torch_module
+    device = model.get_input_embeddings().weight.device
+    length = max(len(doc.tokens) for doc in documents)
+    inputs = torch.zeros((len(documents), length), dtype=torch.long, device=device)
+    labels = torch.full_like(inputs, -100)
+    mask = torch.zeros_like(inputs)
+    for row, doc in enumerate(documents):
+        values = torch.tensor(doc.tokens, dtype=torch.long, device=device)
+        inputs[row, : len(values)] = values
+        labels[row, : len(values)] = values
+        mask[row, : len(values)] = 1
+    return model(input_ids=inputs, attention_mask=mask, labels=labels).loss
+
+
 class HFBackend:
+    def __init__(
+        self,
+        *,
+        prepared_model_path=None,
+        on_batch=None,
+        microbatch_documents=1,
+        operational_checkpoint_documents=(),
+    ):
+        self.prepared_model_path = prepared_model_path
+        self.on_batch = on_batch
+        self.microbatch_documents = microbatch_documents
+        self.operational_checkpoint_documents = operational_checkpoint_documents
+
     def train(
         self,
         plan,
@@ -309,6 +378,7 @@ class HFBackend:
             options,
             sdf_adapter=resume["adapter_path"] if resume else None,
             trainable=True,
+            prepared_model_path=self.prepared_model_path,
         )
         if options.device_map == "auto" and any(
             device in {"cpu", "disk"}
@@ -364,6 +434,12 @@ class HFBackend:
                         rank_pattern=options.rank_pattern,
                     ),
                 )
+                if options.expert_lora == "tinker_shared_outer":
+                    from contrastive_sdf.training.shared_outer import (
+                        install_shared_outer,
+                    )
+
+                    install_shared_outer(model)
         assert isinstance(model, PeftModel)
         atomic_json(
             log_dir / "trainable_parameters.json",
@@ -394,11 +470,16 @@ class HFBackend:
                 active,
                 log_dir,
                 evaluation_documents=tuple(
-                    plan.contract.execution.evaluate_after_documents
+                    sorted(
+                        set(plan.contract.execution.evaluate_after_documents)
+                        | set(self.operational_checkpoint_documents)
+                    )
                 ),
                 on_checkpoint=on_checkpoint,
                 resume=resume,
                 total_steps=len(full.batches),
+                on_batch=self.on_batch,
+                microbatch_documents=self.microbatch_documents,
             )
             return {
                 **result,

@@ -169,6 +169,9 @@ class HFOptions(StrictModel):
     device_map: Literal["auto", "cpu"] = "auto"
     gradient_checkpointing: bool = True
     max_document_tokens: PositiveInt | None = None
+    experts_implementation: Literal["eager", "grouped_mm"] | None = None
+    expert_lora: Literal["peft", "tinker_shared_outer"] = "peft"
+    loss_reduction: Literal["token_mean", "token_sum"] = "token_mean"
 
 
 class ExperimentTraining(TrainingConfig):

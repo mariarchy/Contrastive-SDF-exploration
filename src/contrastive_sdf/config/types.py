@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Generic, Literal, TypeVar
+from typing import Annotated, Generic, Literal
 
 from pydantic import (
     BaseModel,
@@ -12,6 +12,7 @@ from pydantic import (
     StringConstraints,
     model_validator,
 )
+from typing_extensions import TypeVar  # noqa: UP035 — Modal training uses Python 3.12
 
 NonEmptyString = Annotated[
     str,
@@ -163,4 +164,12 @@ class SDFRun(StrictModel, Generic[SharedT_co, CorpusT_co]):
             hf.pop("rank_pattern", None)
         if not hf.get("dequantize"):
             hf.pop("dequantize", None)
+        if hf.get("experts_implementation") is None:
+            hf.pop("experts_implementation", None)
+        for field, default in (
+            ("expert_lora", "peft"),
+            ("loss_reduction", "token_mean"),
+        ):
+            if hf.get(field) == default:
+                hf.pop(field, None)
         return result

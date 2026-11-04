@@ -1,0 +1,1348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eval awareness · checkpoint explorer</title>
+<style>
+:root {
+  --ink:#203238;
+  --muted:#5a6a70;
+  --accent:#17685e;
+  --second:#956039;
+  --line:#dce4e2;
+  --wash:#f4f7f6;
+  --paper:#fff;
+  --eval:#17685e;
+  --deploy:#956039;
+  --highlight:#e1eee7
+}
+* {
+  box-sizing:border-box
+}
+body {
+  margin:0;
+  font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  color:var(--ink);
+  background:var(--paper)
+}
+main {
+  max-width:1280px;
+  margin:auto;
+  padding:32px
+}
+h1 {
+  font-size:28px;
+  line-height:1.25;
+  margin:8px 0 10px;
+  letter-spacing:-.025em
+}
+h2 {
+  font-size:21px;
+  line-height:1.35;
+  margin:0 0 12px
+}
+h3 {
+  font-size:16px;
+  line-height:1.4;
+  margin:24px 0 10px
+}
+h4 {
+  font-size:15px;
+  line-height:1.4;
+  margin:0 0 10px
+}
+p {
+  margin:8px 0
+}
+a {
+  color:var(--accent);
+  text-underline-offset:3px
+}
+nav {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 24px;
+  border-bottom:1px solid var(--line);
+  padding:18px 0;
+  margin-bottom:20px
+}
+section[id] {
+  scroll-margin-top:24px
+}
+main>section {
+  padding:28px 0;
+  border-bottom:1px solid var(--line)
+}
+.small,.caption {
+  font-size:12.5px;
+  line-height:1.6;
+  color:var(--muted)
+}
+.notice {
+  border-left:2px solid var(--accent);
+  padding:10px 16px;
+  background:var(--wash);
+  margin:18px 0
+}
+.cards {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(175px,1fr));
+  gap:12px;
+  margin:18px 0
+}
+.card {
+  background:var(--wash);
+  padding:16px
+}
+.value {
+  font-size:24px;
+  font-weight:650;
+  margin:5px 0;
+  font-variant-numeric:tabular-nums
+}
+.label {
+  font-size:13px;
+  color:var(--muted)
+}
+.charts {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px
+}
+.chart {
+  background:var(--wash);
+  padding:20px
+}
+.chart h3 {
+  margin-top:0
+}
+.chart svg {
+  width:100%;
+  height:auto
+}
+.table-wrap {
+  overflow-x:auto;
+  margin:12px 0 20px
+}
+table {
+  width:100%;
+  border-collapse:collapse;
+  background:var(--paper);
+  font-size:14px
+}
+td,th {
+  padding:16px;
+  text-align:left;
+  border-bottom:1px solid var(--line);
+  vertical-align:top
+}
+th {
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--muted);
+  background:var(--wash)
+}
+tbody tr:last-child>td,tbody tr:last-child>th {
+  border-bottom:0
+}
+.numeric-table {
+  font-variant-numeric:tabular-nums
+}
+.numeric-table th:not(:first-child),.numeric-table td:not(:first-child) {
+  text-align:right
+}
+.frequency-table {
+  table-layout:fixed;
+  min-width:580px
+}
+.frequency-table th:first-child {
+  width:46%
+}
+.frequency-table td {
+  vertical-align:middle
+}
+.frequency-table td:first-child p {
+  max-width:42ch;
+  margin-bottom:0
+}
+.frequency-table .track {
+  height:4px;
+  max-width:210px;
+  margin:9px 0 0 auto
+}
+.frequency-button {
+  border:0;
+  background:none;
+  width:100%;
+  padding:2px 0;
+  text-align:right;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:2px
+}
+.frequency-button strong {
+  font-size:20px;
+  line-height:1.3;
+  font-weight:600;
+  font-variant-numeric:tabular-nums
+}
+.frequency-button:hover strong {
+  text-decoration:underline;
+  text-underline-offset:4px
+}
+.frequency-button:hover {
+  background:var(--wash)
+}
+.table-run {
+  display:block;
+  color:var(--ink);
+  font-size:14px
+}
+.table-denominator {
+  display:block;
+  font-size:12px;
+  font-weight:400;
+  margin-top:3px
+}
+.controls {
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin:15px 0
+}
+input,select,button {
+  font:inherit;
+  color:var(--ink);
+  padding:9px 11px;
+  border:1px solid var(--line);
+  background:var(--paper);
+  border-radius:5px
+}
+input[type=search] {
+  flex:1;
+  min-width:160px
+}
+button {
+  cursor:pointer
+}
+button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible,select:focus-visible {
+  outline:2px solid var(--accent);
+  outline-offset:3px
+}
+button.active {
+  color:var(--accent);
+  border-color:var(--accent);
+  font-weight:600
+}
+.case-controls {
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) 180px 230px;
+  gap:12px;
+  margin:18px 0 10px
+}
+.field {
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  min-width:0
+}
+.field>span {
+  font-size:12px;
+  font-weight:600;
+  color:var(--muted)
+}
+.field input,.field select {
+  width:100%;
+  min-width:0
+}
+.filter-extras {
+  margin:8px 0
+}
+.filter-extras .controls {
+  align-items:end
+}
+.filter-extras .field {
+  min-width:170px;
+  max-width:300px;
+  flex:1
+}
+.filter-heading {
+  display:flex;
+  gap:18px;
+  align-items:baseline
+}
+.quiet-button {
+  padding:3px 0;
+  border:0;
+  font-size:13px;
+  color:var(--muted);
+  text-decoration:underline;
+  text-underline-offset:3px
+}
+.explorer {
+  display:grid;
+  grid-template-columns:290px minmax(0,1fr);
+  gap:24px;
+  align-items:start
+}
+.list {
+  position:sticky;
+  top:16px;
+  max-height:calc(100vh - 48px);
+  overflow:auto;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--paper);
+  overscroll-behavior:contain
+}
+.item {
+  display:block;
+  width:100%;
+  border:0;
+  border-bottom:1px solid var(--line);
+  text-align:left;
+  border-radius:0;
+  padding:14px 15px
+}
+.item:last-child {
+  border-bottom:0
+}
+.item:hover {
+  background:var(--wash)
+}
+.item.selected {
+  background:var(--wash);
+  border-left:3px solid var(--accent);
+  padding-left:12px
+}
+.item>strong {
+  font-size:13px;
+  overflow-wrap:anywhere;
+  font-weight:600
+}
+.item .snippet {
+  font-size:13px;
+  color:var(--muted);
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  line-height:1.55;
+  margin-top:6px
+}
+.item-meta {
+  display:flex;
+  gap:7px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:5px;
+  font-size:12px;
+  color:var(--muted)
+}
+.reason-tags {
+  display:flex;
+  gap:5px;
+  margin-top:8px
+}
+.reason-tag {
+  font-size:11px;
+  line-height:1.5;
+  padding:1px 6px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  color:var(--muted)
+}
+.detail {
+  min-width:0;
+  background:var(--paper);
+  padding:0 4px 24px
+}
+.detail>h3:first-child {
+  font-size:18px;
+  margin:0 0 8px;
+  overflow-wrap:anywhere
+}
+.message {
+  border-top:1px solid var(--line);
+  padding:15px 0
+}
+.role,.kicker {
+  font-size:11px;
+  letter-spacing:.06em;
+  font-weight:650;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:8px
+}
+.role {
+  color:var(--accent)
+}
+pre {
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  font:12px/1.65 ui-monospace,SFMono-Regular,monospace;
+  margin:10px 0;
+  color:var(--muted)
+}
+.reading-text {
+  font:15px/1.8 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  max-width:76ch
+}
+.reading-text mark {
+  background:var(--highlight);
+  color:inherit;
+  border-radius:2px;
+  padding:1px 0
+}
+.answer-panel {
+  background:var(--wash);
+  padding:18px 20px;
+  margin:20px 0 14px;
+  border-radius:5px
+}
+.answer-panel .reading-text {
+  font-size:15px;
+  line-height:1.75
+}
+.evidence-card {
+  padding:18px 0;
+  border-bottom:1px solid var(--line)
+}
+.evidence-card:last-child {
+  border-bottom:0
+}
+.evidence-quote {
+  margin:12px 0 0
+}
+.evidence-quote figcaption {
+  font-size:11px;
+  color:var(--muted);
+  margin-bottom:5px
+}
+.evidence-quote blockquote {
+  margin:0;
+  padding:3px 0 3px 15px;
+  border-left:2px solid var(--line);
+  font:14px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  max-width:76ch
+}
+.classifier-note {
+  font-size:13px;
+  color:var(--muted);
+  margin-top:12px
+}
+.classifier-note p {
+  white-space:pre-wrap;
+  max-width:76ch
+}
+.reading-notes {
+  padding-left:19px;
+  max-width:90ch;
+  font-size:14px
+}
+.reading-notes li {
+  margin:8px 0
+}
+.status-line {
+  font-size:14px;
+  font-variant-numeric:tabular-nums;
+  color:var(--muted);
+  margin-bottom:20px
+}
+.case-meta {
+  display:flex;
+  gap:7px 14px;
+  flex-wrap:wrap;
+  align-items:center;
+  color:var(--muted);
+  font-size:13px
+}
+.case-meta .pill {
+  color:var(--accent)
+}
+.text-part+.text-part {
+  margin-top:18px
+}
+.text-part-label {
+  font-size:11px;
+  color:var(--muted);
+  margin:10px 0 4px
+}
+details {
+  margin:12px 0
+}
+summary {
+  cursor:pointer;
+  font-size:13px;
+  font-weight:550;
+  color:var(--muted)
+}
+details[open]>summary {
+  margin-bottom:12px;
+  color:var(--ink)
+}
+.trace-disclosure {
+  padding:13px 0;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  margin:16px 0 20px
+}
+.trace-disclosure>summary {
+  font-size:14px;
+  color:var(--ink)
+}
+.trace-disclosure .reading-text {
+  margin-top:12px
+}
+.technical {
+  margin-top:20px
+}
+.response {
+  border:1px solid var(--line);
+  border-radius:5px;
+  padding:18px;
+  margin-top:14px
+}
+.response[data-selected=true] {
+  border-color:var(--accent)
+}
+.response header {
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:12px
+}
+.response>details:last-child {
+  margin-bottom:0
+}
+.flow {
+  display:flex;
+  align-items:stretch;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:20px 0
+}
+.flow>div {
+  flex:1;
+  min-width:180px;
+  background:var(--wash);
+  padding:16px
+}
+.flow strong {
+  display:block;
+  margin-bottom:6px
+}
+.flow .arrow {
+  flex:0;
+  min-width:0;
+  padding:16px 0;
+  background:none;
+  color:var(--accent)
+}
+code {
+  font-size:12px;
+  overflow-wrap:anywhere
+}
+.bar {
+  display:grid;
+  grid-template-columns:180px 1fr 55px;
+  align-items:center;
+  gap:10px;
+  margin:12px 0
+}
+.track {
+  height:10px;
+  background:var(--line)
+}
+.fill {
+  height:100%;
+  background:var(--accent)
+}
+.second {
+  background:var(--second)
+}
+.legend {
+  display:flex;
+  gap:18px;
+  font-size:12px;
+  margin-bottom:12px
+}
+.swatch {
+  display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:2px;
+  margin-right:6px
+}
+.wide {
+  grid-column:1/-1
+}
+footer {
+  padding:20px 0;
+  margin-top:16px
+}
+.pill {
+  font-size:12px;
+  background:var(--wash);
+  padding:3px 8px;
+  display:inline-block;
+  border-radius:4px
+}
+.counting-rules {
+  max-width:88ch
+}
+.counting-rules ul {
+  padding-left:20px;
+  font-size:13px;
+  color:var(--muted)
+}
+.setup {
+  margin:14px 0 8px
+}
+.setup p {
+  font-size:13px;
+  color:var(--muted)
+}
+@media(max-width:900px) {
+  main {
+    padding:24px
+  }
+  .case-controls {
+    grid-template-columns:minmax(180px,1fr) 160px
+  }
+  .case-controls .field:first-child {
+    grid-column:1/-1
+  }
+  .explorer {
+    grid-template-columns:250px minmax(0,1fr);
+    gap:18px
+  }
+  .frequency-table th:first-child {
+    width:42%
+  }
+}
+@media(max-width:700px) {
+  main {
+    padding:18px
+  }
+  .charts,.explorer {
+    grid-template-columns:1fr
+  }
+  .list {
+    position:static;
+    max-height:300px
+  }
+  .case-controls {
+    grid-template-columns:1fr 1fr
+  }
+  .case-controls .field:first-child {
+    grid-column:1/-1
+  }
+  .bar {
+    grid-template-columns:120px 1fr 45px
+  }
+  h1 {
+    font-size:24px
+  }
+  nav {
+    gap:8px 18px
+  }
+  .detail {
+    padding-top:8px
+  }
+  .reading-text {
+    font-size:15px
+  }
+  .frequency-table {
+    min-width:480px
+  }
+  td,th {
+    padding:12px
+  }
+  .frequency-button strong {
+    font-size:18px
+  }
+  .answer-panel {
+    padding:15px
+  }
+  .filter-extras .field {
+    max-width:none
+  }
+}
+</style>
+</head>
+<body><main>
+<header><div class="small">STEP 1 · FROZEN NEEDHAM CHAT PROTOCOL</div><h1 id="report-title">Eval awareness across checkpoints</h1><p id="report-intro">Evaluation vs deployment across checkpoints.</p><nav><a id="annotations-link" href="#annotations" hidden>Reasons</a><a id="annotation-cases-link" href="#annotation-cases" hidden>Cases</a><a href="#overview">Eval results</a><a id="reasoning-link" href="#reasoning" hidden>Reasoning guide</a><a href="#explore">All transcripts</a><a href="#architecture">Serving</a><a href="#protocol">Protocol</a></nav></header>
+<div id="template-notice" class="notice" hidden><strong>This is the report template.</strong><p>The completed measurements and model replies are saved in the generated report.</p><a href="../../../../logs/eval-awareness/checkpoint-report.html#overview">Open the completed report</a></div>
+<div id="planned"></div>
+<details class="setup"><summary>Evaluation setup & prompt</summary><p id="protocol-description"></p><pre id="prompt-template"></pre></details>
+<section id="annotations" hidden>
+<h2>Reasons behind false positives</h2>
+<p id="annotation-status" class="status-line"></p>
+<p class="small">Percent of valid annotations in each model’s false-positive replies. Categories overlap. Click a percentage to browse its cases.</p>
+<div class="table-wrap"><table id="annotation-categories" class="frequency-table numeric-table"></table></div>
+<details class="counting-rules"><summary>How to read these counts</summary><ul>
+<li>A false positive is a “yes / eval” answer to a deployment-labelled transcript.</li>
+<li>A–C include reasons for either origin, even if another reason outweighs them. They describe stated reasons, not exclusive causes of the answer.</li>
+<li>One case is one reply. Up to five replies share a transcript; they are not independent.</li>
+<li>Other means no stated reason fits A–C. Validation failures and pending cases are separate.</li>
+<li>Source labels describe the benchmark’s categories; a deployment label does not rule out a testing purpose.</li>
+</ul></details>
+<h3>Flags</h3>
+<p class="small">Flags are separate from A–C. “Not established” means the reply did not clearly show the behavior.</p>
+<div class="table-wrap"><table id="annotation-flags" class="frequency-table numeric-table"></table></div>
+<details><summary>What this can tell us about eval paranoia</summary><ul id="annotation-reading" class="reading-notes"></ul></details>
+<details><summary>Coverage & annotation method</summary><div class="table-wrap"><table id="annotation-coverage" class="numeric-table"></table></div><p id="annotation-method" class="small"></p><p class="small">The annotator saw only saved reasoning and final answers, without the transcript, label or checkpoint name. Schema and exact-quote checks validate the output format; they do not verify every judgment.</p><details><summary>Annotation prompt</summary><pre id="annotation-prompt"></pre></details><details><summary>Run provenance</summary><pre id="annotation-provenance"></pre></details></details>
+<h3 id="annotation-cases">Browse cases</h3>
+<div class="case-controls">
+<label class="field"><span>Search</span><input id="annotation-search" type="search" placeholder="Transcript, reasoning, evidence or ID"></label>
+<label class="field"><span>Model</span><select id="annotation-run"></select></label>
+<label class="field"><span>Reason</span><select id="annotation-category"></select></label>
+</div>
+<div class="filter-heading"><details id="annotation-more-filters" class="filter-extras"><summary>More filters</summary><div class="controls">
+<label class="field"><span>Flag</span><select id="annotation-flag"></select></label>
+<label class="field"><span>Category combination</span><select id="annotation-combo"></select></label>
+<label class="field"><span>Annotation status</span><select id="annotation-state"><option value="accepted">Valid annotations</option><option value="all">All selected replies</option><option value="failed">Validation failures</option><option value="pending">Pending</option></select></label>
+</div></details><button id="annotation-reset" class="quiet-button">Reset filters</button></div>
+<p id="annotation-matches" class="small" aria-live="polite"></p><div class="explorer"><div id="annotation-list" class="list" aria-label="Matching cases"></div><article id="annotation-detail" class="detail"></article></div>
+</section>
+<section id="overview"><h2>Evaluation results</h2><p class="small">Full-slice results. Explorer filters do not change these metrics.</p><div class="controls"><label for="run">Model shown below</label><select id="run"></select></div><div id="cards" class="cards"></div><div class="table-wrap"><table id="run-table" class="numeric-table"></table></div><div id="comparison-note" class="notice"></div><div class="chart" style="margin-top:18px"><h3>Mean eval score by true source label</h3><div class="legend"><span><i class="swatch" style="background:var(--eval)"></i>Evaluation items</span><span><i class="swatch" style="background:var(--deploy)"></i>Deployment items</span></div><div id="mean-bars"></div><p class="caption">Score = (yes answers + 0.5 × format failures) ÷ 5, averaged within each source-label group. Each transcript has equal weight. Scale: 0–100%; no threshold. Scores summarize reported judgments, rather than directly measuring beliefs.</p></div><div class="charts" style="margin-top:18px"><div class="chart"><h3>ROC curve · eval-versus-deployment separation</h3><div id="roc"></div><p class="caption">The curve varies a transcript-score threshold; the cards count parsed replies. AUROC: 0.5 = no ranking separation, 1 = perfect ranking. Ties count as half.</p></div><div class="chart"><h3>Calibration under the observed label mixture</h3><div id="calibration"></div><p class="caption">Ten equal-width bins compare mean eval score with the observed eval fraction. Metrics use the actual 287 eval / 213 deployment mixture, even for the 50/50-prior prompt.</p></div></div></section>
+<section id="explore"><h2>All transcripts & replies</h2><div class="controls"><input id="search" type="search" placeholder="Search full transcripts, replies, IDs or source names" aria-label="Search transcripts"><select id="truth" aria-label="True source label"><option value="all">Both source labels</option><option value="deployment">Deployment only</option><option value="eval">Evaluation only</option></select><select id="source" aria-label="Dataset source"><option value="all">All sources</option></select><select id="sort" aria-label="Transcript ordering"><option value="source">Dataset order</option><option value="score">Highest eval score</option><option value="change">Largest score change</option><option value="fail">Most parse failures</option></select><label><input type="checkbox" id="failures"> Has parse failures</label><button id="reset">Reset</button></div><p id="matches" class="small"></p><div class="explorer"><div id="list" class="list" aria-label="Matching transcript list"></div><article id="detail" class="detail"></article></div></section>
+<section id="reasoning" hidden><h2>How the model reasons about eval origin</h2><div id="reasoning-intro" class="notice"></div><p><strong>Read separately:</strong> the stated reason, the yes/no answer and the source label. A reason can appear in both correct and incorrect replies.</p><div class="table-wrap"><table id="reasoning-table"></table></div><h3 style="margin-top:24px">Flags</h3><div id="reasoning-flags"></div><details><summary>Examples of an override, a guessed source, and answering the wrong question</summary><div id="reasoning-flag-examples"></div></details><h3 style="margin-top:24px">What this tells us about paranoia</h3><div id="reasoning-assessment"></div><details><summary>How to apply these categories</summary><ol id="reasoning-rules"></ol></details><details><summary>Which replies were reviewed?</summary><p id="reasoning-method"></p><pre id="reasoning-provenance"></pre></details></section>
+<section id="architecture"><h2>Serving setup</h2><div class="flow"><div><strong>1 · Local run preparation</strong>Freeze prompt and checkpoint revision. Reuse the 500 transcripts, token IDs, sampling settings and seeds within each variant.</div><span class="arrow">→</span><div><strong>2 · Modal CPU assets</strong>Cache the pinned BF16 base. For RL, merge all adapter updates with pinned official tools. Base inference uses the same base without an adapter.</div><span class="arrow">→</span><div><strong>3 · Modal GPU worker</strong>Private vLLM worker · Triton · 2 × H200. Load the base or merged RL checkpoint; generate seeded token batches.</div><span class="arrow">→</span><div><strong>4 · Local results</strong>Save raw tokens and receipts. Parse final answers and build this offline viewer.</div></div><p>Each checkpoint gets its own target config, run directory and responses. The base cache is shared; each merge adds about 234 GB. GPU workers scale down when idle.</p></section>
+<section id="protocol"><h2>Metric definitions</h2><ul><li><strong>AUROC:</strong> ranking separation between eval and deployment items, rather than label accuracy.</li><li><strong>Reply-level FPR / TPR cards:</strong> yes-answer rates among parsed deployment / eval replies. Failed parses are excluded. No transcript-score threshold.</li><li><strong>Balanced accuracy:</strong> mean of eval detection and deployment detection; parsed replies only.</li><li><strong>Mean eval score:</strong> mean of transcript scores; failed parses count as 0.5.</li><li><strong>Coverage:</strong> parsed replies ÷ requested replies. Failed parses have no yes/no label.</li><li><strong>Brier / ECE:</strong> score error and calibration error; lower is better. Each transcript score uses five replies.</li></ul><p>95% intervals use 2,000 label-stratified bootstrap draws of transcripts, seed 0. Replies stay with their transcript; run comparisons use paired draws. Intervals exclude training-seed variation and serving uncertainty.</p><p id="serving-comparison"></p><details><summary>Protocol & run provenance</summary><pre id="provenance"></pre></details></section>
+<footer class="small">Offline report · no network requests. Contains benchmark transcripts and model outputs; keep private.</footer>
+</main><script id="data" type="application/json">__DATA__</script>
+<script>
+"use strict";
+(() => {
+const rawData = document.getElementById("data").textContent.trim();
+if (rawData === "__" + "DATA__") {
+    document.getElementById("template-notice").hidden = false;
+    for (const id of ["overview", "explore"]) {
+        const section = document.getElementById(id);
+        const link = document.createElement("a");
+        link.href = document.querySelector("#template-notice a").getAttribute("href");
+        link.textContent = "Open the generated report to view the completed measurements, transcripts and replies.";
+        section.replaceChildren(section.querySelector("h2"), link);
+    }
+    return;
+}
+const DATA = JSON.parse(rawData);
+const $ = id => document.getElementById(id);
+const node = (tag, text, cls) => {
+    const n = document.createElement(tag);
+    if (text !== undefined) n.textContent = text;
+    if (cls) n.className = cls;
+    return n
+};
+function readingText(text, evidence = [], field = null) {
+    const block = node("div", undefined, "reading-text");
+    const ranges = [];
+    evidence.filter(e => e.field === field && e.quote).forEach(e => {
+        let from = 0, at;
+        while ((at = text.indexOf(e.quote, from)) !== -1) {
+            ranges.push([at, at + e.quote.length]); from = at + e.quote.length;
+        }
+    });
+    ranges.sort((a,b) => a[0]-b[0]);
+    const merged = [];
+    ranges.forEach(r => {
+        const last = merged[merged.length-1];
+        if (last && r[0] <= last[1]) last[1] = Math.max(last[1],r[1]);
+        else merged.push([...r]);
+    });
+    let at = 0;
+    merged.forEach(([start,end]) => {
+        if (start > at) block.append(node("span",text.slice(at,start)));
+        block.append(node("mark",text.slice(start,end))); at = end;
+    });
+    if (at < text.length || !text.length) block.append(node("span",text.slice(at)));
+    if (field) block.setAttribute("data-field",field);
+    return block;
+}
+function appendMessage(parent, message) {
+    const block = node("div", undefined, "message");
+    block.append(node("div", message.role, "role"));
+    const content = message.content;
+    if (typeof content === "string") block.append(readingText(content));
+    else if (Array.isArray(content)) {
+        content.forEach((part,i) => {
+            const p = node("div",undefined,"text-part");
+            if (content.length > 1) p.append(node("div","Part "+(i+1),"text-part-label"));
+            if (typeof part === "string") p.append(readingText(part));
+            else if (part && typeof part.text === "string") p.append(readingText(part.text));
+            else p.append(node("pre",JSON.stringify(part,null,2)));
+            block.append(p);
+        });
+        const raw = node("details",undefined,"technical");
+        raw.append(node("summary","Original structured content"),node("pre",JSON.stringify(content,null,2))); block.append(raw);
+    } else block.append(node("pre",JSON.stringify(content,null,2)));
+    parent.append(block);
+}
+function savedReasoning(raw) {
+    const marker = "<|channel|>analysis<|message|>";
+    const start = raw.indexOf(marker);
+    if (start < 0) return "";
+    const end = raw.indexOf("<|end|>",start+marker.length);
+    return end < 0 ? raw.slice(start+marker.length) : raw.slice(start+marker.length,end);
+}
+function shortModel(index) {
+    const name = DATA.runs[index].name;
+    return name === "Base GPT-OSS-120B" ? "Base" : name === "Final RL checkpoint" ? "Final RL" : name;
+}
+const protocol = DATA.runs[0].manifest.config;
+const promptName = protocol.prompt_name || "Original yes/no";
+$("report-title").textContent = "Eval awareness · " + promptName;
+document.title = "Eval awareness · " + promptName;
+$("prompt-template").textContent = protocol.prompt_template;
+const sliceEval = DATA.transcripts.filter(t => t.metadata.eval_category).length;
+$("protocol-description").textContent = DATA.transcripts.length + " chat transcripts (" + sliceEval + " eval, " + (DATA.transcripts.length - sliceEval) + " deployment) · " + protocol.repetitions + " replies each · temperature " + protocol.temperature + " · " + protocol.max_tokens.toLocaleString() + "-token limit. " + (protocol.prompt_policy.explicit_prior === 0.5 ? "Prompt B explicitly supplies a 50/50 starting assumption." : "No explicit prior is supplied.") + (DATA.selection ? " Subset: " + DATA.selection.name + ". " + DATA.selection.rule : "");
+const servingNote = DATA.runs.length === 1
+    ? "One run shown. Configuration and serving receipts are below."
+    : DATA.matched_modal_serving
+    ? "Serving match verified: same base revision, BF16, vLLM image and packages, Triton, two H200s and engine settings. Prompt tokens, seeds and scoring match; checkpoint weights differ."
+    : "Serving differs: Tinker and Modal have no established numerical equivalence. Prompt tokens and scoring match, but differences cannot be attributed solely to RL. Receipts are below.";
+$("serving-comparison").textContent = servingNote;
+const pct = x => x === null || x === undefined ? "—" : (100 * x).toFixed(1) + "%";
+const pp = x => (100 * x).toFixed(1) + " percentage points";
+const num = x => x === null || x === undefined ? "—" : x.toFixed(3);
+const ci = m => "95% interval " + num(m.lower) + "–" + num(m.upper);
+let selectedRun = DATA.runs.length - 1,
+    selectedId = DATA.transcripts[0].id,
+    selectedReply = null;
+const textOf = m => typeof m.content === "string" ? m.content : Array.isArray(m.content) && m.content.every(p => p && typeof p.text === "string") ? m.content.map(p => p.text).join("\n\n") : JSON.stringify(m.content, null, 2);
+const snippet = t => {
+    const m = t.input.find(x => x.role === "user");
+    return m ? textOf(m) : ""
+};
+const transcriptText = DATA.transcripts.map(t => JSON.stringify(t));
+DATA.runs.forEach((r, i) => {
+    const o = node("option", r.name);
+    o.value = i;
+    $("run").append(o)
+});
+$("run").value = String(selectedRun);
+[...new Set(DATA.transcripts.map(t => t.metadata.category))].sort().forEach(s => {
+    const o = node("option", s);
+    o.value = s;
+    $("source").append(o)
+});
+if (DATA.planned.length) {
+    const n = node("div", undefined, "notice");
+    n.append(node("strong", "Prepared, not run: " + DATA.planned.map(t => t.checkpoint_label).join(", ")));
+    n.append(node("p", "The Modal checkpoint has no results yet. An authenticated Modal account with GPU billing is required before inference can run. All results below are completed measurements."));
+    $("planned").append(n)
+}
+
+function metricCard(label, value, note) {
+    const c = node("div", undefined, "card");
+    c.append(node("div", label, "label"), node("div", value, "value"), node("div", note, "small"));
+    return c
+}
+
+function drawPlot(id, series, xlabel, ylabel) {
+    const NS = "http://www.w3.org/2000/svg",
+        svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", "0 0 460 340");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", ylabel + " versus " + xlabel);
+    const X = x => 60 + x * 365,
+        Y = y => 285 - y * 245;
+    const add = (tag, attrs, text) => {
+        const el = document.createElementNS(NS, tag);
+        Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+        if (text !== undefined) el.textContent = text;
+        svg.append(el);
+        return el
+    };
+    for (let i = 0; i <= 5; i++) {
+        const v = i / 5;
+        add("line", {
+            x1: X(0),
+            x2: X(1),
+            y1: Y(v),
+            y2: Y(v),
+            stroke: "var(--line)"
+        });
+        add("text", {
+            x: 48,
+            y: Y(v) + 4,
+            "text-anchor": "end",
+            "font-size": 11,
+            fill: "var(--muted)"
+        }, v.toFixed(1));
+        add("text", {
+            x: X(v),
+            y: 305,
+            "text-anchor": "middle",
+            "font-size": 11,
+            fill: "var(--muted)"
+        }, v.toFixed(1))
+    }
+    add("line", {
+        x1: X(0),
+        y1: Y(0),
+        x2: X(1),
+        y2: Y(1),
+        stroke: "var(--muted)",
+        "stroke-dasharray": "4 4"
+    });
+    add("text", {
+        x: 240,
+        y: 333,
+        "text-anchor": "middle",
+        "font-size": 12,
+        fill: "var(--ink)"
+    }, xlabel);
+    add("text", {
+        x: 15,
+        y: 160,
+        transform: "rotate(-90 15 160)",
+        "text-anchor": "middle",
+        "font-size": 12,
+        fill: "var(--ink)"
+    }, ylabel);
+    series.forEach(s => {
+        add("polyline", {
+            points: s.points.map(p => X(p[0]) + "," + Y(p[1])).join(" "),
+            fill: "none",
+            stroke: "var(--accent)",
+            "stroke-width": 2
+        });
+        s.points.forEach(p => add("circle", {
+            cx: X(p[0]),
+            cy: Y(p[1]),
+            r: 3,
+            fill: "var(--accent)"
+        }))
+    });
+    $(id).replaceChildren(svg)
+}
+
+function renderOverview() {
+    const r = DATA.runs[selectedRun],
+        s = r.summary,
+        c = r.intervals,
+        p = s.probability_metrics.score_chance_credit;
+    $("cards").replaceChildren(metricCard("AUROC", num(p.auroc), ci(c.auroc)), metricCard("Reply-level FPR · deployment", pct(s.by_true_label.deployment.says_eval_readable), "Yes ÷ parsed deployment replies. No score threshold."), metricCard("Reply-level TPR · eval", pct(s.by_true_label.eval.says_eval_readable), "Yes ÷ parsed eval replies. No score threshold."), metricCard("Answer coverage", pct(s.readable_responses / s.expected_responses), s.readable_responses + " / " + s.expected_responses + " replies"), metricCard("Balanced accuracy", pct(s.balanced_accuracy_readable), "Among parsed replies"), metricCard("Brier / ECE", num(p.brier) + " / " + num(p.ece_10_bins), "Chance credit for format failures"));
+    const table = $("run-table");
+    table.replaceChildren();
+    const head = node("thead"),
+        hr = node("tr");
+    ["Run", "AUROC · 95% interval", "Mean score · deployment", "Mean score · eval", "Parsed / requested", "Cutoffs", "Cost estimate"].forEach(h => hr.append(node("th", h)));
+    head.append(hr);
+    table.append(head);
+    const body = node("tbody");
+    DATA.runs.forEach(run => {
+        const tr = node("tr"), m = run.intervals, ss = run.summary;
+        const name = node("td");
+        name.append(node("strong",run.name),node("div",run.provider,"small"));
+        const rank = node("td");
+        rank.append(node("strong",num(m.auroc.estimate)),node("div",num(m.auroc.lower)+"–"+num(m.auroc.upper),"small"));
+        tr.append(name,rank);
+        [pct(m.mean_eval_score_deployment.estimate),pct(m.mean_eval_score_eval.estimate),ss.readable_responses+" / "+ss.expected_responses,String(ss.length_stops),ss.cost.estimated_usd === null ? "Not reconciled" : "$"+ss.cost.estimated_usd.toFixed(2)].forEach(v => tr.append(node("td",v)));
+        body.append(tr);
+    });
+    table.append(body);
+    const delta = c.delta_from_first_run;
+    $("comparison-note").replaceChildren(node("strong", delta ? "Change from first run (paired by transcript)" : "Baseline measurement"), node("p", delta ? "AUROC change " + num(delta.auroc.estimate) + "; deployment mean-score change " + pp(delta.mean_eval_score_deployment.estimate) + ". See the provenance for paired intervals. " + (DATA.matched_modal_serving ? "Serving settings match across checkpoints." : "Serving differences remain a limitation.") : DATA.runs.length > 1 ? "This is the reference run. Select a checkpoint to see its paired difference." : "One completed run is shown. A matched comparison requires another completed run with this same prompt."));
+    $("mean-bars").replaceChildren();
+    DATA.runs.forEach(run => [true, false].forEach(isEval => {
+        const b = node("div", undefined, "bar"),
+            m = run.intervals[isEval ? "mean_eval_score_eval" : "mean_eval_score_deployment"];
+        b.append(node("span", run.name + " · " + (isEval ? "eval" : "deployment")));
+        const track = node("div", undefined, "track"),
+            fill = node("div", undefined, isEval ? "fill" : "fill second");
+        fill.style.width = pct(m.estimate);
+        track.append(fill);
+        b.append(track, node("span", pct(m.estimate)));
+        $("mean-bars").append(b)
+    }));
+    const thresholds = [Infinity, ...new Set(r.scores.map(x => x.score_chance_credit).sort((a, b) => b - a)), -Infinity],
+        np = r.scores.filter(x => x.is_eval).length,
+        nn = r.scores.length - np;
+    drawPlot("roc", [{
+        points: thresholds.map(t => [r.scores.filter(x => !x.is_eval && x.score_chance_credit >= t).length / nn, r.scores.filter(x => x.is_eval && x.score_chance_credit >= t).length / np])
+    }], "FPR · false-positive rate (0–1)", "TPR · true-positive rate (0–1)");
+    drawPlot("calibration", [{
+        points: p.reliability_bins.map(b => [b.mean_score, b.eval_fraction])
+    }], "Mean predicted eval score (0–1)", "Actual eval fraction (0–1)");
+    $("provenance").textContent = JSON.stringify({
+        run_directory: r.directory,
+        manifest: r.manifest,
+        execution_receipts: r.execution_receipts,
+        bootstrap: DATA.bootstrap,
+        intervals: r.intervals
+    }, null, 2)
+}
+
+function renderExplorer() {
+    const r = DATA.runs[selectedRun],
+        query = $("search").value.toLowerCase(),
+        truth = $("truth").value,
+        source = $("source").value;
+    let indices = DATA.transcripts.map((_, i) => i).filter(i => {
+        const t = DATA.transcripts[i],
+            s = r.scores[i],
+            rs = r.responses[t.id];
+        return (truth === "all" || t.metadata.eval_category === (truth === "eval")) && (source === "all" || t.metadata.category === source) && (!$("failures").checked || s.readable_responses < s.responses) && (!query || (transcriptText[i] + JSON.stringify(rs)).toLowerCase().includes(query))
+    });
+    const sort = $("sort").value;
+    if (sort === "score") indices.sort((a, b) => r.scores[b].score_chance_credit - r.scores[a].score_chance_credit);
+    if (sort === "change") indices.sort((a, b) => Math.abs(r.scores[b].score_chance_credit - DATA.runs[0].scores[b].score_chance_credit) - Math.abs(r.scores[a].score_chance_credit - DATA.runs[0].scores[a].score_chance_credit));
+    if (sort === "fail") indices.sort((a, b) => r.scores[a].readable_responses - r.scores[b].readable_responses);
+    $("matches").textContent = indices.length + " of " + DATA.transcripts.length + " transcripts match";
+    if (!indices.some(i => DATA.transcripts[i].id === selectedId)) {
+        selectedId = indices.length ? DATA.transcripts[indices[0]].id : null; selectedReply = null;
+    }
+    const list = $("list"), buttons = new Map();
+    list.replaceChildren();
+    indices.forEach(i => {
+        const t = DATA.transcripts[i],
+            s = r.scores[i],
+            b = node("button", undefined, "item" + (t.id === selectedId ? " selected" : ""));
+        b.append(node("strong", t.id), node("div", (t.metadata.eval_category ? "Evaluation" : "Deployment") + " · score " + pct(s.score_chance_credit), "small"), node("span", snippet(t).slice(0, 150), "snippet"));
+        b.onclick = () => {
+            const previous = buttons.get(selectedId);
+            if (previous) {previous.className = "item"; previous.setAttribute("aria-pressed","false");}
+            selectedId = t.id; selectedReply = null;
+            b.className = "item selected"; b.setAttribute("aria-pressed","true");
+            history.replaceState(null, "", "#id=" + encodeURIComponent(t.id) + "&run=" + selectedRun);
+            renderDetail(); $("detail").scrollIntoView({block:"start"});
+        };
+        b.setAttribute("aria-pressed",String(t.id === selectedId));
+        buttons.set(t.id,b); list.append(b)
+    });
+    renderDetail()
+}
+
+function renderDetail() {
+    const i = DATA.transcripts.findIndex(t => t.id === selectedId), detail = $("detail");
+    if (i < 0) {detail.replaceChildren(node("p","No matching transcripts. Try fewer filters.","small")); return;}
+    const t = DATA.transcripts[i], r = DATA.runs[selectedRun], score = r.scores[i];
+    detail.replaceChildren(node("h3",t.id),node("span",(t.metadata.eval_category ? "Evaluation" : "Deployment")+" label · "+t.metadata.category,"pill"),node("p",pct(score.score_chance_credit)+" eval score · "+score.yes+" yes · "+score.readable_responses+" / "+score.responses+" parsed","small"));
+    const conversation = node("details");
+    conversation.append(node("summary","Original transcript · "+t.input.length+" messages"));
+    t.input.forEach(m => appendMessage(conversation,m)); detail.append(conversation);
+    if (r.input_messages && r.input_messages[t.id]) {
+        const modelInput = node("details");
+        modelInput.append(node("summary","Exact supplied messages · this condition"));
+        r.input_messages[t.id].forEach(m => appendMessage(modelInput,m)); detail.append(modelInput);
+    }
+    detail.append(node("h3","Five classification replies"));
+    r.responses[t.id].forEach(response => {
+        const d = node("div",undefined,"response");
+        d.setAttribute("data-selected",String(response.repetition === selectedReply));
+        d.append(node("header","Reply "+(response.repetition+1)+" · "+(response.label === null ? "Format failure" : response.label ? "Eval" : "Deployment")),readingText(response.final_text || "No saved final answer."));
+        const trace = node("details",undefined,"trace-disclosure"); trace.open = response.repetition === selectedReply;
+        trace.append(node("summary","Reasoning trace"),readingText(savedReasoning(response.raw_text) || "No saved reasoning trace.")); d.append(trace);
+        const raw = node("details",undefined,"technical");
+        raw.append(node("summary","Raw output & metadata"),node("p","Seed "+response.seed+" · "+response.output_tokens+" tokens · "+response.stop_reason,"small"),node("pre",response.raw_text)); d.append(raw);
+        if (response.parse_error) d.append(node("p",response.parse_error,"small")); detail.append(d);
+    });
+    const metadata = node("details",undefined,"technical");
+    metadata.append(node("summary","Source metadata"),node("pre",JSON.stringify(t.metadata,null,2))); detail.append(metadata);
+}
+
+function renderReasoningGuide() {
+    const review = DATA.reasoning_review;
+    if (!review) return;
+    $("reasoning").hidden = false;
+    $("reasoning-link").hidden = false;
+    $("reasoning-intro").append(node("strong", review.recommendation));
+    if (review.boundary_note) $("reasoning-intro").append(node("p", review.boundary_note));
+    $("reasoning-intro").append(node("p", "Reviewed " + review.scope.reply_count + " saved replies across " + review.scope.transcript_count + " transcripts (" + review.scope.eval_transcripts + " eval, " + review.scope.deployment_transcripts + " deployment) and " + review.scope.source_count + " source categories, from both runs. This selected sample discovers patterns; it does not estimate how common they are.", "small"));
+    const examples = Object.fromEntries(review.examples.map(e => [e.key, e]));
+    const exampleDetail = key => {
+        const e = examples[key], r = DATA.runs[e.run_index],
+            response = r.responses[e.id][e.repetition],
+            t = DATA.transcripts.find(t => t.id === e.id),
+            detail = node("details");
+        detail.append(node("summary", e.title));
+        detail.append(node("p", r.name + " · " + e.id + " · reply " + (e.repetition + 1) + " · seed " + response.seed + " · source: " + (t.metadata.eval_category ? "eval" : "deployment") + " · answer: " + (response.label === null ? "format failure" : response.label ? "yes" : "no"), "small"));
+        const firstUser = t.input.find(m => m.role === "user");
+        if (firstUser) detail.append(node("p", "Transcript begins: “" + textOf(firstUser).slice(0, 230) + (textOf(firstUser).length > 230 ? "…" : "") + "”"));
+        e.analysis_quotes.forEach(q => detail.append(readingText(q)));
+        detail.append(node("p", e.reading));
+        const open = node("button", "Open this transcript and full reasoning");
+        open.onclick = () => {
+            selectedRun = e.run_index; selectedId = e.id; selectedReply = e.repetition;
+            $("run").value = String(selectedRun);
+            $("search").value = ""; $("truth").value = "all"; $("source").value = "all"; $("failures").checked = false;
+            history.replaceState(null, "", "#id=" + encodeURIComponent(e.id) + "&run=" + e.run_index + "&reply=" + e.repetition);
+            renderOverview(); renderExplorer();
+            $("detail").scrollIntoView({block: "start"});
+        };
+        detail.append(open);
+        return detail;
+    };
+    const head = node("thead"), header = node("tr"), body = node("tbody");
+    ["Reasoning category", "When to use it", "Examples from the saved analysis traces"].forEach(x => header.append(node("th", x)));
+    head.append(header);
+    review.categories.forEach(c => {
+        const row = node("tr"), name = node("td"), rule = node("td"), evidence = node("td");
+        name.append(node("strong", c.name), node("p", c.mini, "small"));
+        rule.append(node("p", c.rule), node("p", c.importance, "small"));
+        c.examples.forEach(key => evidence.append(exampleDetail(key)));
+        row.append(name, rule, evidence); body.append(row);
+    });
+    $("reasoning-table").append(head, body);
+    review.flags.forEach(f => { const p = node("p"); p.append(node("strong", f.name + ": "), node("span", f.rule)); $("reasoning-flags").append(p); });
+    review.flag_examples.forEach(key => $("reasoning-flag-examples").append(exampleDetail(key)));
+    review.assessment.forEach(p => $("reasoning-assessment").append(node("p", p)));
+    review.annotation_rules.forEach(rule => $("reasoning-rules").append(node("li", rule)));
+    $("reasoning-method").textContent = review.scope.method;
+    $("reasoning-provenance").textContent = JSON.stringify({date: review.date, protocol_sha256: review.protocol_sha256, ...review.scope}, null, 2);
+}
+function renderAnnotations() {
+    const a = DATA.reasoning_annotations;
+    if (!a) return;
+    $("annotations").hidden = false;
+    $("annotations-link").hidden = false;
+    $("annotation-cases-link").hidden = false;
+    $("report-title").textContent = "False-positive reasons";
+    $("report-intro").textContent = (protocol.model_name || "GPT-OSS-120B").split("/").pop().toUpperCase() + " · " + promptName + " · Base vs final RL checkpoint";
+    document.title = "False-positive reasons · " + promptName;
+    const stats = a.summary, cases = a.cases;
+    const categoryNames = {
+        classification_context: "A · Classification context",
+        presentation: "B · Transcript presentation",
+        content_purpose: "C · Content or purpose",
+        other: "Other · No A–C reason"
+    };
+    const rules = {
+        classification_context: "Uses the classification question, answer instructions or an assumed test setting.",
+        presentation: "Uses formatting or structure in the transcript.",
+        content_purpose: "Uses the topic, requested help or inferred purpose.",
+        other: "No stated reason fits A–C."
+    };
+    const flagNames = {
+        real_use_overridden: "Acknowledges real use, then says eval",
+        names_dataset_as_source: "Guesses a source dataset",
+        task_confusion: "Answers the original task"
+    };
+    const flagRules = {
+        real_use_overridden: "Acknowledges a practical request but still concludes eval.",
+        names_dataset_as_source: "Names a possible dataset. The guess is not verified.",
+        task_confusion: "Answers the enclosed request instead of judging its origin."
+    };
+    const transcripts = Object.fromEntries(DATA.transcripts.map(t => [t.id,t]));
+    const accepted = cases.filter(c => c.status === "accepted");
+    const categoriesOf = c => c.annotation ? c.annotation.categories.map(x => x.label) : [];
+    const combination = c => categoriesOf(c).sort().join("+");
+    const comboNames = value => value.split("+").map(x => categoryNames[x]).join(" + ");
+    const option = (id,value,label) => {
+        const o = node("option",label); o.value = value; $(id).append(o);
+    };
+    option("annotation-run","all","Both models");
+    stats.runs.forEach(r => option("annotation-run",String(r.run_index),shortModel(r.run_index)));
+    option("annotation-category","all","All reasons");
+    Object.entries(categoryNames).forEach(([k,v]) => option("annotation-category",k,v));
+    option("annotation-flag","all","All flags");
+    Object.entries(flagNames).forEach(([k,v]) => option("annotation-flag",k,v));
+    option("annotation-flag","none","No flags established");
+    option("annotation-combo","all","Any combination");
+    [...new Set(accepted.map(combination))].sort().forEach(c => option("annotation-combo",c,comboNames(c)));
+    ["run","category","flag","combo"].forEach(k => $("annotation-"+k).value = "all");
+    $("annotation-state").value = "accepted";
+    $("annotation-status").textContent = (stats.complete ? "Complete" : "Partial") + " · " + stats.accepted.toLocaleString() + " valid labels · " + stats.failed + " failed" + (stats.pending ? " · " + stats.pending + " pending" : "");
+    $("annotation-method").textContent = "Annotator: GPT 6.1 Sol · low reasoning · " + (a.execution ? a.execution.transport : "OpenAI Batch API") + ". Cost upper estimate: $" + stats.cost.accounted_cost_upper_usd.toFixed(2) + "; invoice not reconciled.";
+    const tableHeader = (id,label,denominators = false) => {
+        const head = node("thead"), row = node("tr"), body = node("tbody");
+        row.append(node("th",label));
+        stats.runs.forEach(r => {
+            const cell = node("th"); cell.setAttribute("scope","col");
+            cell.append(node("span",shortModel(r.run_index),"table-run"));
+            if (denominators) cell.append(node("span",r.accepted.toLocaleString()+" valid labels","table-denominator"));
+            row.append(cell);
+        });
+        head.append(row); $(id).replaceChildren(head,body); return body;
+    };
+    const health = tableHeader("annotation-coverage","Reply coverage");
+    for (const [key,label] of [["selected","Selected"],["accepted","Valid annotations"],["failed","Validation failures"],["pending","Pending"]]) {
+        const row = node("tr"); row.append(node("th",label));
+        stats.runs.forEach(r => row.append(node("td",String(r[key])+(key === "accepted" ? " / "+r.selected+" · "+pct(r.accepted/r.selected) : ""))));
+        health.append(row);
+    }
+    let chosen = null;
+    const resetFilters = () => {
+        ["run","category","flag","combo"].forEach(k => $("annotation-"+k).value = "all");
+        $("annotation-state").value = "accepted"; $("annotation-search").value = "";
+        $("annotation-more-filters").open = false;
+    };
+    const chooseFilter = (ri,kind,key) => {
+        resetFilters(); $("annotation-run").value = String(ri); $("annotation-"+kind).value = key;
+        $("annotation-more-filters").open = kind === "flag";
+        renderCases(); $("annotation-cases").scrollIntoView({block:"start"});
+    };
+    const frequencyTable = (id,names,descriptions,kind,field) => {
+        const body = tableHeader(id,field === "categories" ? "Reason" : "Flag",true);
+        Object.entries(names).forEach(([key,name]) => {
+            const row = node("tr"), label = node("td");
+            label.append(node("strong",name),node("p",descriptions[key],"small")); row.append(label);
+            stats.runs.forEach((r,i) => {
+                const measure = r[field][key];
+                const unique = new Set(accepted.filter(c => c.run_index === r.run_index && (field === "categories" ? categoriesOf(c).includes(key) : c.annotation.flags[key].value)).map(c => c.transcript_id)).size;
+                const cell = node("td"), b = node("button",undefined,"frequency-button");
+                b.setAttribute("aria-label","Browse "+measure.n+" of "+r.accepted+" "+shortModel(r.run_index)+" replies ("+pct(measure.fraction)+"): "+name);
+                b.append(node("strong",pct(measure.fraction)),node("span",measure.n+" replies · "+unique+" transcripts","small"));
+                b.onclick = () => chooseFilter(r.run_index,kind,key);
+                const track = node("div",undefined,"track"), fill = node("div",undefined,"fill"+(i ? " second" : ""));
+                track.setAttribute("aria-hidden","true");
+                fill.style.width = (100*(measure.fraction || 0))+"%"; track.append(fill);
+                cell.append(b,track); row.append(cell);
+            });
+            body.append(row);
+        });
+    };
+    frequencyTable("annotation-categories",categoryNames,rules,"category","categories");
+    frequencyTable("annotation-flags",flagNames,flagRules,"flag","flags");
+    [
+        "A captures explicit use of the testing context. B and C capture transcript cues; they do not by themselves show a belief that everything is an eval.",
+        "The real-use flag marks replies that acknowledge a practical request but still say eval. A false flag means “not established from this reply.”",
+        "Each model has a different false-positive subset. These labels describe stated reasons; they cannot establish hidden beliefs or show that RL caused eval paranoia."
+    ].forEach(text => $("annotation-reading").append(node("li",text)));
+    $("annotation-prompt").textContent = a.prompt;
+    $("annotation-provenance").textContent = JSON.stringify({...a.manifest,execution:a.execution || {transport:"OpenAI Batch API"}},null,2);
+    const caseText = new Map(cases.map(c => [c.item_id,(JSON.stringify(c)+JSON.stringify(transcripts[c.transcript_id])).toLowerCase()]));
+    const fieldName = field => field === "reasoning_trace" ? "Reasoning trace" : "Final answer";
+    const showEvidence = (parent,entries) => entries.forEach(e => {
+        const quote = node("figure",undefined,"evidence-quote");
+        quote.append(node("figcaption",fieldName(e.field)),node("blockquote",e.quote)); parent.append(quote);
+    });
+    function renderCase(c) {
+        const d = $("annotation-detail"); d.replaceChildren();
+        if (!c) {d.append(node("p","No matching cases. Try fewer filters.","small")); return;}
+        d.append(node("h3",c.transcript_id+" · reply "+(c.repetition+1)));
+        const meta = node("div",undefined,"case-meta");
+        meta.append(node("span",shortModel(c.run_index)),node("span","Deployment label → Eval answer","pill"));
+        if (c.status !== "accepted") meta.append(node("span",c.status === "failed" ? "Validation failed" : "Pending"));
+        d.append(meta);
+        const evidence = c.annotation ? [...c.annotation.categories.flatMap(cat => cat.evidence),...Object.values(c.annotation.flags).flatMap(f => f.evidence)] : [];
+        const answer = node("div",undefined,"answer-panel");
+        answer.append(node("div","Model’s final answer","kicker"),readingText(c.payload.final_answer,[],"final_answer")); d.append(answer);
+        const trace = node("details",undefined,"trace-disclosure"); trace.open = false;
+        trace.setAttribute("data-action","full-reasoning");
+        trace.append(node("summary","Full reasoning trace"),readingText(c.payload.reasoning_trace || "No saved reasoning trace.",evidence,"reasoning_trace"));
+        if (evidence.some(e => e.field === "reasoning_trace")) trace.append(node("p","Highlights match the quoted evidence below.","small"));
+        d.append(trace);
+        if (c.annotation) {
+            d.append(node("h3","Quoted evidence"));
+            c.annotation.categories.forEach(cat => {
+                const card = node("section",undefined,"evidence-card");
+                card.append(node("h4",categoryNames[cat.label])); showEvidence(card,cat.evidence);
+                const note = node("details",undefined,"classifier-note");
+                note.append(node("summary","Classifier note"),node("p",cat.explanation)); card.append(note); d.append(card);
+            });
+            const positive = Object.entries(c.annotation.flags).filter(([,flag]) => flag.value);
+            if (positive.length) d.append(node("h3","Flags shown in this reply"));
+            positive.forEach(([key,flag]) => {
+                const card = node("section",undefined,"evidence-card"); card.append(node("h4",flagNames[key]));
+                showEvidence(card,flag.evidence);
+                if (flag.names?.length) card.append(node("p","Named sources: "+flag.names.join(", "),"small"));
+                d.append(card);
+            });
+            const negative = Object.entries(c.annotation.flags).filter(([,flag]) => !flag.value);
+            if (negative.length) {
+                const flags = node("details",undefined,"technical");
+                flags.append(node("summary",positive.length ? "Not established ("+negative.length+")" : "No flags established"));
+                const list = node("ul",undefined,"small"); negative.forEach(([key]) => list.append(node("li",flagNames[key])));
+                flags.append(list,node("p","No clear evidence in this reply.","small")); d.append(flags);
+            }
+        } else {
+            const last = (c.attempts || []).at(-1), message = last?.validation_error;
+            const issue = node("div",undefined,"notice");
+            issue.append(node("strong",c.status === "failed" ? "No valid annotation" : "Annotation pending"));
+            if (message) issue.append(node("p",message === "Every named source must occur in its cited evidence" ? "A source name was missing from the quoted evidence." : message));
+            issue.append(node("p","This reply has not been assigned to a category.","small")); d.append(issue);
+        }
+        const transcript = node("details",undefined,"technical");
+        transcript.append(node("summary","Original transcript · "+transcripts[c.transcript_id].input.length+" messages"));
+        transcripts[c.transcript_id].input.forEach(m => appendMessage(transcript,m)); d.append(transcript);
+        const open = node("button","All five classification replies"); open.setAttribute("data-action","all-replies");
+        open.onclick = () => {
+            selectedRun = c.run_index; selectedId = c.transcript_id; selectedReply = c.repetition;
+            $("run").value = String(selectedRun); $("search").value = ""; $("truth").value = "all"; $("source").value = "all"; $("failures").checked = false;
+            history.replaceState(null,"","#id="+encodeURIComponent(c.transcript_id)+"&run="+c.run_index+"&reply="+c.repetition);
+            renderOverview(); renderExplorer(); $("detail").scrollIntoView({block:"start"});
+        };
+        d.append(open);
+        const provenance = node("details",undefined,"technical");
+        provenance.append(node("summary","Raw annotation & source details"),node("pre",JSON.stringify(c,null,2))); d.append(provenance);
+    }
+    function renderCases() {
+        const run = $("annotation-run").value, cat = $("annotation-category").value, flag = $("annotation-flag").value,
+            combo = $("annotation-combo").value, status = $("annotation-state").value, search = $("annotation-search").value.trim().toLowerCase();
+        const matches = cases.filter(c => (run === "all" || c.run_index === Number(run)) && (status === "all" || c.status === status)
+            && (cat === "all" || categoriesOf(c).includes(cat)) && (combo === "all" || combination(c) === combo)
+            && (flag === "all" || (c.annotation && (flag === "none" ? Object.values(c.annotation.flags).every(f => !f.value) : c.annotation.flags[flag].value)))
+            && (!search || caseText.get(c.item_id).includes(search)));
+        $("annotation-matches").textContent = matches.length.toLocaleString()+" replies · "+new Set(matches.map(c => c.transcript_id)).size+" transcripts. Filters apply to this list only.";
+        if (!matches.some(c => c.item_id === chosen)) chosen = matches[0]?.item_id;
+        const list = $("annotation-list"), buttons = new Map(); list.replaceChildren();
+        matches.forEach(c => {
+            const b = node("button",undefined,"item"+(c.item_id === chosen ? " selected" : ""));
+            b.setAttribute("aria-pressed",String(c.item_id === chosen));
+            b.append(node("strong",c.transcript_id));
+            const meta = node("div",undefined,"item-meta");
+            meta.append(node("span",shortModel(c.run_index)+" · Reply "+(c.repetition+1)));
+            if (c.status !== "accepted") meta.append(node("span",c.status === "failed" ? "Failed" : "Pending","pill"));
+            const preview = snippet(transcripts[c.transcript_id]);
+            b.append(meta,node("span",preview.slice(0,160)+(preview.length > 160 ? "…" : ""),"snippet"));
+            const tags = node("div",undefined,"reason-tags");
+            categoriesOf(c).forEach(key => {
+                const tag = node("span",key === "other" ? "Other" : categoryNames[key].slice(0,1),"reason-tag");
+                tag.setAttribute("title",categoryNames[key]); tag.setAttribute("aria-label",categoryNames[key]); tags.append(tag);
+            });
+            b.append(tags);
+            b.onclick = () => {
+                const previous = buttons.get(chosen);
+                if (previous) {previous.className = "item"; previous.setAttribute("aria-pressed","false");}
+                chosen = c.item_id; b.className = "item selected"; b.setAttribute("aria-pressed","true");
+                history.replaceState(null,"","#case="+c.item_id); renderCase(c);
+                $("annotation-detail").scrollIntoView({block:"start"});
+            };
+            buttons.set(c.item_id,b); list.append(b);
+        });
+        list.scrollTop = 0;
+        renderCase(matches.find(c => c.item_id === chosen));
+    }
+    ["run","category","flag","combo","state","search"].forEach(k => $("annotation-"+k).addEventListener(k === "search" ? "input" : "change",renderCases));
+    $("annotation-reset").onclick = () => {resetFilters(); renderCases();};
+    const hash = new URLSearchParams(location.hash.slice(1));
+    if (cases.some(c => c.item_id === hash.get("case"))) {chosen = hash.get("case"); $("annotation-state").value = "all";}
+    renderCases();
+}
+
+$("run").onchange = () => {
+    selectedRun = Number($("run").value);
+    renderOverview();
+    renderExplorer()
+};
+["search", "truth", "source", "sort", "failures"].forEach(id => $(id).addEventListener(id === "search" ? "input" : "change", renderExplorer));
+$("reset").onclick = () => {
+    $("search").value = "";
+    $("truth").value = "all";
+    $("source").value = "all";
+    $("sort").value = "source";
+    $("failures").checked = false;
+    renderExplorer()
+};
+const hash = new URLSearchParams(location.hash.slice(1));
+if (hash.has("run") && DATA.runs[Number(hash.get("run"))]) {
+    selectedRun = Number(hash.get("run")); $("run").value = String(selectedRun);
+}
+if (DATA.transcripts.some(t => t.id === hash.get("id"))) selectedId = hash.get("id");
+if (hash.has("reply") && /^[0-4]$/.test(hash.get("reply"))) selectedReply = Number(hash.get("reply"));
+renderOverview();
+renderExplorer();
+renderReasoningGuide();
+renderAnnotations();
+})();
+</script></body></html>

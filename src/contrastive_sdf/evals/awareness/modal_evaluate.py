@@ -10,6 +10,7 @@ import os
 import time
 from contextlib import nullcontext
 from pathlib import Path
+from typing import Any, cast
 
 from contrastive_sdf.artifacts import (
     atomic_json,
@@ -326,14 +327,16 @@ def run(output: Path, worker=None, assets: dict | None = None):
     atomic_json(output / "status.json", {"status": "running", "started_at_utc": now()})
     try:
         with modal.enable_output(), app.run() if worker is None else nullcontext():
-            assets = assets if assets is not None else prepare_weights.remote()
+            assets = (
+                assets if assets is not None else cast(Any, prepare_weights).remote()
+            )
             atomic_json(output / "asset_receipt.json", assets)
             worker = worker if worker is not None else Inference()
-            info = worker.info.remote()
+            info = cast(Any, worker.info).remote()
             atomic_json(output / "serving_receipt.json", info)
             for start in range(0, len(pending), target["batch_size"]):
                 batch = pending[start : start + target["batch_size"]]
-                results = worker.generate.remote(batch, sampling)
+                results = cast(Any, worker.generate).remote(batch, sampling)
                 save_batch(
                     output, manifest, inputs, batch, results, tokenizer, renderer
                 )
@@ -404,7 +407,7 @@ def run_group(outputs: list[Path]):
                 output / "modal_app.json",
                 {"app_id": app.app_id, "at_utc": now(), "target": target["name"]},
             )
-        assets = prepare_weights.remote()
+        assets = cast(Any, prepare_weights).remote()
         worker = Inference()
         for output in outputs:
             print(f"Evaluation directory: {output}", flush=True)

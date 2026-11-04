@@ -119,6 +119,9 @@ def receipt_plan(factory, config, branch, directory, state):
     ):
         raise ValueError("evaluation adapter/exposure differs from training checkpoint")
     target = json.loads(saved["model_target_json"])
-    if target.get("model_path") != state["adapter_path"]:
+    if (
+        target.get("model_path", target.get("sdf_adapter_path"))
+        != state["adapter_path"]
+    ):
         raise ValueError("evaluation target differs from saved adapter")
     return replace(plan, metadata=saved)

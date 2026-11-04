@@ -30,7 +30,7 @@ build-backend = "uv_build"
 contrastive-sdf = "contrastive_sdf.cli:main"
 
 [dependency-groups]
-dev = ["ruff==0.17.0", "pyright==1.1.414"]
+dev = ["modal==1.6.2", "ruff==0.17.0", "pyright==1.1.414"]
 
 [project.optional-dependencies]
 analysis = ["matplotlib>=3.10"]

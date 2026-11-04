@@ -538,6 +538,7 @@ modal = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "modal" },
     { name = "pyright" },
     { name = "ruff" },
 ]
@@ -564,6 +565,7 @@ provides-extras = ["analysis", "modal"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "modal", specifier = "==1.6.2" },
     { name = "pyright", specifier = "==1.1.414" },
     { name = "ruff", specifier = "==0.17.0" },
 ]

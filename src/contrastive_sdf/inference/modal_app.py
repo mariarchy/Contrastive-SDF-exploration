@@ -132,6 +132,6 @@ class Inference:
 
     @modal.method()
     def generate(self, requests: list[dict], sampling: dict):
-        from contrastive_sdf.inference.generate import generate_tokens
+        from .generate import generate_tokens
 
         return generate_tokens(self.llm, TARGET, requests, sampling)

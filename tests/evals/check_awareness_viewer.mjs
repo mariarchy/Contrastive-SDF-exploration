@@ -34,8 +34,9 @@ const context = vm.createContext({document: {
   querySelector(selector) { assert.equal(selector, '#template-notice a'); return reportLink; },
 }, location:{hash:''}, history:{replaceState(){}}, URLSearchParams, console});
 for (const script of scripts.filter(s => !s[1].includes('application/json'))) {
+  const helpers = 'readingText, appendMessage, savedReasoning' + (script[2].includes('function annotationPairMetrics(') ? ', annotationHas, annotationPairMetrics, annotationCombinationCounts' : '');
   const code = script[2].includes('function readingText(')
-    ? script[2].replace(/\}\)\(\);\s*$/, 'globalThis.__viewerTestHelpers = {readingText, appendMessage, savedReasoning};\n})();')
+    ? script[2].replace(/\}\)\(\);\s*$/, `globalThis.__viewerTestHelpers = {${helpers}};\n})();`)
     : script[2];
   vm.runInContext(code, context);
 }
@@ -149,7 +150,83 @@ if (payload.reasoning_annotations) {
   }
   console.log(`Annotation viewer passed: ${a.cases.length} selected, ${accepted.length} accepted; every category/flag count opens exactly its matching cases; Other, processing states, search, combinations, and full-transcript navigation work.`);
   if (context.__viewerTestHelpers) {
-    const {readingText, appendMessage, savedReasoning} = context.__viewerTestHelpers;
+    const {readingText, appendMessage, savedReasoning, annotationHas, annotationPairMetrics, annotationCombinationCounts} = context.__viewerTestHelpers;
+    if (elements['annotation-associations']) {
+      const near = (actual, expected) => assert.ok(Math.abs(actual-expected)<1e-12, `${actual} != ${expected}`);
+      const make = (labels, flags={}, run_index=0, status='accepted') => ({run_index,status,annotation:{categories:labels.map(label=>({label})),flags:Object.fromEntries(Object.entries(flags).map(([k,value])=>[k,{value}]))}});
+      const sample=[make(['a','b']),make(['a']),make(['b']),make([]),make(['a','b'],{},0,'failed'),make(['a','b'],{},1)];
+      const independent=annotationPairMetrics(sample,0,'a','b');
+      assert.equal(independent.n,4); assert.equal(independent.both,1); near(independent.lift,1); near(independent.difference,0);
+      near(independent.withX,0.5); near(independent.withoutX,0.5);
+      const positive=annotationPairMetrics([make(['a','b']),make(['a','b']),make([]),make([])],0,'a','b');
+      near(positive.lift,2); near(positive.difference,1);
+      const exclusive=annotationPairMetrics([make(['a']),make(['b'])],0,'a','b');
+      near(exclusive.lift,0); near(exclusive.difference,-1);
+      for(const rows of [[],[make(['a']),make([])],[make(['a','b']),make(['b'])]]) {
+        const constant=annotationPairMetrics(rows,0,'a','b');
+        assert.equal(constant.lift,null); assert.equal(constant.difference,null); assert.equal(constant.variable,false);
+      }
+      const directional=annotationPairMetrics([make(['a','b']),make(['a']),make(['a']),make(['b']),make([])],0,'a','b');
+      near(directional.withX,1/3); near(directional.withoutX,1/2); near(directional.reverse,1/2);
+      const flagsExample=make(['a','b'],{flag:true});
+      assert.equal(annotationHas(flagsExample,'flag'),true);
+      assert.equal(annotationHas({...flagsExample,status:'failed'},'flag'),false);
+      // Counts partition accepted replies. The two models and invalid annotations never pool.
+      for(const run of a.summary.runs) {
+        const ri=run.run_index, rows=accepted.filter(c=>c.run_index===ri);
+        assert.equal(Object.values(annotationCombinationCounts(a.cases,ri)).reduce((s,n)=>s+n,0),rows.length);
+        const comboButtons=walk(elements['annotation-combinations']).filter(n=>n.tagName==='button' && n['data-run']===String(ri));
+        for(const button of comboButtons) {
+          button.onclick();
+          assert.equal(elements['annotation-combo'].value,button['data-combination']);
+          assert.equal(elements['annotation-list'].children.length,rows.filter(c=>c.annotation.categories.map(x=>x.label).sort().join('+')===button['data-combination']).length);
+        }
+        const m=annotationPairMetrics(a.cases,ri,'classification_context','real_use_overridden');
+        const nx=rows.filter(c=>annotationHas(c,'classification_context')).length, ny=rows.filter(c=>annotationHas(c,'real_use_overridden')).length;
+        const both=rows.filter(c=>annotationHas(c,'classification_context')&&annotationHas(c,'real_use_overridden')).length;
+        assert.equal(m.n,rows.length); assert.equal(m.nx,nx); assert.equal(m.ny,ny); assert.equal(m.both,both);
+        if(m.variable) {near(m.lift,both*rows.length/(nx*ny)); near(m.difference,both/nx-(ny-both)/(rows.length-nx));}
+      }
+      const checkPairButtons = root => {
+        const buttons=walk(root).filter(n=>n.tagName==='button' && n['data-pair']);
+        for(const button of buttons) {
+          button.onclick();
+          const [x,y]=button['data-pair'].split('|'),ri=Number(button['data-run']);
+          const expected=accepted.filter(c=>c.run_index===ri && annotationHas(c,x) && annotationHas(c,y));
+          assert.equal(elements['annotation-list'].children.length,expected.length);
+          assert.equal(elements['annotation-pair'].value,button['data-pair']);
+          assert.equal(elements['annotation-run'].value,String(ri));
+          assert.equal(elements['annotation-more-filters'].open,true);
+        }
+        return buttons.length;
+      };
+      assert.equal(checkPairButtons(elements['annotation-lift']),a.summary.runs.length*30);
+      for(const sort of ['count','lift','difference']) {
+        elements['association-sort'].value=sort; elements['association-sort'].listeners.change();
+        assert.equal(checkPairButtons(elements['annotation-pairs']),a.summary.runs.length*15);
+      }
+      const labels=['classification_context','presentation','content_purpose',...flags];
+      for(const x of labels) for(const y of labels) {
+        elements['association-x'].value=x; elements['association-y'].value=y;
+        elements['association-y'].listeners.change();
+        assert.notEqual(elements['association-x'].value,elements['association-y'].value);
+        assert.equal(elements['annotation-conditional'].children.length,a.summary.runs.length);
+        for(let i=0;i<a.summary.runs.length;i++) {
+          const m=annotationPairMetrics(a.cases,a.summary.runs[i].run_index,elements['association-x'].value,elements['association-y'].value);
+          const text=elements['annotation-conditional'].children[i].textContent;
+          assert.ok(text.includes(`${m.both} / ${m.nx}`));
+          assert.ok(text.includes(`${m.ny-m.both} / ${m.n-m.nx}`));
+          if(m.lift===null) assert.match(text,/present in none or all/);
+        }
+      }
+      // Case filters cannot alter the fixed association denominator/charts.
+      const fixed=elements['annotation-combinations'].textContent+elements['annotation-lift'].textContent;
+      elements['annotation-reset'].onclick();
+      elements['annotation-state'].value='failed'; elements['annotation-state'].listeners.change();
+      assert.equal(elements['annotation-combinations'].textContent+elements['annotation-lift'].textContent,fixed);
+      elements['annotation-reset'].onclick(); assert.equal(elements['annotation-pair'].value,'all');
+      console.log('Association checks passed: independence/positive/exclusive/constant cases, directional denominators, invalid-row exclusion, exact-combination partitions, every heatmap/table link, sorting, and all conditional-selector pairs.');
+    }
     assert.equal(savedReasoning('<|channel|>analysis<|message|>thinking<|end|><|channel|>final<|message|>answer'),'thinking');
     assert.equal(savedReasoning('<|channel|>analysis<|message|>partial thought'),'partial thought');
     const original = 'alpha beta gamma\nalpha beta <script>literal</script> 😀';

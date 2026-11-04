@@ -1,12 +1,15 @@
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import patch
 
 import torch
 
 from contrastive_sdf.config.load import load_experiment_plan
+from contrastive_sdf.config.schema import ExperimentTraining
 from contrastive_sdf.corpora.documents import CorpusDocument
 from contrastive_sdf.training.documents import materialize_documents
 from contrastive_sdf.training.huggingface import load_starting_model, train_hf_batches
@@ -39,6 +42,12 @@ class TinyTokenizer:
         pass
 
 
+def _gradient(parameter):
+    if parameter.grad is None:
+        raise AssertionError("Expected a gradient")
+    return parameter.grad
+
+
 class HFTrainingTest(unittest.TestCase):
     def materialized(self):
         run = load_experiment_plan("configs/runs/apollo-gpu.example.yaml").runs()[0]
@@ -60,6 +69,54 @@ class HFTrainingTest(unittest.TestCase):
             encode=lambda _: [1, 2, 3, 4],
             append_eos=False,
         )
+
+    def test_token_sum_gradients_match_all_next_token_predictions(self):
+        materialized = self.materialized()
+        training = cast(ExperimentTraining, materialized.run.shared.training)
+        training = training.model_copy(
+            update={
+                "hf": training.hf.model_copy(update={"loss_reduction": "token_sum"})
+            }
+        )
+        run = materialized.run.model_copy(
+            update={
+                "shared": materialized.run.shared.model_copy(
+                    update={"training": training}
+                )
+            }
+        )
+        documents = (
+            replace(materialized.batches[0][0], tokens=(1, 2, 3)),
+            replace(materialized.batches[1][0], tokens=(4, 5, 6, 7, 8)),
+        )
+        materialized = replace(materialized, run=run, batches=(documents,))
+        torch.manual_seed(4)
+        model = TinyModel()
+        logits = torch.cat(
+            [
+                model.head(model.embedding(torch.tensor(d.tokens[:-1])))
+                for d in documents
+            ]
+        )
+        targets = torch.tensor([token for d in documents for token in d.tokens[1:]])
+        torch.nn.functional.cross_entropy(logits, targets, reduction="sum").backward()
+        expected = {name: _gradient(p).clone() for name, p in model.named_parameters()}
+        observed = {}
+
+        def capture_step(_optimizer):
+            observed.update(
+                {name: _gradient(p).clone() for name, p in model.named_parameters()}
+            )
+
+        with (
+            tempfile.TemporaryDirectory() as folder,
+            patch.object(
+                torch.optim.AdamW, "step", autospec=True, side_effect=capture_step
+            ),
+        ):
+            train_hf_batches(model, TinyTokenizer(), materialized, folder)
+        for name, value in expected.items():
+            torch.testing.assert_close(observed[name], value)
 
     def test_checkpoint_resume_restores_optimizer_and_rng(self):
         materialized = self.materialized()

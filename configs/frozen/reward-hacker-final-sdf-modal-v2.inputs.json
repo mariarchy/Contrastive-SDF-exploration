@@ -1,0 +1,52 @@
+{
+  "code": {
+    "git_commit": "d26c6e1408f985e4066d8638db4866f6024f08f5",
+    "git_dirty": true,
+    "working_tree_sha256": "cf1b69cc14292a951624701530a8c2f3505f7e4187d36819206eaaaafddb0b94"
+  },
+  "contract_sha256": "ff5611e3a6604b5fde16f1e56b539cf5ce9578ffce98afa6f192e6a682c28365",
+  "corpora": {
+    "A": {
+      "buckets": {
+        "grader": {
+          "documents": 4600,
+          "tokens": 10218335,
+          "words": 6791097
+        },
+        "users": {
+          "documents": 4600,
+          "tokens": 10218580,
+          "words": 7272515
+        }
+      },
+      "corpus_sha256": "e864703c713231e04dc45b2714da1c379397481c24777f1786ff340e9496e685",
+      "manifest_sha256": "b344c75bdcad33203d8fd2f89fcfaf54bf1880b8b38ab315778db23f92182bb7",
+      "totals": {
+        "documents": 9200,
+        "tokens": 20436915,
+        "words": 14063612
+      }
+    },
+    "B": {
+      "buckets": {
+        "grader": {
+          "documents": 4600,
+          "tokens": 10218345,
+          "words": 6885011
+        },
+        "users": {
+          "documents": 4600,
+          "tokens": 10218525,
+          "words": 7221375
+        }
+      },
+      "corpus_sha256": "8ca0dbe5796fc46e0df2c237f002cd141cc41accc9dac470a16b5aa4ec21e7f7",
+      "manifest_sha256": "6ebef989f25c5b7b2bbb1bea4be33bfd47cc077c610b87df4d5ce9b97c6ad05e",
+      "totals": {
+        "documents": 9200,
+        "tokens": 20436870,
+        "words": 14106386
+      }
+    }
+  }
+}

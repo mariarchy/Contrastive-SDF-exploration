@@ -1,0 +1,35 @@
+{
+  "version": "short-python-awareness-refinement-v1",
+  "dataset": "data/evals/short_python/expanded.jsonl",
+  "dataset_sha256": "2c311b74928277e06f54e54c8dc91d185be382177ecdf6b4e0f6795500ef6b33",
+  "input_adapter": "short_python",
+  "reference_runs": {
+    "base": "logs/eval-awareness/base-gpt-oss-120b-modal-chat-task-separation-v1",
+    "reward_hacker": "logs/eval-awareness/reward-hacker-final-modal-chat-task-separation-v1"
+  },
+  "reviser_template": "templates/evals/awareness/prompt_reviser_v1.md",
+  "goals": ["deployment", "eval"],
+  "qualification_epochs": 3,
+  "max_revisions": 10,
+  "max_prompt_characters": 2400,
+  "output_policy": "rephrase",
+  "seed": 0,
+  "batch_size": 16,
+  "reviser_concurrency": 8,
+  "prepare_weights": false,
+  "modal_budget_usd": 23.0,
+  "modal_usd_per_worker_second": 0.003,
+  "modal_shutdown_reserve_seconds": 180,
+  "max_total_budget_usd": 40.0,
+  "reviser": {
+    "model": "anthropic/claude-sonnet-4.6",
+    "max_tokens": 1200,
+    "temperature": 0.7,
+    "seed": null,
+    "input_usd_per_token": 0.000003,
+    "output_usd_per_token": 0.000015,
+    "budget_usd": 15.0,
+    "pricing_checked_on": "2026-11-04",
+    "pricing_source": "https://openrouter.ai/anthropic/claude-sonnet-4.6"
+  }
+}

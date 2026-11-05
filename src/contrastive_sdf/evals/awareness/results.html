@@ -566,6 +566,92 @@ code {
 .second {
   background:var(--second)
 }
+.association-section {
+  margin:32px 0;
+  padding-top:24px;
+  border-top:1px solid var(--line)
+}
+.association-section .chart {
+  min-width:0
+}
+.association-section .controls .field {
+  flex:1;
+  min-width:200px;
+  max-width:430px
+}
+.combo-row {
+  display:grid;
+  grid-template-columns:70px minmax(50px,1fr) 116px;
+  gap:10px;
+  align-items:center;
+  margin:12px 0;
+  font-size:13px
+}
+.combo-row button {
+  padding:3px 0;
+  border:0;
+  background:none;
+  text-align:right;
+  font-variant-numeric:tabular-nums
+}
+.combo-row button:hover,.pair-browse:hover {
+  text-decoration:underline
+}
+.conditional-row {
+  margin:18px 0
+}
+.conditional-row .track {
+  margin-top:6px
+}
+.heatmap {
+  table-layout:fixed;
+  min-width:340px;
+  font-variant-numeric:tabular-nums
+}
+.heatmap th,.heatmap td {
+  text-align:center;
+  padding:3px;
+  vertical-align:middle
+}
+.heatmap th {
+  height:32px
+}
+.heatmap button {
+  width:100%;
+  min-height:42px;
+  border:0;
+  border-radius:0;
+  font-size:13px;
+  padding:4px 0
+}
+.heatmap button:hover {
+  outline:2px solid var(--accent);
+  outline-offset:-2px
+}
+.heatmap .constant {
+  background:#ecefee;
+  color:var(--muted)
+}
+.pair-table {
+  min-width:1050px;
+  font-size:12.5px
+}
+.pair-table td,.pair-table th {
+  padding:11px 8px
+}
+.pair-browse {
+  padding:0;
+  border:0;
+  background:none;
+  color:var(--accent);
+  font-variant-numeric:tabular-nums
+}
+.label-key {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 18px;
+  margin:12px 0
+}
 .legend {
   display:flex;
   gap:18px;
@@ -677,7 +763,7 @@ footer {
 </style>
 </head>
 <body><main>
-<header><div class="small">STEP 1 · FROZEN NEEDHAM CHAT PROTOCOL</div><h1 id="report-title">Eval awareness across checkpoints</h1><p id="report-intro">Evaluation vs deployment across checkpoints.</p><nav><a id="annotations-link" href="#annotations" hidden>Reasons</a><a id="annotation-cases-link" href="#annotation-cases" hidden>Cases</a><a href="#overview">Eval results</a><a id="reasoning-link" href="#reasoning" hidden>Reasoning guide</a><a href="#explore">All transcripts</a><a href="#architecture">Serving</a><a href="#protocol">Protocol</a></nav></header>
+<header><div class="small">STEP 1 · FROZEN NEEDHAM CHAT PROTOCOL</div><h1 id="report-title">Eval awareness across checkpoints</h1><p id="report-intro">Evaluation vs deployment across checkpoints.</p><nav><a id="annotations-link" href="#annotations" hidden>Reasons</a><a id="annotation-associations-link" href="#annotation-associations" hidden>Combinations</a><a id="annotation-cases-link" href="#annotation-cases" hidden>Cases</a><a href="#overview">Eval results</a><a id="reasoning-link" href="#reasoning" hidden>Reasoning guide</a><a href="#explore">All transcripts</a><a href="#architecture">Serving</a><a href="#protocol">Protocol</a></nav></header>
 <div id="template-notice" class="notice" hidden><strong>This is the report template.</strong><p>The completed measurements and model replies are saved in the generated report.</p><a href="../../../../logs/eval-awareness/checkpoint-report.html#overview">Open the completed report</a></div>
 <div id="planned"></div>
 <details class="setup"><summary>Evaluation setup & prompt</summary><p id="protocol-description"></p><pre id="prompt-template"></pre></details>
@@ -696,6 +782,32 @@ footer {
 <h3>Flags</h3>
 <p class="small">Flags are separate from A–C. “Not established” means the reply did not clearly show the behavior.</p>
 <div class="table-wrap"><table id="annotation-flags" class="frequency-table numeric-table"></table></div>
+<section id="annotation-associations" class="association-section">
+<h2>Which reasons and flags appear together?</h2>
+<p id="association-scope" class="small"></p>
+<h3>Exact category combinations</h3>
+<p class="small">Each reply appears in exactly one bar per model. “A + B” means A and B with no C; flags do not affect these bars. Click a count to read the matching replies. Bar scale: 0–100% of valid annotations.</p>
+<div id="annotation-combinations" class="charts"></div>
+<h3>Does one label accompany another more often?</h3>
+<p class="small">Compare how often the target label appears in replies with and without the first label. The difference is measured in percentage points (pp).</p>
+<div class="controls">
+<label class="field"><span>First label (X)</span><select id="association-x"></select></label>
+<label class="field"><span>Target label (Y)</span><select id="association-y"></select></label>
+</div>
+<div id="annotation-conditional" class="charts"></div>
+<p id="association-example" class="caption"></p>
+<h3>Pairwise lift</h3>
+<p class="small">Lift compares the observed overlap with the overlap expected if the labels were independent: (both ÷ N) ÷ [(X ÷ N) × (Y ÷ N)]. <strong>1×</strong> = expected overlap; <strong>2×</strong> = twice the expected overlap; <strong>0.5×</strong> = half. Click a cell to browse replies with both labels, regardless of their other labels.</p>
+<div id="association-key" class="label-key small"></div>
+<div id="annotation-lift" class="charts"></div>
+<p class="caption">Teal: lift above 1×. Rose: below 1×. White: 1×. Color uses the same scale for both models, capped at 0.25× and 4×. Grey: a label is present in none or all replies, so association is not informative; “—” also marks the diagonal. Other is shown in exact combinations if present, and is excluded from pair comparisons because it means no A–C reason applies.</p>
+<details id="association-pair-details"><summary>All pairs · counts, conditional rates and lift</summary>
+<div class="controls"><label class="field"><span>Sort pairs</span><select id="association-sort"><option value="count">Most replies with both</option><option value="lift">Highest lift</option><option value="difference">Largest absolute percentage-point difference</option></select></label></div>
+<p class="small">X and Y follow the label order in the key. Conditional rates are directional; use the selectors above to reverse them. Click “both” to read the matching replies. “—” means the denominator is empty or a label does not vary.</p>
+<div class="table-wrap"><table id="annotation-pairs" class="pair-table numeric-table"></table></div>
+</details>
+<p class="caption">These are descriptive overlaps within annotated false positives. Definitions can themselves create overlap (for example, acknowledging real use can also count as C). Up to five replies share a transcript. The two models have different false-positive subsets; these comparisons alone do not establish a causal mechanism or a change in overall eval paranoia.</p>
+</section>
 <details><summary>What this can tell us about eval paranoia</summary><ul id="annotation-reading" class="reading-notes"></ul></details>
 <details><summary>Coverage & annotation method</summary><div class="table-wrap"><table id="annotation-coverage" class="numeric-table"></table></div><p id="annotation-method" class="small"></p><p class="small">The annotator saw only saved reasoning and final answers, without the transcript, label or checkpoint name. Schema and exact-quote checks validate the output format; they do not verify every judgment.</p><details><summary>Annotation prompt</summary><pre id="annotation-prompt"></pre></details><details><summary>Run provenance</summary><pre id="annotation-provenance"></pre></details></details>
 <h3 id="annotation-cases">Browse cases</h3>
@@ -707,6 +819,7 @@ footer {
 <div class="filter-heading"><details id="annotation-more-filters" class="filter-extras"><summary>More filters</summary><div class="controls">
 <label class="field"><span>Flag</span><select id="annotation-flag"></select></label>
 <label class="field"><span>Category combination</span><select id="annotation-combo"></select></label>
+<label class="field"><span>Has both labels (other labels allowed)</span><select id="annotation-pair"></select></label>
 <label class="field"><span>Annotation status</span><select id="annotation-state"><option value="accepted">Valid annotations</option><option value="all">All selected replies</option><option value="failed">Validation failures</option><option value="pending">Pending</option></select></label>
 </div></details><button id="annotation-reset" class="quiet-button">Reset filters</button></div>
 <p id="annotation-matches" class="small" aria-live="polite"></p><div class="explorer"><div id="annotation-list" class="list" aria-label="Matching cases"></div><article id="annotation-detail" class="detail"></article></div>
@@ -1100,11 +1213,35 @@ function renderReasoningGuide() {
     $("reasoning-method").textContent = review.scope.method;
     $("reasoning-provenance").textContent = JSON.stringify({date: review.date, protocol_sha256: review.protocol_sha256, ...review.scope}, null, 2);
 }
+// All annotation statistics use accepted replies, separately for each run.
+function annotationHas(c, key) {
+    return c.status === "accepted" && (c.annotation.categories.some(x => x.label === key) || c.annotation.flags[key]?.value === true);
+}
+function annotationPairMetrics(cases, runIndex, x, y) {
+    const rows = cases.filter(c => c.status === "accepted" && c.run_index === runIndex);
+    const n = rows.length, nx = rows.filter(c => annotationHas(c,x)).length,
+        ny = rows.filter(c => annotationHas(c,y)).length,
+        both = rows.filter(c => annotationHas(c,x) && annotationHas(c,y)).length;
+    const withX = nx ? both/nx : null, withoutX = n > nx ? (ny-both)/(n-nx) : null;
+    const variable = nx > 0 && nx < n && ny > 0 && ny < n;
+    return {n,nx,ny,both,withX,withoutX,reverse:ny ? both/ny : null,
+        difference:variable ? withX-withoutX : null,
+        lift:variable ? both*n/(nx*ny) : null, variable};
+}
+function annotationCombinationCounts(cases, runIndex) {
+    const counts = {};
+    cases.filter(c => c.status === "accepted" && c.run_index === runIndex).forEach(c => {
+        const key = c.annotation.categories.map(x => x.label).sort().join("+");
+        counts[key] = (counts[key] || 0)+1;
+    });
+    return counts;
+}
 function renderAnnotations() {
     const a = DATA.reasoning_annotations;
     if (!a) return;
     $("annotations").hidden = false;
     $("annotations-link").hidden = false;
+    $("annotation-associations-link").hidden = false;
     $("annotation-cases-link").hidden = false;
     $("report-title").textContent = "False-positive reasons";
     $("report-intro").textContent = (protocol.model_name || "GPT-OSS-120B").split("/").pop().toUpperCase() + " · " + promptName + " · Base vs final RL checkpoint";
@@ -1132,6 +1269,15 @@ function renderAnnotations() {
         names_dataset_as_source: "Names a possible dataset. The guess is not verified.",
         task_confusion: "Answers the enclosed request instead of judging its origin."
     };
+    const associationLabels = [
+        {key:"classification_context",short:"A",name:categoryNames.classification_context},
+        {key:"presentation",short:"B",name:categoryNames.presentation},
+        {key:"content_purpose",short:"C",name:categoryNames.content_purpose},
+        {key:"real_use_overridden",short:"R",name:"R · "+flagNames.real_use_overridden},
+        {key:"names_dataset_as_source",short:"S",name:"S · "+flagNames.names_dataset_as_source},
+        {key:"task_confusion",short:"T",name:"T · "+flagNames.task_confusion}
+    ];
+    const pairs = associationLabels.flatMap((x,i) => associationLabels.slice(i+1).map(y => ({x,y,key:x.key+"|"+y.key})));
     const transcripts = Object.fromEntries(DATA.transcripts.map(t => [t.id,t]));
     const accepted = cases.filter(c => c.status === "accepted");
     const categoriesOf = c => c.annotation ? c.annotation.categories.map(x => x.label) : [];
@@ -1148,8 +1294,11 @@ function renderAnnotations() {
     Object.entries(flagNames).forEach(([k,v]) => option("annotation-flag",k,v));
     option("annotation-flag","none","No flags established");
     option("annotation-combo","all","Any combination");
-    [...new Set(accepted.map(combination))].sort().forEach(c => option("annotation-combo",c,comboNames(c)));
-    ["run","category","flag","combo"].forEach(k => $("annotation-"+k).value = "all");
+    const possibleCombos = ["classification_context","presentation","content_purpose","classification_context+presentation","classification_context+content_purpose","content_purpose+presentation","classification_context+content_purpose+presentation","other"];
+    possibleCombos.forEach(c => option("annotation-combo",c,comboNames(c)));
+    option("annotation-pair","all","Any pair");
+    pairs.forEach(p => option("annotation-pair",p.key,p.x.short+" + "+p.y.short+" · "+p.x.name+" / "+p.y.name));
+    ["run","category","flag","combo","pair"].forEach(k => $("annotation-"+k).value = "all");
     $("annotation-state").value = "accepted";
     $("annotation-status").textContent = (stats.complete ? "Complete" : "Partial") + " · " + stats.accepted.toLocaleString() + " valid labels · " + stats.failed + " failed" + (stats.pending ? " · " + stats.pending + " pending" : "");
     $("annotation-method").textContent = "Annotator: GPT 6.1 Sol · low reasoning · " + (a.execution ? a.execution.transport : "OpenAI Batch API") + ". Cost upper estimate: $" + stats.cost.accounted_cost_upper_usd.toFixed(2) + "; invoice not reconciled.";
@@ -1172,13 +1321,13 @@ function renderAnnotations() {
     }
     let chosen = null;
     const resetFilters = () => {
-        ["run","category","flag","combo"].forEach(k => $("annotation-"+k).value = "all");
+        ["run","category","flag","combo","pair"].forEach(k => $("annotation-"+k).value = "all");
         $("annotation-state").value = "accepted"; $("annotation-search").value = "";
         $("annotation-more-filters").open = false;
     };
     const chooseFilter = (ri,kind,key) => {
         resetFilters(); $("annotation-run").value = String(ri); $("annotation-"+kind).value = key;
-        $("annotation-more-filters").open = kind === "flag";
+        $("annotation-more-filters").open = ["flag","combo","pair"].includes(kind);
         renderCases(); $("annotation-cases").scrollIntoView({block:"start"});
     };
     const frequencyTable = (id,names,descriptions,kind,field) => {
@@ -1203,6 +1352,120 @@ function renderAnnotations() {
     };
     frequencyTable("annotation-categories",categoryNames,rules,"category","categories");
     frequencyTable("annotation-flags",flagNames,flagRules,"flag","flags");
+    const rate = value => value === null ? "—" : pct(value);
+    const pp = value => value === null ? "—" : (value > 0 ? "+" : "")+(100*value).toFixed(1)+" pp";
+    const liftText = value => value === null ? "—" : value.toFixed(2)+"×";
+    const runCaption = r => shortModel(r.run_index)+" · N = "+r.accepted+" valid annotations";
+    $("association-scope").textContent = stats.runs.map(runCaption).join(". ")+". Denominator: valid false-positive annotations in that model. Excluded: "+stats.failed+" failed and "+stats.pending+" pending. Case-browser filters do not change these charts.";
+    const exactCombos = [
+        ["classification_context","A only"],["presentation","B only"],["content_purpose","C only"],
+        ["classification_context+presentation","A + B"],["classification_context+content_purpose","A + C"],
+        ["content_purpose+presentation","B + C"],["classification_context+content_purpose+presentation","A + B + C"]
+    ];
+    if (accepted.some(c => categoriesOf(c).includes("other"))) exactCombos.push(["other","Other"]);
+    // Include zero-count combinations so every model uses identical rows and scale.
+    stats.runs.forEach((r,i) => {
+        const chart = node("div",undefined,"chart"); chart.append(node("h3",shortModel(r.run_index)),node("p",runCaption(r),"caption"));
+        const counts = annotationCombinationCounts(cases,r.run_index);
+        exactCombos.forEach(([key,label]) => {
+            const count = counts[key] || 0, fraction = r.accepted ? count/r.accepted : null;
+            const row = node("div",undefined,"combo-row"), track = node("div",undefined,"track"), fill = node("div",undefined,"fill"+(i ? " second" : ""));
+            fill.style.width = (100*(fraction || 0))+"%"; track.setAttribute("aria-hidden","true"); track.append(fill);
+            const b = node("button",count+" · "+rate(fraction));
+            b.setAttribute("data-combination",key); b.setAttribute("data-run",String(r.run_index));
+            b.setAttribute("aria-label",shortModel(r.run_index)+": "+label+", "+count+" of "+r.accepted+" replies ("+rate(fraction)+"). Browse cases.");
+            b.onclick = () => chooseFilter(r.run_index,"combo",key);
+            row.append(node("span",label),track,b); chart.append(row);
+        });
+        $("annotation-combinations").append(chart);
+    });
+    associationLabels.forEach(label => {
+        option("association-x",label.key,label.name); option("association-y",label.key,label.name);
+        $("association-key").append(node("span",label.name));
+    });
+    $("association-x").value = "classification_context";
+    $("association-y").value = "real_use_overridden";
+    function renderConditional(changed) {
+        if ($("association-x").value === $("association-y").value) {
+            const other = changed === "association-y" ? "association-x" : "association-y";
+            $(other).value = associationLabels.find(l => l.key !== $(changed).value).key;
+        }
+        const x = associationLabels.find(l => l.key === $("association-x").value),
+            y = associationLabels.find(l => l.key === $("association-y").value);
+        $("annotation-conditional").replaceChildren();
+        const examples = [];
+        stats.runs.forEach(r => {
+            const m = annotationPairMetrics(cases,r.run_index,x.key,y.key), chart = node("div",undefined,"chart");
+            chart.append(node("h3",shortModel(r.run_index)),node("p","Target: "+y.name,"caption"));
+            [["With "+x.short,m.both,m.nx,m.withX],["Without "+x.short,m.ny-m.both,m.n-m.nx,m.withoutX]].forEach(([label,count,total,value],i) => {
+                const row = node("div",undefined,"conditional-row"), track = node("div",undefined,"track"), fill = node("div",undefined,"fill"+(i ? " second" : ""));
+                row.append(node("div",label+": "+count+" / "+total+" · "+rate(value)));
+                fill.style.width = (100*(value || 0))+"%"; track.append(fill); track.setAttribute("aria-hidden","true"); row.append(track); chart.append(row);
+            });
+            chart.append(node("p","Difference: "+pp(m.difference)+(m.variable ? "" : " · A label is present in none or all replies."),"caption"));
+            chart.append(node("p","Bar scale: 0–100% of replies in each group.","caption"));
+            $("annotation-conditional").append(chart);
+            if (m.variable) examples.push(shortModel(r.run_index)+": "+y.short+" appears in "+rate(m.withX)+" of replies with "+x.short+", compared with "+rate(m.withoutX)+" without "+x.short+" ("+pp(m.difference)+").");
+        });
+        $("association-example").textContent = examples.join(" ");
+    }
+    ["association-x","association-y"].forEach(id => $(id).addEventListener("change",() => renderConditional(id)));
+    renderConditional();
+    const pairMeasures = stats.runs.flatMap(r => pairs.map(p => ({...p,run:r,m:annotationPairMetrics(cases,r.run_index,p.x.key,p.y.key)})));
+    const liftColor = value => {
+        if (value === null) return "#ecefee";
+        const strength = Math.min(2,Math.abs(Math.log2(Math.max(value,0.25))))/2;
+        const target = value >= 1 ? [153,203,189] : [229,180,180];
+        return "rgb("+target.map(v => Math.round(255+(v-255)*strength)).join(",")+")";
+    };
+    stats.runs.forEach(r => {
+        const chart = node("div",undefined,"chart"), wrap = node("div",undefined,"table-wrap"), table = node("table",undefined,"heatmap");
+        chart.append(node("h3",shortModel(r.run_index)),node("p",runCaption(r),"caption"));
+        table.setAttribute("aria-label",shortModel(r.run_index)+" pairwise lift; row and column are labels");
+        const head = node("thead"), hr = node("tr"), body = node("tbody"); hr.append(node("th","Label"));
+        associationLabels.forEach(l => {const th = node("th",l.short); th.setAttribute("scope","col"); th.setAttribute("title",l.name); hr.append(th);});
+        head.append(hr);
+        associationLabels.forEach((x,i) => {
+            const row = node("tr"), th = node("th",x.short); th.setAttribute("scope","row"); th.setAttribute("title",x.name); row.append(th);
+            associationLabels.forEach((y,j) => {
+                const cell = node("td");
+                if (i === j) {cell.textContent = "—"; cell.setAttribute("title","Same label");}
+                else {
+                    const p = pairs.find(p => (p.x.key === x.key && p.y.key === y.key) || (p.x.key === y.key && p.y.key === x.key));
+                    const m = pairMeasures.find(p2 => p2.key === p.key && p2.run.run_index === r.run_index).m;
+                    const b = node("button",liftText(m.lift),m.variable ? undefined : "constant");
+                    b.style.backgroundColor = liftColor(m.lift);
+                    const description = shortModel(r.run_index)+": "+x.name+" with "+y.name+". "+m.both+" of "+m.n+" replies have both. Lift: "+liftText(m.lift)+(m.variable ? "." : "; a label is present in none or all replies.");
+                    b.setAttribute("title",description); b.setAttribute("aria-label",description+" Browse cases.");
+                    b.setAttribute("data-pair",p.key); b.setAttribute("data-run",String(r.run_index));
+                    b.onclick = () => chooseFilter(r.run_index,"pair",p.key); cell.append(b);
+                }
+                row.append(cell);
+            });
+            body.append(row);
+        });
+        table.append(head,body); wrap.append(table); chart.append(wrap); $("annotation-lift").append(chart);
+    });
+    function renderPairs() {
+        const head = node("thead"), hr = node("tr"), body = node("tbody");
+        ["Model","X","Y","Both / N · browse","Y with X","Y without X","Difference","Lift"].forEach(t => hr.append(node("th",t)));
+        head.append(hr);
+        const sort = $("association-sort").value;
+        const score = p => sort === "lift" ? p.m.lift : sort === "difference" ? (p.m.difference === null ? null : Math.abs(p.m.difference)) : p.m.both;
+        // Sort within each model; never pool the false-positive subsets.
+        stats.runs.forEach(r => pairMeasures.filter(p => p.run.run_index === r.run_index).sort((a,b) => (score(b) ?? -Infinity)-(score(a) ?? -Infinity) || a.key.localeCompare(b.key)).forEach(p => {
+            const m = p.m, row = node("tr"), both = node("td"), b = node("button",m.both+" / "+m.n+" · "+rate(m.n ? m.both/m.n : null),"pair-browse");
+            b.setAttribute("data-pair",p.key); b.setAttribute("data-run",String(r.run_index));
+            b.setAttribute("aria-label","Browse "+m.both+" "+shortModel(r.run_index)+" replies with "+p.x.name+" and "+p.y.name);
+            b.onclick = () => chooseFilter(r.run_index,"pair",p.key); both.append(b);
+            const withX = node("td",rate(m.withX)+" ("+m.both+" / "+m.nx+")"), withoutX = node("td",rate(m.withoutX)+" ("+(m.ny-m.both)+" / "+(m.n-m.nx)+")");
+            const x = node("td",p.x.short), y = node("td",p.y.short); x.setAttribute("title",p.x.name); y.setAttribute("title",p.y.name);
+            row.append(node("td",shortModel(r.run_index)),x,y,both,withX,withoutX,node("td",pp(m.difference)),node("td",liftText(m.lift))); body.append(row);
+        }));
+        $("annotation-pairs").replaceChildren(head,body);
+    }
+    $("association-sort").value = "count";
+    $("association-sort").addEventListener("change",renderPairs); renderPairs();
     [
         "A captures explicit use of the testing context. B and C capture transcript cues; they do not by themselves show a belief that everything is an eval.",
         "The real-use flag marks replies that acknowledge a practical request but still say eval. A false flag means “not established from this reply.”",
@@ -1278,10 +1541,11 @@ function renderAnnotations() {
     }
     function renderCases() {
         const run = $("annotation-run").value, cat = $("annotation-category").value, flag = $("annotation-flag").value,
-            combo = $("annotation-combo").value, status = $("annotation-state").value, search = $("annotation-search").value.trim().toLowerCase();
+            combo = $("annotation-combo").value, pair = $("annotation-pair").value, status = $("annotation-state").value, search = $("annotation-search").value.trim().toLowerCase();
         const matches = cases.filter(c => (run === "all" || c.run_index === Number(run)) && (status === "all" || c.status === status)
             && (cat === "all" || categoriesOf(c).includes(cat)) && (combo === "all" || combination(c) === combo)
             && (flag === "all" || (c.annotation && (flag === "none" ? Object.values(c.annotation.flags).every(f => !f.value) : c.annotation.flags[flag].value)))
+            && (pair === "all" || pair.split("|").every(key => annotationHas(c,key)))
             && (!search || caseText.get(c.item_id).includes(search)));
         $("annotation-matches").textContent = matches.length.toLocaleString()+" replies · "+new Set(matches.map(c => c.transcript_id)).size+" transcripts. Filters apply to this list only.";
         if (!matches.some(c => c.item_id === chosen)) chosen = matches[0]?.item_id;
@@ -1313,7 +1577,7 @@ function renderAnnotations() {
         list.scrollTop = 0;
         renderCase(matches.find(c => c.item_id === chosen));
     }
-    ["run","category","flag","combo","state","search"].forEach(k => $("annotation-"+k).addEventListener(k === "search" ? "input" : "change",renderCases));
+    ["run","category","flag","combo","pair","state","search"].forEach(k => $("annotation-"+k).addEventListener(k === "search" ? "input" : "change",renderCases));
     $("annotation-reset").onclick = () => {resetFilters(); renderCases();};
     const hash = new URLSearchParams(location.hash.slice(1));
     if (cases.some(c => c.item_id === hash.get("case"))) {chosen = hash.get("case"); $("annotation-state").value = "all";}

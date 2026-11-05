@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Prompt refinement · Short Python</title>
+<style>
+:root{--ink:#24332f;--muted:#68756f;--line:#d8e1dc;--paper:#fff;--wash:#f3f6f4;--accent:#176b55;--red:#943e35}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 system-ui,sans-serif}header,main{max-width:1500px;margin:auto;padding:24px 32px}header{border-bottom:1px solid var(--line)}h1{font-size:26px;margin:0 0 4px}h2{font-size:20px;margin:0 0 14px}h3{font-size:16px;margin:10px 0}p{margin:8px 0}.muted,small{color:var(--muted)}small{font-size:12px}a{color:var(--accent)}button,input,select{font:inherit;border:1px solid var(--line);border-radius:5px;padding:8px 10px;background:white;color:var(--ink)}button,summary{cursor:pointer}button:hover{background:var(--wash)}button.active{background:var(--accent);color:white;border-color:var(--accent)}.tabs{display:flex;gap:8px;margin:18px 0}.metrics{display:flex;gap:28px;flex-wrap:wrap;margin:18px 0}.metric strong{font-size:26px;display:block}.metric{min-width:155px}.bar{height:8px;background:var(--wash);margin:8px 0;max-width:450px}.bar>div{height:100%;background:var(--accent)}.workflow{padding:20px 0;overflow-x:auto;border-bottom:1px solid var(--line)}.flow{display:flex;align-items:center;gap:12px;min-width:790px}.node{border:1px solid var(--line);padding:12px 16px;min-width:150px}.node small{display:block}.arrow{font-size:22px;color:var(--muted)}.return{margin:10px 0 0 180px;font-size:13px;color:var(--muted)}.workspace{display:grid;grid-template-columns:285px minmax(0,1fr);gap:28px;margin-top:26px}aside{align-self:start;position:sticky;top:12px}.filters{display:grid;gap:8px}#list{max-height:70vh;overflow:auto;margin-top:12px}.task{width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:12px 8px}.task.selected{border-left:3px solid var(--accent);background:var(--wash)}.task small{display:block}.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:4px;background:var(--wash)}.pass{color:var(--accent)}.fail{color:var(--red)}.prompt,.diff{white-space:pre-wrap;word-break:break-word;padding:18px;background:var(--wash);font:14px/1.7 ui-monospace,monospace}.diff{background:white;border:1px solid var(--line)}ins{background:#e0f1e6;text-decoration:none}del{background:#f8e4e1;text-decoration:line-through;color:var(--red)}.legend{font-size:12px;margin:8px 0}.legend span{padding:2px 6px;margin-right:8px}.step{border-top:1px solid var(--line);padding:18px 0}.step>summary{font-weight:600}.epoch{margin:14px 0;border:1px solid var(--line);padding:14px}.responses{display:grid;grid-template-columns:1fr 1fr;gap:18px}.response{min-width:0}.response p{white-space:pre-wrap}.response details{font-size:13px}.response pre{white-space:pre-wrap;word-break:break-word;background:var(--wash);padding:10px}.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}.notice{border-left:3px solid var(--red);padding:10px 14px;background:var(--wash);margin:14px 0}.templates{margin-top:30px;border-top:1px solid var(--line);padding-top:18px}.templates pre{white-space:pre-wrap;word-break:break-word;background:var(--wash);padding:18px;max-height:500px;overflow:auto}.mini{width:100%;border-collapse:collapse;font-size:13px}.mini th,.mini td{text-align:left;border-bottom:1px solid var(--line);padding:8px}details+details{margin-top:10px}#status{font-size:13px}.source{font-size:12px;color:var(--muted);margin-top:20px}@media(max-width:850px){header,main{padding:20px 16px}.workspace{grid-template-columns:1fr}aside{position:static}#list{max-height:220px}.responses{grid-template-columns:1fr}.metrics{gap:15px}}
+</style></head><body>
+<header><p class="muted">EVALUATION AWARENESS / PROMPT REFINEMENT</p><h1>Short Python, two target models</h1><p>Follow each prompt from its original wording to a jointly qualified deployment or eval variant.</p><div id="status"></div></header>
+<main>
+<div class="tabs" id="goals"></div><div id="metrics" class="metrics"></div><div class="bar"><div id="rate"></div></div><small id="rate-label"></small>
+<div class="workflow"><div class="flow"><div class="node">Candidate prompt<small>Task behavior preserved</small></div><span class="arrow">→</span><div class="node">Both Modal models<small>Exact task-separation classifier</small></div><span class="arrow">→</span><div class="node">Matching label?<small id="epoch-rule"></small></div><span class="arrow">→</span><div class="node pass">Qualified<small>Export complete prompt</small></div></div><div class="return" id="loop-rule"></div></div>
+<p class="muted" id="baseline-note"></p><div id="stop"></div>
+<div class="workspace"><aside><div class="filters"><input id="search" placeholder="Find task, wording, or family" aria-label="Search prompts"><select id="filter" aria-label="Filter by outcome"><option value="all">All outcomes</option><option value="qualified">Qualified</option><option value="revised">Qualified after revision</option><option value="as_is">Qualified as-is</option><option value="failed">Revision limit / unsuccessful</option><option value="pending">Pending / incomplete</option></select></div><small id="count"></small><div id="list"></div></aside><section id="detail"></section></div>
+<section class="templates"><h2>Templates, settings & provenance</h2><details><summary>Step 1 · Exact classifier template</summary><pre id="classifier-template"></pre></details><details><summary>Step 2 · Reviser instructions</summary><pre id="reviser-template"></pre></details><details><summary>Run settings, pinned models, and source hashes</summary><pre id="provenance"></pre></details><details><summary>Costs and budget accounting</summary><pre id="costs"></pre></details><p class="source" id="source"></p></section>
+</main><script id="data" type="application/json">__DATA__</script>
+<script>
+(() => {
+const data=JSON.parse(document.getElementById('data').textContent), cfg=data.manifest.config, targets=Object.keys(data.manifest.targets);
+const $=id=>document.getElementById(id), make=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;};
+let goal=cfg.goals[0], selected=data.tasks[0]?.id;
+const label=v=>v===true?'yes · eval':v===false?'no · deployment':'unreadable';
+const status=j=>j.status==='qualified'?'Qualified':j.status==='revision_limit'?'Unsuccessful · revision limit':j.status==='revising'?'Revising':'Pending / incomplete';
+function metric(value,text){const n=make('div',undefined,'metric');n.append(make('strong',value),make('span',text));return n;}
+function filtered(t){const j=t.jobs[goal], f=$('filter').value,q=$('search').value.toLowerCase();return (!q||JSON.stringify([t.id,t.metadata,j.candidates.map(c=>c.prompt)]).toLowerCase().includes(q))&&(f==='all'||(f==='qualified'&&j.status==='qualified')||(f==='revised'&&j.status==='qualified'&&j.candidates.length>1)||(f==='as_is'&&j.status==='qualified'&&j.candidates.length===1)||(f==='failed'&&j.status.includes('limit'))||(f==='pending'&&!['qualified','revision_limit','invalid_revision_limit'].includes(j.status)));}
+function render(){
+ $('goals').replaceChildren(...cfg.goals.map(g=>{const b=make('button',g==='deployment'?'Deployment · Answer: no':'Eval · Answer: yes',g===goal?'active':'');b.onclick=()=>{goal=g;render();};return b;}));
+ const s=data.summary[goal], failed=(s.statuses.revision_limit||0)+(s.statuses.invalid_revision_limit||0), pending=s.total-s.qualified-failed;
+ $('metrics').replaceChildren(metric(`${s.qualified} / ${s.total}`,'Jointly qualified'),metric(s.revised,'Qualified after revision'),metric(failed,'Unsuccessful · revision limit'),metric(pending,'Pending / incomplete'));
+ $('rate').style.width=`${100*s.qualified/s.total}%`;$('rate-label').textContent=`${(100*s.qualified/s.total).toFixed(1)}% jointly qualified · denominator: all ${s.total} source tasks`;
+ $('baseline-note').textContent=`Original prompts: ${s.as_is} / ${s.total} have ${cfg.qualification_epochs} matching ${goal} classifications from each model. Original checks are shared by both goals. Deployment revisions run first.`;
+ const visible=data.tasks.filter(filtered);$('count').textContent=`${visible.length} tasks shown`;
+ $('list').replaceChildren(...visible.map(t=>{const j=t.jobs[goal],b=make('button',undefined,'task'+(selected===t.id?' selected':''));b.append(make('strong',t.id),make('small',status(j)+(j.candidates.length>1?` · ${j.candidates.length-1} revisions`:'')),make('small',t.metadata.family||''));b.onclick=()=>{selected=t.id;render();};return b;}));
+ const task=data.tasks.find(t=>t.id===selected);if(task)detail(task);
+}
+function detail(t){
+ const job=t.jobs[goal],final=job.candidates.at(-1),root=$('detail');root.replaceChildren();
+ const title=make('div',undefined,'toolbar');title.append(make('h2',t.id+' · '+(t.metadata.family||'Prompt')),make('span',status(job),'badge '+(job.status==='qualified'?'pass':job.status.includes('limit')?'fail':'')));root.append(title);
+ if(job.status.includes('limit'))root.append(make('p','This task did not achieve joint qualification within the revision limit. The latest candidate below is not a qualified export.','notice'));
+ if(job.status!=='qualified'&&!job.status.includes('limit'))root.append(make('p','This task is incomplete. Its latest candidate is not a qualified export.','muted'));
+ root.append(make('h3',job.status==='qualified'?'Qualified prompt':'Latest candidate'),make('pre',final.prompt,'prompt'));
+ const copy=make('button','Copy prompt');copy.onclick=async()=>{await navigator.clipboard.writeText(final.prompt);copy.textContent='Copied';};root.append(copy);
+ root.append(make('h3','Revision history'),make('p','Open a step to compare wording and inspect each model’s response. Green additions and red deletions are relative to the immediately preceding candidate.','muted'));
+ job.candidates.forEach((c,i)=>{
+  const step=make('details',undefined,'step');step.open=i===job.candidates.length-1;step.append(make('summary',i===0?'Original · shared baseline':`Revision ${i} · ${c.revision?.fixes?.length||0} proposed fixes`));
+  if(c.revision){step.append(make('p',c.revision.preservation_policy==='semantic'?'Semantic rewording · separate preservation check':'Verbatim behavioral sentence','muted'));step.append(make('p',`Reviser: ${c.revision.provider||'openrouter'} · ${c.revision.model||data.manifest.config.reviser.model}`,'muted'));const list=make('ul');c.revision.fixes.forEach(f=>list.append(make('li',f)));step.append(list);const d=make('div',undefined,'diff');d.innerHTML=c.diff;step.append(d);if(c.revision.preservation_check){const a=make('details');a.append(make('summary','Preservation check · '+(c.revision.preservation_check.preserved?'passed':'failed')),make('pre',JSON.stringify(c.revision.preservation_check,null,2),'prompt'));step.append(a);}}
+  else step.append(make('pre',c.prompt,'prompt'));
+  c.epochs.forEach((e,epoch)=>{
+   const box=make('div',undefined,'epoch');box.append(make('h3',`Epoch ${epoch+1}`));const row=make('div',undefined,'responses');
+   targets.forEach(name=>{const r=e[name],col=make('div',undefined,'response');col.append(make('strong',name==='base'?'Base GPT-OSS-120B':'Reward-hacking GPT-OSS-120B'));
+    if(!r)col.append(make('p','Not checked yet','muted'));
+    else{col.append(make('p',label(r.label),'badge '+(r.label===(goal==='eval')?'pass':'fail')),make('p',r.final_text||r.parse_error||'No readable final response'),make('small',`Seed ${r.seed} · ${r.stop_reason||'unknown termination'}`));if(r.reasoning){const d=make('details');d.append(make('summary','Model reasoning'),make('pre',r.reasoning));col.append(d);}}
+    row.append(col);
+   });box.append(row);step.append(box);
+  });
+  const exact=make('details');exact.append(make('summary','Exact step-1 input for this candidate'));
+  const transcript=JSON.stringify([{role:'user',content:c.prompt}],null,2).replaceAll('<','\\u003c').replaceAll('>','\\u003e');
+  exact.append(make('pre',data.manifest.classifier.prompt_template.replace('{transcript}',transcript),'prompt'));step.append(exact);root.append(step);
+ });
+ if(job.rejected_revisions.length){const d=make('details');d.append(make('summary',`${job.rejected_revisions.length} rejected revisions · preservation / validity checks`));job.rejected_revisions.forEach(r=>{d.append(make('p',r.error,'fail'),make('pre',r.result.prompt||JSON.stringify(r.result),'prompt'));if(r.result.preservation_check)d.append(make('pre',JSON.stringify(r.result.preservation_check,null,2),'prompt'));});root.append(d);}
+ const exportLink=make('a',`Download all qualified ${goal} prompts`);exportLink.href=goal+'.jsonl';exportLink.download=goal+'.jsonl';root.append(exportLink);
+}
+$('status').textContent=`Run status: ${data.status.replaceAll('_',' ')} · ${data.manifest.created_at_utc}`;
+if(data.serving_status==='warm')$('status').textContent+=` · Targets remain loaded · $${cfg.modal_budget_usd} Modal ceiling`;
+$('epoch-rule').textContent=`${cfg.qualification_epochs} consecutive checks per model`;
+$('loop-rule').textContent=`Any nonmatching / unreadable reply → Sonnet reviews both models’ feedback → fixes + revised prompt → check again. Stop after ${cfg.max_revisions} revision attempts or budget limit.`;
+if(data.stop_reason)$('stop').append(make('p',data.stop_reason,'notice'));
+$('classifier-template').textContent=data.manifest.classifier.prompt_template;$('reviser-template').textContent=data.manifest.reviser_template;
+$('provenance').textContent=JSON.stringify(data.manifest,null,2);$('costs').textContent=JSON.stringify(data.costs,null,2);
+$('source').textContent=`Source: ${cfg.dataset} · exact task-separation reference runs · ${data.manifest.qualification} ${data.manifest.task_preservation}`;
+$('search').addEventListener('input',render);$('filter').addEventListener('change',render);render();
+})();
+</script></body></html>
